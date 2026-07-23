@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this benchmark, please cite the repository."
+title: "Penalty Shootout RL"
+type: software
+authors:
+  - family-names: "Mehfil"
+    given-names: "Fawz"
+license: Apache-2.0
+version: 0.0.1
+date-released: 2026-07-23
