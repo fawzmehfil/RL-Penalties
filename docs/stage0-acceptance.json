@@ -1,0 +1,13 @@
+{
+    "environment_id": "penalty-shootout-physics-v0",
+    "unity_editor": "6000.0.74f1",
+    "requested_attempts": 1000,
+    "terminal_attempts": 1000,
+    "goal_attempts": 1000,
+    "invalid_outcomes": 0,
+    "duplicate_terminal_events": 0,
+    "maximum_target_error_m": 0.0004897117614746094,
+    "mean_target_error_m": 0.0004897117614746094,
+    "tolerance_m": 0.05000000074505806,
+    "passed": true
+}

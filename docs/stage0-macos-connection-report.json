@@ -1,0 +1,60 @@
+{
+  "platform": "macos",
+  "build": "builds/macos/PenaltyShootoutStage0.app",
+  "python": "3.10.12",
+  "python_architecture": "x86_64",
+  "mlagents": "1.1.0",
+  "mlagents_envs": "1.1.0",
+  "repeats": 3,
+  "all_passed": true,
+  "runs": [
+    {
+      "worker_id": 20,
+      "behavior_name": "Stage0ConnectionProbe?team=0",
+      "observation_shapes": [
+        [
+          8
+        ]
+      ],
+      "discrete_branches": [
+        1
+      ],
+      "decisions_seen": 28,
+      "terminal_steps_seen": 1,
+      "terminal_reward": 1.0,
+      "passed": true
+    },
+    {
+      "worker_id": 21,
+      "behavior_name": "Stage0ConnectionProbe?team=0",
+      "observation_shapes": [
+        [
+          8
+        ]
+      ],
+      "discrete_branches": [
+        1
+      ],
+      "decisions_seen": 28,
+      "terminal_steps_seen": 1,
+      "terminal_reward": 1.0,
+      "passed": true
+    },
+    {
+      "worker_id": 22,
+      "behavior_name": "Stage0ConnectionProbe?team=0",
+      "observation_shapes": [
+        [
+          8
+        ]
+      ],
+      "discrete_branches": [
+        1
+      ],
+      "decisions_seen": 28,
+      "terminal_steps_seen": 1,
+      "terminal_reward": 1.0,
+      "passed": true
+    }
+  ]
+}

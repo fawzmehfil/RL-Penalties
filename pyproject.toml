@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "penalty-shootout-rl"
+version = "0.0.1"
+description = "Python tooling for the Penalty Shootout RL environment"
+requires-python = "==3.10.12"
+dependencies = [
+  "grpcio==1.48.2",
+  "mlagents==1.1.0",
+  "mlagents-envs==1.1.0",
+  "numpy==1.23.5",
+  "torch==2.1.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==8.3.5",
+]
+
+[tool.setuptools]
+package-dir = {"" = "python"}
+
+[tool.setuptools.packages.find]
+where = ["python"]
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]
+
+[tool.uv.extra-build-dependencies]
+grpcio = ["setuptools==80.9.0"]

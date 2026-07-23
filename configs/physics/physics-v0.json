@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "environment_id": "penalty-shootout-physics-v0",
+  "unity_editor": "6000.0.74f1",
+  "ml_agents_unity": "4.0.0",
+  "coordinate_system": {
+    "origin": [0.0, 0.0, 0.0],
+    "x_axis": "goalkeeper_right",
+    "y_axis": "up",
+    "z_axis": "goal_to_penalty_mark",
+    "goal_plane_z_m": 0.0
+  },
+  "goal": {
+    "inside_width_m": 7.32,
+    "crossbar_lower_edge_m": 2.44,
+    "frame_thickness_m": 0.12,
+    "penalty_mark_distance_m": 11.0
+  },
+  "ball": {
+    "radius_m": 0.11,
+    "mass_kg": 0.43,
+    "linear_damping": 0.0,
+    "angular_damping": 0.05,
+    "collision_detection": "ContinuousDynamic",
+    "interpolation": "None"
+  },
+  "physics": {
+    "gravity_m_s2": [0.0, -9.81, 0.0],
+    "fixed_timestep_s": 0.02,
+    "maximum_allowed_timestep_s": 0.33333334,
+    "curve_model": "disabled",
+    "noise": "disabled"
+  },
+  "canonical_shot": {
+    "launch_position_m": [0.0, 0.11, 11.0],
+    "target_position_m": [0.0, 1.2, 0.0],
+    "flight_time_s": 0.55,
+    "spin_rad_s": [0.0, 0.0, 0.0],
+    "timeout_s": 2.0
+  },
+  "acceptance": {
+    "target_tolerance_m": 0.05,
+    "attempts": 1000,
+    "required_terminal_attempts": 1000,
+    "maximum_invalid_outcomes": 0,
+    "maximum_duplicate_terminal_events": 0
+  }
+}

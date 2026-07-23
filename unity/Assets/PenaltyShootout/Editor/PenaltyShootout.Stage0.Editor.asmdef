@@ -1,0 +1,19 @@
+{
+  "name": "PenaltyShootout.Stage0.Editor",
+  "rootNamespace": "PenaltyShootout.Stage0.Editor",
+  "references": [
+    "PenaltyShootout.Stage0",
+    "Unity.ML-Agents"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
