@@ -1,0 +1,317 @@
+using System;
+using System.Security.Cryptography;
+using System.Text;
+using UnityEngine;
+
+namespace PenaltyShootout.Kernel
+{
+    public static class KernelConstants
+    {
+        public const string EnvironmentId = "penalty-shootout-kernel-v1";
+        public const string ScenarioSuiteId = "on-target-v0";
+        public const string ActionSpecId = "goalkeeper-discrete-v0";
+        public const string MotorProfileId = "keeper-proxy-hands-v1";
+        public const string BehaviorName = "GoalkeeperKernel-v0";
+        public const int ManifestSchemaVersion = 2;
+        public const int AcceptanceSchemaVersion = 2;
+
+        public const float GoalInsideWidth = 7.32f;
+        public const float GoalHalfWidth = GoalInsideWidth * 0.5f;
+        public const float CrossbarLowerEdge = 2.44f;
+        public const float FrameThickness = 0.12f;
+        public const float PenaltyMarkDistance = 11f;
+        public const float BallRadius = 0.11f;
+        public const float BallMass = 0.43f;
+        public const float TargetTolerance = 0.05f;
+
+        public static readonly Vector3 CanonicalLaunch =
+            new Vector3(0f, BallRadius, PenaltyMarkDistance);
+    }
+
+    [Serializable]
+    internal sealed class KernelManifest
+    {
+        public int schema_version;
+        public string environment_id;
+        public string unity_editor;
+        public string ml_agents_unity;
+        public string scenario_suite_id;
+        public string goalkeeper_action_spec_id;
+        public string goalkeeper_motor_profile_id;
+        public ManifestPhysics physics;
+        public ManifestGoal goal;
+        public ManifestBall ball;
+        public ManifestAttempt attempt;
+        public ManifestShots shots;
+        public ManifestMotor motor;
+    }
+
+    [Serializable]
+    internal sealed class ManifestPhysics
+    {
+        public float fixed_timestep_s;
+        public int decision_period_ticks;
+        public float[] gravity_m_s2;
+        public string curve_model;
+        public string noise;
+    }
+
+    [Serializable]
+    internal sealed class ManifestGoal
+    {
+        public float inside_width_m;
+        public float crossbar_lower_edge_m;
+        public float frame_thickness_m;
+        public float penalty_mark_distance_m;
+    }
+
+    [Serializable]
+    internal sealed class ManifestBall
+    {
+        public float radius_m;
+        public float mass_kg;
+        public string collision_detection;
+    }
+
+    [Serializable]
+    internal sealed class ManifestAttempt
+    {
+        public int reset_stabilization_ticks;
+        public float ready_duration_s;
+        public float timeout_s;
+        public float post_contact_safety_horizon_s;
+        public float rest_speed_threshold_m_s;
+        public float rest_dwell_s;
+        public float[] danger_minimum_m;
+        public float[] danger_maximum_m;
+    }
+
+    [Serializable]
+    internal sealed class ManifestShots
+    {
+        public float target_x_min;
+        public float target_x_max;
+        public float target_y_min;
+        public float target_y_max;
+        public float flight_time_min_s;
+        public float flight_time_max_s;
+        public float launch_delay_min_s;
+        public float launch_delay_max_s;
+        public float additional_frame_clearance_m;
+        public bool spin_enabled;
+        public bool curve_enabled;
+    }
+
+    [Serializable]
+    internal sealed class ManifestMotor
+    {
+        public float lateral_limit_m;
+        public float maximum_shuffle_speed_m_s;
+        public float shuffle_acceleration_m_s2;
+        public float shuffle_deceleration_m_s2;
+        public float dive_duration_s;
+        public float recovery_duration_s;
+        public float low_reach_m;
+        public float middle_reach_m;
+        public float high_reach_m;
+        public float maximum_body_roll_degrees;
+        public int[] discrete_actions;
+        public ManifestHands hands;
+        public string[] goalkeeper_contact_parts;
+    }
+
+    [Serializable]
+    internal sealed class ManifestHands
+    {
+        public float reach_start_normalized;
+        public float full_extension_normalized;
+        public float leading_low_lateral_reach_m;
+        public float trailing_low_lateral_reach_m;
+        public float leading_middle_lateral_reach_m;
+        public float trailing_middle_lateral_reach_m;
+        public float leading_high_lateral_reach_m;
+        public float trailing_high_lateral_reach_m;
+        public float leading_low_height_m;
+        public float trailing_low_height_m;
+        public float leading_middle_height_m;
+        public float trailing_middle_height_m;
+        public float leading_high_height_m;
+        public float trailing_high_height_m;
+        public float leading_forward_reach_m;
+        public float trailing_forward_reach_m;
+        public float glove_radius_m;
+        public float arm_radius_m;
+        public float maximum_arm_length_m;
+        public float ready_glove_lateral_m;
+        public float ready_glove_height_m;
+        public float ready_glove_forward_m;
+        public float shoulder_lateral_m;
+        public float shoulder_height_m;
+        public float shoulder_forward_m;
+    }
+
+    public static class KernelManifestUtility
+    {
+        public static string CreateJson(
+            EnvironmentKernelConfig environment,
+            ShotDistributionConfig shots,
+            GoalkeeperMotorConfig motor,
+            bool prettyPrint = true)
+        {
+            if (environment == null || shots == null || motor == null)
+            {
+                throw new ArgumentNullException("Kernel manifest configurations must not be null.");
+            }
+
+            if (!environment.Validate(out var environmentError))
+            {
+                throw new InvalidOperationException(environmentError);
+            }
+
+            if (!shots.Validate(out var shotError))
+            {
+                throw new InvalidOperationException(shotError);
+            }
+
+            if (!motor.Validate(out var motorError))
+            {
+                throw new InvalidOperationException(motorError);
+            }
+
+            var manifest = new KernelManifest
+            {
+                schema_version = KernelConstants.ManifestSchemaVersion,
+                environment_id = environment.EnvironmentId,
+                unity_editor = Application.unityVersion,
+                ml_agents_unity = "4.0.0",
+                scenario_suite_id = shots.ScenarioSuiteId,
+                goalkeeper_action_spec_id = KernelConstants.ActionSpecId,
+                goalkeeper_motor_profile_id = motor.MotorProfileId,
+                physics = new ManifestPhysics
+                {
+                    fixed_timestep_s = environment.FixedTimestep,
+                    decision_period_ticks = environment.DecisionPeriodTicks,
+                    gravity_m_s2 = Vector(Physics.gravity),
+                    curve_model = shots.CurveEnabled ? "enabled" : "disabled",
+                    noise = shots.AimNoiseEnabled || shots.PowerNoiseEnabled ? "enabled" : "disabled",
+                },
+                goal = new ManifestGoal
+                {
+                    inside_width_m = KernelConstants.GoalInsideWidth,
+                    crossbar_lower_edge_m = KernelConstants.CrossbarLowerEdge,
+                    frame_thickness_m = KernelConstants.FrameThickness,
+                    penalty_mark_distance_m = KernelConstants.PenaltyMarkDistance,
+                },
+                ball = new ManifestBall
+                {
+                    radius_m = KernelConstants.BallRadius,
+                    mass_kg = KernelConstants.BallMass,
+                    collision_detection = "ContinuousDynamic",
+                },
+                attempt = new ManifestAttempt
+                {
+                    reset_stabilization_ticks = environment.ResetStabilizationTicks,
+                    ready_duration_s = environment.ReadyDuration,
+                    timeout_s = environment.AttemptTimeout,
+                    post_contact_safety_horizon_s = environment.PostContactSafetyHorizon,
+                    rest_speed_threshold_m_s = environment.RestSpeedThreshold,
+                    rest_dwell_s = environment.RestDwellTime,
+                    danger_minimum_m = Vector(environment.DangerMinimum),
+                    danger_maximum_m = Vector(environment.DangerMaximum),
+                },
+                shots = new ManifestShots
+                {
+                    target_x_min = -1f,
+                    target_x_max = 1f,
+                    target_y_min = 0f,
+                    target_y_max = 1f,
+                    flight_time_min_s = shots.MinimumFlightTime,
+                    flight_time_max_s = shots.MaximumFlightTime,
+                    launch_delay_min_s = shots.MinimumLaunchDelay,
+                    launch_delay_max_s = shots.MaximumLaunchDelay,
+                    additional_frame_clearance_m = shots.AdditionalFrameClearance,
+                    spin_enabled = shots.SpinEnabled,
+                    curve_enabled = shots.CurveEnabled,
+                },
+                motor = new ManifestMotor
+                {
+                    lateral_limit_m = motor.LateralLimit,
+                    maximum_shuffle_speed_m_s = motor.MaximumShuffleSpeed,
+                    shuffle_acceleration_m_s2 = motor.ShuffleAcceleration,
+                    shuffle_deceleration_m_s2 = motor.ShuffleDeceleration,
+                    dive_duration_s = motor.DiveDuration,
+                    recovery_duration_s = motor.RecoveryDuration,
+                    low_reach_m = motor.LowDiveReach,
+                    middle_reach_m = motor.MiddleDiveReach,
+                    high_reach_m = motor.HighDiveReach,
+                    maximum_body_roll_degrees = motor.MaximumBodyRollDegrees,
+                    discrete_actions = new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 },
+                    hands = new ManifestHands
+                    {
+                        reach_start_normalized = motor.ReachStartNormalized,
+                        full_extension_normalized = motor.FullExtensionNormalized,
+                        leading_low_lateral_reach_m =
+                            motor.LeadingLowLateralReach,
+                        trailing_low_lateral_reach_m =
+                            motor.TrailingLowLateralReach,
+                        leading_middle_lateral_reach_m =
+                            motor.LeadingMiddleLateralReach,
+                        trailing_middle_lateral_reach_m =
+                            motor.TrailingMiddleLateralReach,
+                        leading_high_lateral_reach_m =
+                            motor.LeadingHighLateralReach,
+                        trailing_high_lateral_reach_m =
+                            motor.TrailingHighLateralReach,
+                        leading_low_height_m = motor.LeadingLowHeight,
+                        trailing_low_height_m = motor.TrailingLowHeight,
+                        leading_middle_height_m = motor.LeadingMiddleHeight,
+                        trailing_middle_height_m = motor.TrailingMiddleHeight,
+                        leading_high_height_m = motor.LeadingHighHeight,
+                        trailing_high_height_m = motor.TrailingHighHeight,
+                        leading_forward_reach_m = motor.LeadingForwardReach,
+                        trailing_forward_reach_m = motor.TrailingForwardReach,
+                        glove_radius_m = motor.GloveRadius,
+                        arm_radius_m = motor.ArmRadius,
+                        maximum_arm_length_m = motor.MaximumArmLength,
+                        ready_glove_lateral_m = motor.ReadyGloveLateral,
+                        ready_glove_height_m = motor.ReadyGloveHeight,
+                        ready_glove_forward_m = motor.ReadyGloveForward,
+                        shoulder_lateral_m = motor.ShoulderLateral,
+                        shoulder_height_m = motor.ShoulderHeight,
+                        shoulder_forward_m = motor.ShoulderForward,
+                    },
+                    goalkeeper_contact_parts = new[]
+                    {
+                        GoalkeeperContactPart.LeftGlove.ToString(),
+                        GoalkeeperContactPart.RightGlove.ToString(),
+                        GoalkeeperContactPart.Arm.ToString(),
+                        GoalkeeperContactPart.TorsoOrHead.ToString(),
+                        GoalkeeperContactPart.Leg.ToString(),
+                    },
+                },
+            };
+
+            return JsonUtility.ToJson(manifest, prettyPrint) + "\n";
+        }
+
+        public static string Sha256(string value)
+        {
+            using (var sha = SHA256.Create())
+            {
+                var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(value));
+                var builder = new StringBuilder(hash.Length * 2);
+                for (var index = 0; index < hash.Length; index++)
+                {
+                    builder.Append(hash[index].ToString("x2"));
+                }
+
+                return builder.ToString();
+            }
+        }
+
+        private static float[] Vector(Vector3 value)
+        {
+            return new[] { value.x, value.y, value.z };
+        }
+    }
+}

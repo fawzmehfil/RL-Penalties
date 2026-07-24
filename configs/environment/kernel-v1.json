@@ -1,0 +1,119 @@
+{
+    "schema_version": 2,
+    "environment_id": "penalty-shootout-kernel-v1",
+    "unity_editor": "6000.0.74f1",
+    "ml_agents_unity": "4.0.0",
+    "scenario_suite_id": "on-target-v0",
+    "goalkeeper_action_spec_id": "goalkeeper-discrete-v0",
+    "goalkeeper_motor_profile_id": "keeper-proxy-hands-v1",
+    "physics": {
+        "fixed_timestep_s": 0.019999999552965165,
+        "decision_period_ticks": 2,
+        "gravity_m_s2": [
+            0.0,
+            -9.8100004196167,
+            0.0
+        ],
+        "curve_model": "disabled",
+        "noise": "disabled"
+    },
+    "goal": {
+        "inside_width_m": 7.320000171661377,
+        "crossbar_lower_edge_m": 2.440000057220459,
+        "frame_thickness_m": 0.11999999731779099,
+        "penalty_mark_distance_m": 11.0
+    },
+    "ball": {
+        "radius_m": 0.10999999940395355,
+        "mass_kg": 0.4300000071525574,
+        "collision_detection": "ContinuousDynamic"
+    },
+    "attempt": {
+        "reset_stabilization_ticks": 1,
+        "ready_duration_s": 0.10000000149011612,
+        "timeout_s": 4.0,
+        "post_contact_safety_horizon_s": 2.0,
+        "rest_speed_threshold_m_s": 0.15000000596046449,
+        "rest_dwell_s": 0.25,
+        "danger_minimum_m": [
+            -5.0,
+            -0.25,
+            -2.0
+        ],
+        "danger_maximum_m": [
+            5.0,
+            4.0,
+            13.0
+        ]
+    },
+    "shots": {
+        "target_x_min": -1.0,
+        "target_x_max": 1.0,
+        "target_y_min": 0.0,
+        "target_y_max": 1.0,
+        "flight_time_min_s": 0.3799999952316284,
+        "flight_time_max_s": 0.8500000238418579,
+        "launch_delay_min_s": 0.15000000596046449,
+        "launch_delay_max_s": 0.44999998807907107,
+        "additional_frame_clearance_m": 0.07999999821186066,
+        "spin_enabled": false,
+        "curve_enabled": false
+    },
+    "motor": {
+        "lateral_limit_m": 3.0999999046325685,
+        "maximum_shuffle_speed_m_s": 3.5,
+        "shuffle_acceleration_m_s2": 18.0,
+        "shuffle_deceleration_m_s2": 22.0,
+        "dive_duration_s": 0.699999988079071,
+        "recovery_duration_s": 0.3499999940395355,
+        "low_reach_m": 2.0999999046325685,
+        "middle_reach_m": 1.899999976158142,
+        "high_reach_m": 1.7000000476837159,
+        "maximum_body_roll_degrees": 80.0,
+        "discrete_actions": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+        ],
+        "hands": {
+            "reach_start_normalized": 0.07999999821186066,
+            "full_extension_normalized": 0.550000011920929,
+            "leading_low_lateral_reach_m": 0.550000011920929,
+            "trailing_low_lateral_reach_m": 0.2800000011920929,
+            "leading_middle_lateral_reach_m": 0.6499999761581421,
+            "trailing_middle_lateral_reach_m": 0.36000001430511477,
+            "leading_high_lateral_reach_m": 0.7599999904632568,
+            "trailing_high_lateral_reach_m": 0.46000000834465029,
+            "leading_low_height_m": 0.2199999988079071,
+            "trailing_low_height_m": 0.3400000035762787,
+            "leading_middle_height_m": 0.5799999833106995,
+            "trailing_middle_height_m": 0.47999998927116396,
+            "leading_high_height_m": 0.9200000166893005,
+            "trailing_high_height_m": 0.7400000095367432,
+            "leading_forward_reach_m": 0.18000000715255738,
+            "trailing_forward_reach_m": 0.11999999731779099,
+            "glove_radius_m": 0.125,
+            "arm_radius_m": 0.09000000357627869,
+            "maximum_arm_length_m": 0.949999988079071,
+            "ready_glove_lateral_m": 0.5799999833106995,
+            "ready_glove_height_m": 0.9200000166893005,
+            "ready_glove_forward_m": 0.0,
+            "shoulder_lateral_m": 0.25,
+            "shoulder_height_m": 1.2999999523162842,
+            "shoulder_forward_m": 0.0
+        },
+        "goalkeeper_contact_parts": [
+            "LeftGlove",
+            "RightGlove",
+            "Arm",
+            "TorsoOrHead",
+            "Leg"
+        ]
+    }
+}
