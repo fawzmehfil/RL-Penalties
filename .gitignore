@@ -12,6 +12,7 @@ unity/[Uu]ser[Ss]ettings/
 unity/[Mm]emoryCaptures/
 unity/[Rr]ecordings/
 unity/Assets/ML-Agents/
+unity/Assets/ML-Agents.meta
 
 # Unity and IDE generated files
 *.csproj
