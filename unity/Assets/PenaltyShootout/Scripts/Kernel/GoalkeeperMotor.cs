@@ -47,6 +47,7 @@ namespace PenaltyShootout.Kernel
 
         public GoalkeeperMotorState State => state;
         public GoalkeeperAction ActiveAction => activeAction;
+        public GoalkeeperAction DiveAction => diveAction;
         public float LateralVelocity => lateralVelocity;
         public float StateTime => stateTime;
         public Vector3 LocalPosition => ToLocal(body == null ? transform.position : body.position);

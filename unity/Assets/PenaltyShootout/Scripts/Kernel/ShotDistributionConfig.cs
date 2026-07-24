@@ -12,6 +12,10 @@ namespace PenaltyShootout.Kernel
         public float MaximumFlightTime = 0.85f;
         public float MinimumLaunchDelay = 0.15f;
         public float MaximumLaunchDelay = 0.45f;
+        public float MinimumTargetXNormalized = -1f;
+        public float MaximumTargetXNormalized = 1f;
+        public float MinimumTargetYNormalized = 0f;
+        public float MaximumTargetYNormalized = 1f;
         public float AdditionalFrameClearance = 0.08f;
         public bool SpinEnabled;
         public bool CurveEnabled;
@@ -41,6 +45,21 @@ namespace PenaltyShootout.Kernel
                 MinimumLaunchDelay > MaximumLaunchDelay)
             {
                 error = "Launch-delay range is invalid.";
+                return false;
+            }
+
+            if (!KernelMath.IsFinite(MinimumTargetXNormalized) ||
+                !KernelMath.IsFinite(MaximumTargetXNormalized) ||
+                !KernelMath.IsFinite(MinimumTargetYNormalized) ||
+                !KernelMath.IsFinite(MaximumTargetYNormalized) ||
+                MinimumTargetXNormalized < -1f ||
+                MaximumTargetXNormalized > 1f ||
+                MinimumTargetXNormalized > MaximumTargetXNormalized ||
+                MinimumTargetYNormalized < 0f ||
+                MaximumTargetYNormalized > 1f ||
+                MinimumTargetYNormalized > MaximumTargetYNormalized)
+            {
+                error = "Normalized target ranges are invalid.";
                 return false;
             }
 

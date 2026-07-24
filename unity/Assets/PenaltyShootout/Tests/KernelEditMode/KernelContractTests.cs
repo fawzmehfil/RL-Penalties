@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -54,6 +55,72 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That((int)GoalkeeperAction.DiveRightLow, Is.EqualTo(6));
             Assert.That((int)GoalkeeperAction.DiveRightMiddle, Is.EqualTo(7));
             Assert.That((int)GoalkeeperAction.DiveRightHigh, Is.EqualTo(8));
+        }
+
+        [Test]
+        public void Stage2StateObservationManifestIsStable()
+        {
+            Assert.That(KernelConstants.GoalkeeperStateBehaviorName, Is.EqualTo("GoalkeeperState-v0"));
+            Assert.That(KernelConstants.GoalkeeperStateObservationSpecId, Is.EqualTo("state-v0"));
+            Assert.That(KernelConstants.GoalkeeperSparseRewardSpecId, Is.EqualTo("goalkeeper-sparse-v0"));
+            Assert.That(KernelConstants.GoalkeeperStateObservationSize, Is.EqualTo(24));
+
+            var observations = new List<float>();
+            GoalkeeperTrainingContracts.WriteStateV0(null, observations.Add);
+            Assert.That(observations, Has.Count.EqualTo(24));
+            Assert.That(observations, Is.All.InRange(-1f, 1f));
+
+            var manifest = KernelManifestUtility.CreateGoalkeeperStateJson();
+            StringAssert.Contains(KernelConstants.GoalkeeperStateBehaviorName, manifest);
+            StringAssert.Contains(KernelConstants.GoalkeeperStateObservationSpecId, manifest);
+            StringAssert.Contains("requested_target", manifest);
+            StringAssert.Contains("future_goal_plane_intersection", manifest);
+        }
+
+        [Test]
+        public void Stage2SparseRewardMapsOnlyTerminalGoalkeeperTaskOutcomes()
+        {
+            Assert.That(
+                GoalkeeperTrainingContracts.SparseReward(AttemptOutcome.Saved),
+                Is.EqualTo(1f));
+            Assert.That(
+                GoalkeeperTrainingContracts.SparseReward(AttemptOutcome.BlockedThenOut),
+                Is.EqualTo(1f));
+            Assert.That(
+                GoalkeeperTrainingContracts.SparseReward(AttemptOutcome.Goal),
+                Is.EqualTo(-1f));
+            Assert.That(
+                GoalkeeperTrainingContracts.SparseReward(AttemptOutcome.Invalid),
+                Is.Zero);
+            Assert.That(
+                GoalkeeperTrainingContracts.SparseReward(AttemptOutcome.Timeout),
+                Is.Zero);
+        }
+
+        [Test]
+        public void CurriculumTargetRangeValidationPreservesFullRangeDefault()
+        {
+            Assert.That(shots.Validate(out var error), Is.True, error);
+            Assert.That(shots.MinimumTargetXNormalized, Is.EqualTo(-1f));
+            Assert.That(shots.MaximumTargetXNormalized, Is.EqualTo(1f));
+            Assert.That(shots.MinimumTargetYNormalized, Is.EqualTo(0f));
+            Assert.That(shots.MaximumTargetYNormalized, Is.EqualTo(1f));
+
+            shots.MinimumTargetXNormalized = -0.25f;
+            shots.MaximumTargetXNormalized = 0.25f;
+            shots.MinimumTargetYNormalized = 0.45f;
+            shots.MaximumTargetYNormalized = 0.55f;
+            var scenario = ProceduralShotGenerator.Sample(
+                shots,
+                20260724UL,
+                Physics.gravity,
+                environment.FixedTimestep);
+            Assert.That(scenario.TargetXNormalized, Is.InRange(-0.25f, 0.25f));
+            Assert.That(scenario.TargetYNormalized, Is.InRange(0.45f, 0.55f));
+
+            shots.MinimumTargetXNormalized = 0.5f;
+            shots.MaximumTargetXNormalized = -0.5f;
+            Assert.That(shots.Validate(out _), Is.False);
         }
 
         [Test]

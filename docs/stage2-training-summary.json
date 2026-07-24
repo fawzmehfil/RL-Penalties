@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "behavior_name": "GoalkeeperState-v0",
+  "observation_spec_id": "state-v0",
+  "reward_spec_id": "goalkeeper-sparse-v0",
+  "trainer_config": "configs/training/goalkeeper-state-v0-ppo.yaml",
+  "required_training_seeds": 3,
+  "beats_stand_center_by_save_rate_points": null,
+  "beats_random_legal_by_save_rate_points": null,
+  "known_checkpoint_inference_passed": false,
+  "passed": false,
+  "status": "not run; full PPO training artifacts are intentionally excluded from Git"
+}

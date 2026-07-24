@@ -287,21 +287,56 @@ because the gRPC version required by ML-Agents Release 23 has no arm64 macOS
 wheel. Unity and Python resolutions are locked in
 `unity/Packages/packages-lock.json` and `uv.lock`.
 
-## Next milestone: Stage 2 goalkeeper trainability
+## Stage 2 goalkeeper trainability
 
-Stage 2 will attach learning-specific contracts to the tested kernel:
+Stage 2 adds the first trainable goalkeeper contract on top of the Stage 1
+kernel while keeping the Stage 1 transport profile available.
 
-- A versioned `state-v0` observation vector.
-- Sparse terminal rewards.
-- PPO training configuration.
-- The first four goalkeeper curriculum lessons.
-- `StandCenter` and `RandomLegal` scripted baselines.
-- TensorBoard and custom training telemetry.
+Environment behavior: `GoalkeeperState-v0`
 
-Stage 2 must not change the Stage 1 action IDs, outcome rules, reset protocol,
-shot generator, or motor semantics. Full replay tooling, Gymnasium APIs,
-partial observability, shooter training, self-play, and visual polish remain
-later milestones.
+Versioned contracts:
+
+- Observation profile: `state-v0`, a fixed 24-float vector of visible ball and
+  goalkeeper state.
+- Reward profile: `goalkeeper-sparse-v0`, with `+1` for `Saved` or
+  `BlockedThenOut`, `-1` for `Goal`, and `0` for abnormal/non-goalkeeper-task
+  terminal outcomes.
+- Action profile: unchanged `goalkeeper-discrete-v0`, one discrete branch with
+  the nine Stage 1 action IDs.
+
+The `state-v0` observation manifest is committed at
+`configs/environment/goalkeeper-state-v0.json`. It deliberately excludes the
+requested target, future goal-plane intersection, launch velocity, sampled
+flight-time parameter, and terminal outcome.
+
+The first PPO training configuration is
+`configs/training/goalkeeper-state-v0-ppo.yaml`. Its four curriculum lessons
+are `Mechanics`, `HorizontalPlacement`, `Height`, and `Speed`; Unity maps the
+`stage2.lesson` environment parameter to the corresponding target, timing, and
+launch-delay ranges.
+
+Scripted Stage 2 baselines:
+
+- `StandCenter`: always holds from the reset center.
+- `RandomLegal`: uniformly samples currently legal actions from the action
+  mask.
+
+Run the Stage 2 verification batch with:
+
+```bash
+./scripts/verify_stage2.sh
+```
+
+The long PPO acceptance gate remains experimental evidence rather than a unit
+test: at least three training seeds must beat both scripted baselines by the
+declared margin, and a known checkpoint must run in Unity inference mode. The
+placeholder summary is tracked in `docs/stage2-training-summary.json` until
+those runs are produced.
+
+## Later milestones
+
+Full replay tooling, Gymnasium APIs, partial observability, shooter training,
+self-play, and visual polish remain later milestones.
 
 ## Open-source and third-party notices
 

@@ -12,6 +12,10 @@ namespace PenaltyShootout.Kernel
         public const string ActionSpecId = "goalkeeper-discrete-v0";
         public const string MotorProfileId = "keeper-proxy-hands-v1";
         public const string BehaviorName = "GoalkeeperKernel-v0";
+        public const string GoalkeeperStateBehaviorName = "GoalkeeperState-v0";
+        public const string GoalkeeperStateObservationSpecId = "state-v0";
+        public const string GoalkeeperSparseRewardSpecId = "goalkeeper-sparse-v0";
+        public const int GoalkeeperStateObservationSize = 24;
         public const int ManifestSchemaVersion = 2;
         public const int AcceptanceSchemaVersion = 2;
 
@@ -44,6 +48,22 @@ namespace PenaltyShootout.Kernel
         public ManifestAttempt attempt;
         public ManifestShots shots;
         public ManifestMotor motor;
+    }
+
+    [Serializable]
+    internal sealed class GoalkeeperStateManifest
+    {
+        public int schema_version;
+        public string environment_id;
+        public string behavior_name;
+        public string observation_spec_id;
+        public string reward_spec_id;
+        public string action_spec_id;
+        public string scenario_suite_id;
+        public int vector_observation_size;
+        public int[] discrete_branches;
+        public string[] observation_order;
+        public string[] excluded_privileged_fields;
     }
 
     [Serializable]
@@ -292,6 +312,58 @@ namespace PenaltyShootout.Kernel
             };
 
             return JsonUtility.ToJson(manifest, prettyPrint) + "\n";
+        }
+
+        public static string CreateGoalkeeperStateJson(bool prettyPrint = true)
+        {
+            var manifest = new GoalkeeperStateManifest
+            {
+                schema_version = 1,
+                environment_id = KernelConstants.EnvironmentId,
+                behavior_name = KernelConstants.GoalkeeperStateBehaviorName,
+                observation_spec_id = KernelConstants.GoalkeeperStateObservationSpecId,
+                reward_spec_id = KernelConstants.GoalkeeperSparseRewardSpecId,
+                action_spec_id = KernelConstants.ActionSpecId,
+                scenario_suite_id = KernelConstants.ScenarioSuiteId,
+                vector_observation_size = KernelConstants.GoalkeeperStateObservationSize,
+                discrete_branches = new[] { 9 },
+                observation_order = new[]
+                {
+                    "ball_local_x",
+                    "ball_local_y",
+                    "ball_local_z",
+                    "ball_local_vx",
+                    "ball_local_vy",
+                    "ball_local_vz",
+                    "ball_angular_vx",
+                    "ball_angular_vy",
+                    "ball_angular_vz",
+                    "goalkeeper_local_x",
+                    "goalkeeper_lateral_velocity",
+                    "motor_ready",
+                    "motor_shuffling",
+                    "motor_diving",
+                    "motor_recovering",
+                    "dive_left",
+                    "dive_right",
+                    "dive_low",
+                    "dive_middle",
+                    "dive_high",
+                    "attempt_time",
+                    "ball_flight_time",
+                    "reserved_0",
+                    "reserved_1",
+                },
+                excluded_privileged_fields = new[]
+                {
+                    "requested_target",
+                    "future_goal_plane_intersection",
+                    "launch_velocity",
+                    "sampled_flight_time_parameter",
+                    "terminal_outcome",
+                },
+            };
+            return JsonUtility.ToJson(manifest, prettyPrint) + Environment.NewLine;
         }
 
         public static string Sha256(string value)

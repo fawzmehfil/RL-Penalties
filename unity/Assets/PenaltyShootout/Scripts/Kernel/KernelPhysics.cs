@@ -142,8 +142,12 @@ namespace PenaltyShootout.Kernel
             }
 
             var random = new Pcg32(seed);
-            var targetXNormalized = random.Range(-1f, 1f);
-            var targetYNormalized = random.NextFloat();
+            var targetXNormalized = random.Range(
+                configuration.MinimumTargetXNormalized,
+                configuration.MaximumTargetXNormalized);
+            var targetYNormalized = random.Range(
+                configuration.MinimumTargetYNormalized,
+                configuration.MaximumTargetYNormalized);
             var horizontalExtent =
                 KernelConstants.GoalHalfWidth -
                 KernelConstants.BallRadius -
@@ -215,6 +219,19 @@ namespace PenaltyShootout.Kernel
                 Mathf.Abs(scenario.TargetLocal.z) > 1e-5f)
             {
                 error = "Scenario target is outside the declared on-target region.";
+                return false;
+            }
+
+            if (scenario.TargetXNormalized <
+                    configuration.MinimumTargetXNormalized - 1e-5f ||
+                scenario.TargetXNormalized >
+                    configuration.MaximumTargetXNormalized + 1e-5f ||
+                scenario.TargetYNormalized <
+                    configuration.MinimumTargetYNormalized - 1e-5f ||
+                scenario.TargetYNormalized >
+                    configuration.MaximumTargetYNormalized + 1e-5f)
+            {
+                error = "Scenario target is outside the configured curriculum range.";
                 return false;
             }
 

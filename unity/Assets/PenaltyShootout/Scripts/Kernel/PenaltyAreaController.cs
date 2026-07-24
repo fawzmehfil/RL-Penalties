@@ -223,6 +223,17 @@ namespace PenaltyShootout.Kernel
         public bool HasCentrePlaneIntersection => hasCentrePlaneIntersection;
         public Vector3 CentrePlaneIntersectionLocal => centrePlaneIntersectionLocal;
         public bool IsTerminal => stateMachine.Phase == AttemptPhase.Terminal;
+        public Vector3 BallLocalPosition => ToLocal(ball == null ? Vector3.zero : ball.position);
+        public Vector3 BallLocalVelocity => ToLocalDirection(ball == null ? Vector3.zero : ball.linearVelocity);
+        public Vector3 BallAngularVelocity => ball == null ? Vector3.zero : ball.angularVelocity;
+        public GoalkeeperMotorState GoalkeeperMotorState =>
+            goalkeeperMotor == null ? GoalkeeperMotorState.Ready : goalkeeperMotor.State;
+        public GoalkeeperAction GoalkeeperDiveAction =>
+            goalkeeperMotor == null ? GoalkeeperAction.Hold : goalkeeperMotor.DiveAction;
+        public float GoalkeeperLocalX =>
+            goalkeeperMotor == null ? 0f : goalkeeperMotor.LocalPosition.x;
+        public float GoalkeeperLateralVelocity =>
+            goalkeeperMotor == null ? 0f : goalkeeperMotor.LateralVelocity;
 
         private void Awake()
         {

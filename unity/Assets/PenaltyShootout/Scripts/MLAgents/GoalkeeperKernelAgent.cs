@@ -13,10 +13,38 @@ namespace PenaltyShootout.MLAgents
     /// </summary>
     public sealed class GoalkeeperKernelAgent : Agent, IGoalkeeperActionSource
     {
+        [SerializeField]
+        private PenaltyAreaController controller;
+
+        [SerializeField]
+        private GoalkeeperObservationProfile observationProfile =
+            GoalkeeperObservationProfile.TransportProbe;
+
         private GoalkeeperAction pendingAction = GoalkeeperAction.Hold;
         private GoalkeeperActionMask currentMask = GoalkeeperActionMask.HoldOnly;
         private GoalkeeperAction? bufferedDiveAction;
         private bool hasPendingAction;
+        private int stage2Lesson;
+
+        public PenaltyAreaController Controller
+        {
+            get => controller;
+            set => controller = value;
+        }
+
+        public GoalkeeperObservationProfile ObservationProfile
+        {
+            get => observationProfile;
+            set => observationProfile = value;
+        }
+
+        private void Awake()
+        {
+            if (controller == null)
+            {
+                controller = GetComponentInParent<PenaltyAreaController>();
+            }
+        }
 
         private void Update()
         {
@@ -50,6 +78,7 @@ namespace PenaltyShootout.MLAgents
 
         public override void OnEpisodeBegin()
         {
+            ApplyCurriculumParameters();
             pendingAction = GoalkeeperAction.Hold;
             currentMask = GoalkeeperActionMask.HoldOnly;
             bufferedDiveAction = null;
@@ -61,9 +90,17 @@ namespace PenaltyShootout.MLAgents
 
         public override void CollectObservations(VectorSensor sensor)
         {
+            if (observationProfile == GoalkeeperObservationProfile.StateV0)
+            {
+                GoalkeeperTrainingContracts.WriteStateV0(
+                    controller,
+                    sensor.AddObservation);
+                return;
+            }
+
             // ML-Agents requires a sensor value to emit a decision step. This
-            // constant carries no environment state and is not a learnable
-            // observation contract; Stage 2 replaces it with state-v0.
+            // constant carries no environment state and preserves the Stage 1
+            // transport probe contract.
             sensor.AddObservation(0.0f);
         }
 
@@ -141,7 +178,110 @@ namespace PenaltyShootout.MLAgents
 
         public void OnAttemptEnded(AttemptResult result)
         {
+            var reward = GoalkeeperTrainingContracts.SparseReward(result.Outcome);
+            if (observationProfile == GoalkeeperObservationProfile.StateV0)
+            {
+                SetReward(reward);
+                RecordStage2Stats(result, reward);
+            }
+
             EndEpisode();
+        }
+
+        private void ApplyCurriculumParameters()
+        {
+            if (observationProfile != GoalkeeperObservationProfile.StateV0 ||
+                controller == null ||
+                controller.ShotConfiguration == null)
+            {
+                return;
+            }
+
+            var parameters = Academy.Instance.EnvironmentParameters;
+            stage2Lesson = Mathf.RoundToInt(parameters.GetWithDefault("stage2.lesson", 3f));
+            var shots = controller.ShotConfiguration;
+            ApplyLessonDefaults(shots, stage2Lesson);
+            shots.MinimumTargetXNormalized =
+                parameters.GetWithDefault("stage2.target_x_min", shots.MinimumTargetXNormalized);
+            shots.MaximumTargetXNormalized =
+                parameters.GetWithDefault("stage2.target_x_max", shots.MaximumTargetXNormalized);
+            shots.MinimumTargetYNormalized =
+                parameters.GetWithDefault("stage2.target_y_min", shots.MinimumTargetYNormalized);
+            shots.MaximumTargetYNormalized =
+                parameters.GetWithDefault("stage2.target_y_max", shots.MaximumTargetYNormalized);
+            shots.MinimumFlightTime =
+                parameters.GetWithDefault("stage2.flight_time_min", shots.MinimumFlightTime);
+            shots.MaximumFlightTime =
+                parameters.GetWithDefault("stage2.flight_time_max", shots.MaximumFlightTime);
+            shots.MinimumLaunchDelay =
+                parameters.GetWithDefault("stage2.launch_delay_min", shots.MinimumLaunchDelay);
+            shots.MaximumLaunchDelay =
+                parameters.GetWithDefault("stage2.launch_delay_max", shots.MaximumLaunchDelay);
+        }
+
+        private static void ApplyLessonDefaults(
+            ShotDistributionConfig shots,
+            int lesson)
+        {
+            switch (Mathf.Clamp(lesson, 0, 3))
+            {
+                case 0:
+                    shots.MinimumTargetXNormalized = -0.35f;
+                    shots.MaximumTargetXNormalized = 0.35f;
+                    shots.MinimumTargetYNormalized = 0.35f;
+                    shots.MaximumTargetYNormalized = 0.55f;
+                    shots.MinimumFlightTime = 0.75f;
+                    shots.MaximumFlightTime = 0.85f;
+                    shots.MinimumLaunchDelay = 0.35f;
+                    shots.MaximumLaunchDelay = 0.45f;
+                    break;
+                case 1:
+                    shots.MinimumTargetXNormalized = -1f;
+                    shots.MaximumTargetXNormalized = 1f;
+                    shots.MinimumTargetYNormalized = 0.10f;
+                    shots.MaximumTargetYNormalized = 0.65f;
+                    shots.MinimumFlightTime = 0.68f;
+                    shots.MaximumFlightTime = 0.85f;
+                    shots.MinimumLaunchDelay = 0.25f;
+                    shots.MaximumLaunchDelay = 0.45f;
+                    break;
+                case 2:
+                    shots.MinimumTargetXNormalized = -1f;
+                    shots.MaximumTargetXNormalized = 1f;
+                    shots.MinimumTargetYNormalized = 0f;
+                    shots.MaximumTargetYNormalized = 1f;
+                    shots.MinimumFlightTime = 0.58f;
+                    shots.MaximumFlightTime = 0.85f;
+                    shots.MinimumLaunchDelay = 0.20f;
+                    shots.MaximumLaunchDelay = 0.45f;
+                    break;
+                default:
+                    shots.MinimumTargetXNormalized = -1f;
+                    shots.MaximumTargetXNormalized = 1f;
+                    shots.MinimumTargetYNormalized = 0f;
+                    shots.MaximumTargetYNormalized = 1f;
+                    shots.MinimumFlightTime = 0.38f;
+                    shots.MaximumFlightTime = 0.85f;
+                    shots.MinimumLaunchDelay = 0.15f;
+                    shots.MaximumLaunchDelay = 0.45f;
+                    break;
+            }
+        }
+
+        private void RecordStage2Stats(AttemptResult result, float reward)
+        {
+            var stats = Academy.Instance.StatsRecorder;
+            stats.Add("Stage2/SaveRate",
+                result.Outcome == AttemptOutcome.Saved ||
+                result.Outcome == AttemptOutcome.BlockedThenOut ? 1f : 0f);
+            stats.Add("Stage2/GoalRate", result.Outcome == AttemptOutcome.Goal ? 1f : 0f);
+            stats.Add("Stage2/InvalidRate", result.Outcome == AttemptOutcome.Invalid ? 1f : 0f);
+            stats.Add("Stage2/GloveContactRate", result.GloveContact ? 1f : 0f);
+            stats.Add("Stage2/KeeperContactRate", result.GoalkeeperContact ? 1f : 0f);
+            stats.Add("Stage2/ActionMaskViolations", result.ActionMaskViolations);
+            stats.Add("Stage2/EpisodeLengthSeconds", result.AttemptTime);
+            stats.Add("Stage2/SparseReward", reward);
+            stats.Add("Stage2/Lesson", stage2Lesson);
         }
     }
 }
