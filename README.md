@@ -24,9 +24,9 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 0 complete
+## Current status: Stage 1 environment kernel complete
 
-Stage 0 establishes the physics and tooling foundation before goalkeeper
+Stage 0 established the physics and tooling foundation before goalkeeper
 training:
 
 - Unity `6000.0.74f1` using URP.
@@ -39,7 +39,10 @@ training:
 - macOS Unity-to-Python connection verification.
 - macOS and Linux headless builds.
 
-Stage 0 deliberately contains no trainable goalkeeper or shooter policy.
+Stage 1 now turns that spike into the reusable environment kernel. It exposes
+goalkeeper actions with one constant transport-health sensor, but no semantic
+observations, rewards, or trainable policy; those form the next versioned
+contract.
 
 ### Verified Stage 0 results
 
@@ -58,6 +61,106 @@ Stage 0 deliberately contains no trainable goalkeeper or shooter policy.
 Portable evidence is committed under `docs/` as JSON. Generated players,
 training runs, local logs, Unity caches, and Python environments are excluded
 from Git.
+
+### Stage 1 kernel
+
+Environment ID: `penalty-shootout-kernel-v1`
+
+The kernel adds:
+
+- A strict attempt lifecycle:
+  `Resetting -> Ready -> RunUp -> BallInFlight -> Resolving -> Terminal`.
+- PCG32-seeded procedural on-target shots with independent per-arena streams.
+- Targets distributed across the legal goal mouth and flight times from
+  `0.38 s` to `0.85 s`.
+- A compound physics goalkeeper with torso, head, articulated arm capsules,
+  gloves, and legs.
+- Physics-authoritative shuffle and dive macros.
+- Deterministic action-conditioned two-arm reaches for every dive tier.
+- Manual, scripted, and action-only ML-Agents control adapters.
+- A reusable `TrainingArena` prefab and `KernelLab` demonstration scene.
+- Sixteen-arena accelerated acceptance testing.
+- A hashed machine-readable compatibility manifest.
+
+The goalkeeper uses one stable discrete action branch:
+
+| ID | Action |
+|---:|---|
+| 0 | Hold |
+| 1 | Shuffle left |
+| 2 | Shuffle right |
+| 3 | Dive left low |
+| 4 | Dive left middle |
+| 5 | Dive left high |
+| 6 | Dive right low |
+| 7 | Dive right middle |
+| 8 | Dive right high |
+
+Physics runs at `50 Hz`; decisions are accepted at `25 Hz`. A dive initiates
+a complete calibrated macro, and additional motion actions are masked until
+recovery finishes. Animation can later consume the motor pose but will not
+become the authority for collision movement.
+
+The final pre-training motor profile is `keeper-proxy-hands-v1`. Low, middle,
+and high dives automatically move both hands: reach begins at 8% of the dive,
+reaches full extension at 55%, remains extended through the dive, and returns
+smoothly during recovery. The leading glove reaches farther than the trailing
+glove. Targets are exact left/right mirrors in the arena coordinate frame.
+They depend only on the selected action and dive phase—never on ball position,
+shot target, or hidden trajectory parameters. Arm capsules are capped at the
+declared maximum arm length so the proxy remains visually proportional even
+while the body is rolled during high dives.
+
+This hand motion does not enlarge the RL action or observation spaces. The
+policy still learns when to select one of the same nine high-level actions;
+Unity executes the associated body-and-hands macro. Glove and arm colliders
+remain part of the authoritative kinematic compound rigidbody, so their
+deflections are genuine PhysX interactions rather than visual animation.
+
+### Outcome semantics
+
+Every attempt produces exactly one of:
+
+- `Goal`
+- `Saved`
+- `MissWide`
+- `MissHigh`
+- `PostOrCrossbarOut`
+- `BlockedThenOut`
+- `Timeout`
+- `Invalid`
+
+Goal-line crossing has priority over prior contacts. A goalkeeper touch is
+recorded but is not immediately called a save: the ball can rebound from a
+glove or body and still produce `Goal`. A controlled/resting ball or the
+declared post-contact safety horizon produces `Saved`; a keeper deflection
+that leaves the danger region is preserved separately as `BlockedThenOut`.
+Telemetry identifies left glove, right glove, arm, torso/head, and leg
+contacts while preserving the aggregate goalkeeper-contact contract.
+
+### Verified Stage 1 results
+
+| Check | Result |
+|---|---:|
+| Unity Edit Mode tests | 29/29 passed |
+| Unity Play Mode tests | 2/2 passed |
+| Procedural kernel attempts | 10,000/10,000 terminated |
+| Invalid outcomes | 0 |
+| Timeout outcomes | 0 |
+| Duplicate terminal outcomes | 0 |
+| Action-mask violations | 0 |
+| Keeper-touch-then-goal cases | 796 |
+| Physical glove contacts | 539 |
+| Glove-touch-then-goal cases | 211 |
+| Dive actions with glove contacts | 6/6 |
+| Acceptance throughput | 942 attempts/s |
+| Maximum unobstructed target error | 0.000798 m |
+| Declared target tolerance | 0.050 m |
+
+All nine actions were exercised in the acceptance run and every low, middle,
+and high dive family made physical ball contact. See
+`docs/stage1-acceptance.json` and
+`configs/environment/kernel-v1.json` for the complete evidence and manifest.
 
 ## Environment specification v0
 
@@ -165,29 +268,40 @@ Requirements:
 git lfs install
 ./scripts/setup_python.sh
 ./scripts/verify_stage0.sh
+# Close this Unity project before running the full Stage 1 batch verification:
+./scripts/verify_stage1.sh
 ```
 
 Open `unity/` with Unity `6000.0.74f1`, then open
-`Assets/PenaltyShootout/Scenes/PhysicsLab.unity`.
+`Assets/PenaltyShootout/Scenes/KernelLab.unity`. Press Play to watch procedural
+attempts. Use `A`/`D` to shuffle, `Q`/`W`/`E` for left low/middle/high dives,
+and `U`/`I`/`O` for right low/middle/high dives. Dive taps are buffered until
+the next legal policy decision, so short key presses are not lost between
+physics ticks.
+
+`Assets/PenaltyShootout/Scenes/PhysicsLab.unity` remains available as the
+Stage 0 canonical-shot regression scene.
 
 On Apple silicon, the setup script uses uv-managed x86_64 Python under Rosetta
 because the gRPC version required by ML-Agents Release 23 has no arm64 macOS
 wheel. Unity and Python resolutions are locked in
 `unity/Packages/packages-lock.json` and `uv.lock`.
 
-## Next milestone: Stage 1
+## Next milestone: Stage 2 goalkeeper trainability
 
-Stage 1 turns the physics spike into a reusable environment kernel:
+Stage 2 will attach learning-specific contracts to the tested kernel:
 
-- Procedural shot generation.
-- A movable goalkeeper with stand, shuffle, and dive actions.
-- Goalkeeper collision volumes and contact telemetry.
-- Formal episode initialization and termination.
-- Initial observations and scripted baselines.
-- Per-attempt replay and evaluation records.
+- A versioned `state-v0` observation vector.
+- Sparse terminal rewards.
+- PPO training configuration.
+- The first four goalkeeper curriculum lessons.
+- `StandCenter` and `RandomLegal` scripted baselines.
+- TensorBoard and custom training telemetry.
 
-PPO training begins after the Stage 1 environment and its invariants are
-stable.
+Stage 2 must not change the Stage 1 action IDs, outcome rules, reset protocol,
+shot generator, or motor semantics. Full replay tooling, Gymnasium APIs,
+partial observability, shooter training, self-play, and visual polish remain
+later milestones.
 
 ## Open-source and third-party notices
 
@@ -204,9 +318,9 @@ Release 23:
 - Apache License 2.0
 
 The upstream Soccer example is a design reference. No Soccer example source or
-art was copied into Stage 0.
+art has been copied into the project.
 
 Unity, the Unity runtime, URP, and related packages remain subject to their
-respective Unity terms and are not relicensed by this repository. Stage 0
-contains only generated primitives and project-authored configuration; it
-contains no third-party art, audio, club marks, or competition branding.
+respective Unity terms and are not relicensed by this repository. Stages 0 and
+1 contain only generated primitives and project-authored configuration; they
+contain no third-party art, audio, club marks, or competition branding.

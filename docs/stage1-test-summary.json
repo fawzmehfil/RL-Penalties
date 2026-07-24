@@ -1,0 +1,16 @@
+{
+  "unity_editor": "6000.0.74f1",
+  "motor_profile_id": "keeper-proxy-hands-v1",
+  "edit_mode": {
+    "passed": 29,
+    "failed": 0
+  },
+  "play_mode": {
+    "passed": 2,
+    "failed": 0
+  },
+  "stage0_regression_included": true,
+  "stage1_acceptance_attempts": 10000,
+  "all_six_dive_actions_made_glove_contact": true,
+  "passed": true
+}

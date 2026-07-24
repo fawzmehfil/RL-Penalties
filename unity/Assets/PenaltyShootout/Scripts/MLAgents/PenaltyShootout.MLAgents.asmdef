@@ -1,15 +1,11 @@
 {
-  "name": "PenaltyShootout.Stage0.Editor",
-  "rootNamespace": "PenaltyShootout.Stage0.Editor",
+  "name": "PenaltyShootout.MLAgents",
+  "rootNamespace": "PenaltyShootout",
   "references": [
-    "PenaltyShootout.Stage0",
     "PenaltyShootout.Core",
-    "PenaltyShootout.MLAgents",
     "Unity.ML-Agents"
   ],
-  "includePlatforms": [
-    "Editor"
-  ],
+  "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,

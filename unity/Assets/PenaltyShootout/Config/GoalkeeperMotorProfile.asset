@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 781860910842c46cb85a57c95af582b1, type: 3}
+  m_Name: GoalkeeperMotorProfile
+  m_EditorClassIdentifier: 
+  MotorProfileId: keeper-proxy-hands-v1
+  StandingZ: 0.3
+  LateralLimit: 3.1
+  MaximumShuffleSpeed: 3.5
+  ShuffleAcceleration: 18
+  ShuffleDeceleration: 22
+  DiveDuration: 0.7
+  RecoveryDuration: 0.35
+  LowDiveReach: 2.1
+  MiddleDiveReach: 1.9
+  HighDiveReach: 1.7
+  LowDiveHeight: 0.12
+  MiddleDiveHeight: 0.45
+  HighDiveHeight: 0.8
+  MaximumBodyRollDegrees: 80
+  ReachStartNormalized: 0.08
+  FullExtensionNormalized: 0.55
+  LeadingLowLateralReach: 0.55
+  TrailingLowLateralReach: 0.28
+  LeadingMiddleLateralReach: 0.65
+  TrailingMiddleLateralReach: 0.36
+  LeadingHighLateralReach: 0.76
+  TrailingHighLateralReach: 0.46
+  LeadingLowHeight: 0.22
+  TrailingLowHeight: 0.34
+  LeadingMiddleHeight: 0.58
+  TrailingMiddleHeight: 0.48
+  LeadingHighHeight: 0.92
+  TrailingHighHeight: 0.74
+  LeadingForwardReach: 0.18
+  TrailingForwardReach: 0.12
+  GloveRadius: 0.125
+  ArmRadius: 0.09
+  MaximumArmLength: 0.95
+  ReadyGloveLateral: 0.58
+  ReadyGloveHeight: 0.92
+  ReadyGloveForward: 0
+  ShoulderLateral: 0.25
+  ShoulderHeight: 1.3
+  ShoulderForward: 0

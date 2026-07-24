@@ -1,0 +1,58 @@
+{
+  "environment_id": "penalty-shootout-kernel-v1",
+  "platform": "macos",
+  "build": "builds/macos/PenaltyShootoutStage1.app",
+  "python": "3.10.12",
+  "python_architecture": "x86_64",
+  "mlagents": "1.1.0",
+  "mlagents_envs": "1.1.0",
+  "repeats": 3,
+  "all_passed": true,
+  "runs": [
+    {
+      "worker_id": 40,
+      "behavior_name": "GoalkeeperKernel-v0?team=0",
+      "observation_shapes": [
+        [
+          1
+        ]
+      ],
+      "discrete_branches": [
+        9
+      ],
+      "decisions_seen": 34,
+      "terminal_steps_seen": 1,
+      "passed": true
+    },
+    {
+      "worker_id": 41,
+      "behavior_name": "GoalkeeperKernel-v0?team=0",
+      "observation_shapes": [
+        [
+          1
+        ]
+      ],
+      "discrete_branches": [
+        9
+      ],
+      "decisions_seen": 34,
+      "terminal_steps_seen": 1,
+      "passed": true
+    },
+    {
+      "worker_id": 42,
+      "behavior_name": "GoalkeeperKernel-v0?team=0",
+      "observation_shapes": [
+        [
+          1
+        ]
+      ],
+      "discrete_branches": [
+        9
+      ],
+      "decisions_seen": 34,
+      "terminal_steps_seen": 1,
+      "passed": true
+    }
+  ]
+}

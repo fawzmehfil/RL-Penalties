@@ -1,4 +1,4 @@
-name: Stage 0 evidence
+name: Stage evidence
 
 on:
   push:
@@ -23,5 +23,5 @@ jobs:
       - name: Install test runner
         run: python -m pip install pytest==8.3.5
 
-      - name: Validate committed Stage 0 reports
-        run: python -m pytest -q python/tests/test_stage0_reports.py
+      - name: Validate committed Stage 0 and Stage 1 reports
+        run: python -m pytest -q
