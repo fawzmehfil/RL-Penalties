@@ -333,6 +333,42 @@ declared margin, and a known checkpoint must run in Unity inference mode. The
 placeholder summary is tracked in `docs/stage2-training-summary.json` until
 those runs are produced.
 
+## Stage 3 goalkeeper benchmarking
+
+Stage 3 adds fixed-batch evaluation for the Stage 2 `GoalkeeperState-v0`
+task. The canonical in-distribution suite is
+`configs/benchmarks/goalkeeper-state-v0-id-20k.json`: 16 arenas, 1,250
+attempts per arena, and 20,000 total full-range on-target shots at
+`stage2.lesson = 3`.
+
+Run the Stage 3 smoke verification with:
+
+```bash
+./scripts/verify_stage3.sh
+```
+
+The benchmark runner writes raw artifacts under `results/evaluations/<run-id>/`
+and a compact evidence report at
+`docs/stage3-goalkeeper-benchmark-report.json`. It supports scripted policies
+(`stand_center`, `random_legal`, `reactive_side`, `linear_intercept`) and
+exported ML-Agents checkpoints via `onnx:/path/to/model.onnx`.
+
+Example checkpoint evaluation:
+
+```bash
+.venv/bin/python -m penalty_shootout.evaluation.goalkeeper \
+  --build builds/macos/PenaltyShootoutStage2.app \
+  --policy stand_center \
+  --policy random_legal \
+  --policy onnx:results/gk-state-v0_ppo_seed-001/GoalkeeperState-v0/GoalkeeperState-v0-499992.onnx \
+  --run-id gk-state-v0-stage3-eval \
+  > docs/stage3-eval.log 2>&1
+```
+
+The full Stage 3 gate is not a unit test: a trained checkpoint must beat both
+`StandCenter` and `RandomLegal` by at least five percentage points on the same
+20,000 fixed shots, with no invalid, timeout, or off-target inflation.
+
 ## Later milestones
 
 Full replay tooling, Gymnasium APIs, partial observability, shooter training,

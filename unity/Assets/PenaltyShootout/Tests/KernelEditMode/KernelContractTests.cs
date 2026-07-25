@@ -98,6 +98,30 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void Stage3BenchmarkMasterSeedArgumentParsesStableForms()
+        {
+            Assert.That(
+                Stage3BenchmarkRuntime.TryParseMasterSeed(
+                    new[] { "player", "--stage3-master-seed=20260723" },
+                    out var inlineSeed),
+                Is.True);
+            Assert.That(inlineSeed, Is.EqualTo(20260723UL));
+
+            Assert.That(
+                Stage3BenchmarkRuntime.TryParseMasterSeed(
+                    new[] { "player", "--stage3-master-seed", "99" },
+                    out var separatedSeed),
+                Is.True);
+            Assert.That(separatedSeed, Is.EqualTo(99UL));
+
+            Assert.That(
+                Stage3BenchmarkRuntime.TryParseMasterSeed(
+                    new[] { "player", "--stage3-master-seed=not-a-seed" },
+                    out _),
+                Is.False);
+        }
+
+        [Test]
         public void CurriculumTargetRangeValidationPreservesFullRangeDefault()
         {
             Assert.That(shots.Validate(out var error), Is.True, error);

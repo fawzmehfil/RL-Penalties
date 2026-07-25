@@ -16,6 +16,8 @@ namespace PenaltyShootout.Kernel
         public const string GoalkeeperStateObservationSpecId = "state-v0";
         public const string GoalkeeperSparseRewardSpecId = "goalkeeper-sparse-v0";
         public const int GoalkeeperStateObservationSize = 24;
+        public const int GoalkeeperActionCount = 9;
+        public const string Stage3BenchmarkId = "goalkeeper-state-v0-id-20k";
         public const int ManifestSchemaVersion = 2;
         public const int AcceptanceSchemaVersion = 2;
 

@@ -40,6 +40,7 @@ namespace PenaltyShootout.MLAgents
 
         private void Awake()
         {
+            GoalkeeperBenchmarkTelemetry.InitializeIfEnabled();
             if (controller == null)
             {
                 controller = GetComponentInParent<PenaltyAreaController>();
@@ -185,6 +186,7 @@ namespace PenaltyShootout.MLAgents
                 RecordStage2Stats(result, reward);
             }
 
+            GoalkeeperBenchmarkTelemetry.Emit(result, reward);
             EndEpisode();
         }
 

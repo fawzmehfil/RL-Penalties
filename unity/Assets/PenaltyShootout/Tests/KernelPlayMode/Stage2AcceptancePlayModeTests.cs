@@ -30,6 +30,49 @@ namespace PenaltyShootout.Kernel.Tests
             public bool passed;
         }
 
+        [Test]
+        [Category("Stage3Acceptance")]
+        public void Stage3TelemetryPayloadPublishesTerminalBenchmarkFields()
+        {
+            var result = new AttemptResult
+            {
+                EnvironmentId = KernelConstants.EnvironmentId,
+                ScenarioSuiteId = KernelConstants.ScenarioSuiteId,
+                AttemptId = 7,
+                ArenaId = 3,
+                Seed = 20260723UL,
+                Outcome = AttemptOutcome.BlockedThenOut,
+                AttemptTime = 1.2f,
+                BallFlightTime = 0.64f,
+                GoalkeeperContact = true,
+                GoalkeeperContactCount = 1,
+                LastGoalkeeperContactPart = GoalkeeperContactPart.LeftGlove,
+                GloveContact = true,
+                GloveContactCount = 1,
+                LeftGloveContactCount = 1,
+                RequestedTargetLocal = new Vector3(-1f, 1.5f, 0f),
+                HasCentrePlaneIntersection = true,
+                MeasuredCentrePlaneIntersectionLocal = new Vector3(-1.01f, 1.49f, 0f),
+                TargetError = 0.02f,
+                InitialAction = GoalkeeperAction.DiveLeftMiddle,
+                LastAction = GoalkeeperAction.Hold,
+                FirstAcceptedDiveAction = GoalkeeperAction.DiveLeftMiddle,
+                FirstDiveDecisionIndex = 0,
+                FirstDiveAttemptTime = 0.5f,
+                FirstDiveBallFlightTime = 0.1f,
+                AcceptedActionCounts = new[] { 3, 0, 0, 0, 1, 0, 0, 0, 0 },
+            };
+
+            var json = GoalkeeperBenchmarkTelemetry.CreateJson(result, 1f);
+            StringAssert.Contains("\"message_type\":\"stage3_attempt_result\"", json);
+            StringAssert.Contains("\"benchmark_id\":\"goalkeeper-state-v0-id-20k\"", json);
+            StringAssert.Contains("\"outcome\":\"BlockedThenOut\"", json);
+            StringAssert.Contains("\"first_accepted_dive_action\":\"DiveLeftMiddle\"", json);
+            StringAssert.Contains("\"accepted_action_counts\":[3,0,0,0,1,0,0,0,0]", json);
+            StringAssert.Contains("\"requested_target_local\"", json);
+            StringAssert.Contains("\"measured_centre_plane_intersection_local\"", json);
+        }
+
         [UnityTest]
         [Category("Stage2Acceptance")]
         public IEnumerator Stage2TrainingScenePublishesStateV0AndBaselinesTerminate()

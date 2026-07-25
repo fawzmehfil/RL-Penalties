@@ -86,6 +86,12 @@ namespace PenaltyShootout.Kernel
         private Vector3 previousBallLocal;
         private GoalkeeperAction lastAction;
         private GoalkeeperAction initialAction;
+        private GoalkeeperAction firstAcceptedDiveAction;
+        private int firstDiveDecisionIndex;
+        private float firstDiveAttemptTime;
+        private float firstDiveBallFlightTime;
+        private readonly int[] acceptedActionCounts =
+            new int[KernelConstants.GoalkeeperActionCount];
         private bool initialized;
 
         public event Action<AttemptResult> AttemptCompleted;
@@ -265,6 +271,7 @@ namespace PenaltyShootout.Kernel
 
             stateMachine.InitializeTerminal();
             resolvedActionSource = actionSource as IGoalkeeperActionSource;
+            Stage3BenchmarkRuntime.ApplyOverrides(this);
             initialized = ValidateDependencies(out var error);
             if (!initialized)
             {
@@ -359,6 +366,11 @@ namespace PenaltyShootout.Kernel
             centrePlaneIntersectionLocal = default;
             lastAction = GoalkeeperAction.Hold;
             initialAction = GoalkeeperAction.Hold;
+            firstAcceptedDiveAction = GoalkeeperAction.Hold;
+            firstDiveDecisionIndex = -1;
+            firstDiveAttemptTime = -1f;
+            firstDiveBallFlightTime = -1f;
+            Array.Clear(acceptedActionCounts, 0, acceptedActionCounts.Length);
             outcomeLatch.Reset();
             contactHistory.Reset();
             trajectoryPoints.Clear();
@@ -643,12 +655,36 @@ namespace PenaltyShootout.Kernel
             }
 
             lastAction = requested;
+            RecordAcceptedAction(requested);
             if (decisionIndex == 0)
             {
                 initialAction = requested;
             }
 
             decisionIndex++;
+        }
+
+        private void RecordAcceptedAction(GoalkeeperAction action)
+        {
+            var index = (int)action;
+            if (index >= 0 && index < acceptedActionCounts.Length)
+            {
+                acceptedActionCounts[index]++;
+            }
+
+            if (firstDiveDecisionIndex < 0 && IsDiveAction(action))
+            {
+                firstAcceptedDiveAction = action;
+                firstDiveDecisionIndex = decisionIndex;
+                firstDiveAttemptTime = attemptTime;
+                firstDiveBallFlightTime = ballFlightTime;
+            }
+        }
+
+        private static bool IsDiveAction(GoalkeeperAction action)
+        {
+            return action >= GoalkeeperAction.DiveLeftLow &&
+                action <= GoalkeeperAction.DiveRightHigh;
         }
 
         private bool IsOutsideDangerRegion(Vector3 localPosition)
@@ -740,6 +776,11 @@ namespace PenaltyShootout.Kernel
                 TargetError = targetError,
                 InitialAction = initialAction,
                 LastAction = lastAction,
+                FirstAcceptedDiveAction = firstAcceptedDiveAction,
+                FirstDiveDecisionIndex = firstDiveDecisionIndex,
+                FirstDiveAttemptTime = firstDiveAttemptTime,
+                FirstDiveBallFlightTime = firstDiveBallFlightTime,
+                AcceptedActionCounts = (int[])acceptedActionCounts.Clone(),
                 ActionMaskViolations = actionMaskViolations,
                 DuplicateTerminalEvents = outcomeLatch.DuplicateTerminalEvents,
             };

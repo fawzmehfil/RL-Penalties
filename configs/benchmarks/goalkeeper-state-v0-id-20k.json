@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "goalkeeper-state-v0-id-20k",
+  "environment_id": "penalty-shootout-kernel-v1",
+  "behavior_name": "GoalkeeperState-v0",
+  "observation_spec_id": "state-v0",
+  "reward_spec_id": "goalkeeper-sparse-v0",
+  "action_spec_id": "goalkeeper-discrete-v0",
+  "scenario_suite_id": "on-target-v0",
+  "arena_count": 16,
+  "attempts_per_arena": 1250,
+  "total_attempts": 20000,
+  "stage2_lesson": 3,
+  "master_seed": 20260723,
+  "primary_metric": "save_rate",
+  "save_outcomes": [
+    "Saved",
+    "BlockedThenOut"
+  ],
+  "failure_outcomes": [
+    "Goal"
+  ]
+}

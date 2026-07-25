@@ -120,6 +120,11 @@ namespace PenaltyShootout.Kernel
         public float TargetError;
         public GoalkeeperAction InitialAction;
         public GoalkeeperAction LastAction;
+        public GoalkeeperAction FirstAcceptedDiveAction;
+        public int FirstDiveDecisionIndex;
+        public float FirstDiveAttemptTime;
+        public float FirstDiveBallFlightTime;
+        public int[] AcceptedActionCounts;
         public int ActionMaskViolations;
         public int DuplicateTerminalEvents;
     }
