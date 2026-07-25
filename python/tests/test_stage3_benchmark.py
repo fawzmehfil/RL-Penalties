@@ -8,6 +8,7 @@ from penalty_shootout.evaluation.goalkeeper import (
     ACTION_NAMES,
     BenchmarkConfig,
     GoalkeeperPolicy,
+    OnnxPolicy,
     StandCenterPolicy,
     aggregate_policy,
     compact_report,
@@ -137,6 +138,24 @@ def test_policy_sanitize_enforces_onnx_style_action_masks() -> None:
     actions = GoalkeeperPolicy._sanitize([8, 1], mask)
 
     assert actions.tolist() == [[0], [1]]
+
+
+def test_onnx_mask_converts_disabled_python_mask_to_enabled_float_mask() -> None:
+    disabled_mask = np.zeros((2, len(ACTION_NAMES)), dtype=bool)
+    disabled_mask[0, 0] = True
+    disabled_mask[1, 8] = True
+
+    onnx_mask = OnnxPolicy._onnx_enabled_action_mask(2, disabled_mask)
+
+    assert onnx_mask.dtype == np.float32
+    assert onnx_mask[0, 0] == 0.0
+    assert onnx_mask[0, 1] == 1.0
+    assert onnx_mask[1, 8] == 0.0
+    assert onnx_mask[1, 7] == 1.0
+    assert OnnxPolicy._onnx_enabled_action_mask(2, None).tolist() == [
+        [1.0] * len(ACTION_NAMES),
+        [1.0] * len(ACTION_NAMES),
+    ]
 
 
 def test_compact_report_keeps_benchmark_evidence_small() -> None:

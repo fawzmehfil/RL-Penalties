@@ -224,11 +224,7 @@ class OnnxPolicy(GoalkeeperPolicy):
         observations: np.ndarray,
         action_mask: np.ndarray | None,
     ) -> np.ndarray:
-        mask = (
-            np.zeros((len(observations), len(ACTION_NAMES)), dtype=np.float32)
-            if action_mask is None
-            else np.asarray(action_mask, dtype=np.float32)
-        )
+        mask = self._onnx_enabled_action_mask(len(observations), action_mask)
         result = self._session.run(
             [self._output_name],
             {
@@ -237,6 +233,18 @@ class OnnxPolicy(GoalkeeperPolicy):
             },
         )[0]
         return self._sanitize(np.asarray(result).reshape(-1), action_mask)
+
+    @staticmethod
+    def _onnx_enabled_action_mask(
+        batch_size: int,
+        action_mask: np.ndarray | None,
+    ) -> np.ndarray:
+        if action_mask is None:
+            return np.ones((batch_size, len(ACTION_NAMES)), dtype=np.float32)
+
+        # ML-Agents Python DecisionSteps masks mark disabled actions as True.
+        # Exported ML-Agents ONNX policies expect enabled actions as 1.0.
+        return (~np.asarray(action_mask, dtype=bool)).astype(np.float32)
 
 
 def dive_action_for_target(target_x: float, target_y: float) -> int:
