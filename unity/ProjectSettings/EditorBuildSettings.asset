@@ -11,6 +11,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/PenaltyShootout/Scenes/KernelLab.unity
     guid: dcfc06e8737d4429ea7e3fdd8942f3e5
+  - enabled: 1
+    path: Assets/PenaltyShootout/Scenes/Training.unity
+    guid: d1cc4f7f18db44fa09012c240725e551
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
