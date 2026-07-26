@@ -12,6 +12,58 @@
   "attempts_per_arena": 1250,
   "total_attempts": 20000,
   "primary_metric": "save_rate",
+  "selected_checkpoint": {
+    "policy": "onnx:GoalkeeperState-v0-5000019",
+    "seed": "001",
+    "run_id": "stage3-official-5m-20k",
+    "onnx_path": "results/gk-state-v0_ppo_seed-001/GoalkeeperState-v0/GoalkeeperState-v0-5000019.onnx",
+    "save_rate": 0.46705,
+    "selection_reason": "Highest completed official 20,000-shot Stage 3 benchmark result; passed baseline margin gate with zero invalids, timeouts, and mask violations."
+  },
+  "checkpoint_selection": {
+    "status": "selected",
+    "selected_seed": "001",
+    "selected_policy": "onnx:GoalkeeperState-v0-5000019",
+    "official_20k_results": [
+      {
+        "seed": "001",
+        "run_id": "stage3-official-5m-20k",
+        "policy": "onnx:GoalkeeperState-v0-5000019",
+        "attempts": 20000,
+        "save_rate": 0.46705,
+        "invalid": 0,
+        "timeout": 0,
+        "action_mask_violations": 0,
+        "passed": true
+      },
+      {
+        "seed": "002",
+        "run_id": "stage3-seed-002-20k",
+        "policy": "onnx:GoalkeeperState-v0-5000012",
+        "attempts": 20000,
+        "save_rate": 0.4346,
+        "invalid": 0,
+        "timeout": 0,
+        "action_mask_violations": 0,
+        "passed": true
+      }
+    ],
+    "screening_results": [
+      {
+        "seed": "003",
+        "run_id": "stage3-seeds-002-003-2k",
+        "policy": "onnx:GoalkeeperState-v0-5000049",
+        "attempts": 2000,
+        "save_rate": 0.3345,
+        "invalid": 0,
+        "timeout": 0,
+        "action_mask_violations": 0,
+        "promoted_to_official_20k": false,
+        "reason": "2,000-shot screen was materially below seeds 001 and 002."
+      }
+    ],
+    "notes": "Seed 002 also passed the official Stage 3 gate, but seed 001 remains the reference checkpoint by official save rate. Seed 003 was screened only because the smaller benchmark showed it was not competitive."
+  },
   "comparisons": [
     {
       "policy": "onnx:GoalkeeperState-v0-5000019",
