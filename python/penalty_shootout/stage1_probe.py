@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 from mlagents_envs.base_env import ActionTuple
 from mlagents_envs.environment import UnityEnvironment
+from mlagents_envs.side_channel.stats_side_channel import StatsSideChannel
 
 
 BEHAVIOR_NAME = "GoalkeeperKernel-v0"
@@ -36,6 +37,7 @@ def run_once(build_path: Path, worker_id: int, max_steps: int = 300) -> ProbeRun
         no_graphics=True,
         timeout_wait=90,
         additional_args=["-batchmode", "-nographics"],
+        side_channels=[StatsSideChannel()],
     )
     try:
         env.reset()

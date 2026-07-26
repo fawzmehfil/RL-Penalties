@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 from mlagents_envs.base_env import ActionTuple
 from mlagents_envs.environment import UnityEnvironment
+from mlagents_envs.side_channel.stats_side_channel import StatsSideChannel
 
 from penalty_shootout.baselines import RandomLegal, StandCenter
 
@@ -47,6 +48,7 @@ def run_once(
         no_graphics=True,
         timeout_wait=90,
         additional_args=["-batchmode", "-nographics"],
+        side_channels=[StatsSideChannel()],
     )
     policy = StandCenter() if baseline_name == "stand_center" else RandomLegal(worker_id)
     try:
