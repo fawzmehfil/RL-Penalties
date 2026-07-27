@@ -1,0 +1,1291 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "goalkeeper-robust-v0-id-20k",
+  "environment_id": "penalty-shootout-kernel-v1",
+  "behavior_name": "GoalkeeperRobust-v0",
+  "observation_spec_id": "state-po-v0",
+  "reward_spec_id": "goalkeeper-sparse-v0",
+  "action_spec_id": "goalkeeper-discrete-v0",
+  "scenario_suite_id": "on-target-v0",
+  "run_id": "stage4-robust-smoke",
+  "generated_at": "2026-07-26T23:45:06.711867+00:00",
+  "full_benchmark": false,
+  "arena_count": 16,
+  "attempts_per_arena": 4,
+  "total_attempts": 64,
+  "observation_shapes": [
+    [
+      24
+    ]
+  ],
+  "discrete_branches": [
+    9
+  ],
+  "environment_parameters": {
+    "stage2.lesson": 3.0,
+    "stage4.ball_position_noise_m": 0.0,
+    "stage4.ball_velocity_noise_mps": 0.0,
+    "stage4.dropout_probability": 0.0,
+    "stage4.keeper_position_noise_m": 0.0,
+    "stage4.obs_delay_steps": 0.0
+  },
+  "primary_metric": "save_rate",
+  "comparisons": [
+    {
+      "policy": "onnx:GoalkeeperState-v0-5000019",
+      "baseline": "random_legal",
+      "save_rate_margin": 0.40625,
+      "passed": true
+    },
+    {
+      "policy": "onnx:GoalkeeperState-v0-5000019",
+      "baseline": "stand_center",
+      "save_rate_margin": 0.40625,
+      "passed": true
+    }
+  ],
+  "passed": false,
+  "status": "smoke run; full benchmark gate not evaluated",
+  "policies": [
+    {
+      "policy": "stand_center",
+      "policy_type": "scripted",
+      "attempts": 64,
+      "expected_attempts": 64,
+      "complete": true,
+      "outcomes": {
+        "BlockedThenOut": 2,
+        "Goal": 62
+      },
+      "save_rate": {
+        "successes": 2,
+        "total": 64,
+        "value": 0.03125,
+        "ci95_low": 0.00861213834617187,
+        "ci95_high": 0.10697291770958313
+      },
+      "goal_rate": {
+        "successes": 62,
+        "total": 64,
+        "value": 0.96875,
+        "ci95_low": 0.8930270822904168,
+        "ci95_high": 0.9913878616538282
+      },
+      "invalid_rate": {
+        "successes": 0,
+        "total": 64,
+        "value": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.05662405979280534
+      },
+      "timeout_rate": {
+        "successes": 0,
+        "total": 64,
+        "value": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.05662405979280534
+      },
+      "glove_contact_rate": {
+        "successes": 2,
+        "total": 64,
+        "value": 0.03125,
+        "ci95_low": 0.00861213834617187,
+        "ci95_high": 0.10697291770958313
+      },
+      "goalkeeper_contact_rate": {
+        "successes": 4,
+        "total": 64,
+        "value": 0.0625,
+        "ci95_low": 0.024571201396618017,
+        "ci95_high": 0.14997485092208665
+      },
+      "contact_then_goal_rate": {
+        "successes": 2,
+        "total": 64,
+        "value": 0.03125,
+        "ci95_low": 0.00861213834617187,
+        "ci95_high": 0.10697291770958313
+      },
+      "wrong_side_rate": {
+        "successes": 0,
+        "total": 0,
+        "value": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.0
+      },
+      "wrong_height_rate": {
+        "successes": 0,
+        "total": 0,
+        "value": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.0
+      },
+      "action_mask_violations": 0,
+      "duplicate_terminal_events": 0,
+      "action_usage": {
+        "Hold": {
+          "count": 1139,
+          "rate": 1.0
+        },
+        "ShuffleLeft": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "ShuffleRight": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "DiveLeftLow": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "DiveLeftMiddle": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "DiveLeftHigh": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "DiveRightLow": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "DiveRightMiddle": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "DiveRightHigh": {
+          "count": 0,
+          "rate": 0.0
+        }
+      },
+      "by_quadrant": {
+        "high-left": {
+          "attempts": 14,
+          "save_rate": {
+            "successes": 0,
+            "total": 14,
+            "value": 0.0,
+            "ci95_low": 2.1779500349382702e-17,
+            "ci95_high": 0.2153108027376358
+          },
+          "goal_rate": {
+            "successes": 14,
+            "total": 14,
+            "value": 1.0,
+            "ci95_low": 0.7846891972623642,
+            "ci95_high": 1.0000000000000002
+          }
+        },
+        "high-right": {
+          "attempts": 21,
+          "save_rate": {
+            "successes": 0,
+            "total": 21,
+            "value": 0.0,
+            "ci95_low": -1.1731740316366828e-17,
+            "ci95_high": 0.154639018924847
+          },
+          "goal_rate": {
+            "successes": 21,
+            "total": 21,
+            "value": 1.0,
+            "ci95_low": 0.8453609810751531,
+            "ci95_high": 1.0000000000000002
+          }
+        },
+        "low-left": {
+          "attempts": 11,
+          "save_rate": {
+            "successes": 0,
+            "total": 11,
+            "value": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.2588329669680317
+          },
+          "goal_rate": {
+            "successes": 11,
+            "total": 11,
+            "value": 1.0,
+            "ci95_low": 0.7411670330319683,
+            "ci95_high": 1.0000000000000002
+          }
+        },
+        "low-right": {
+          "attempts": 18,
+          "save_rate": {
+            "successes": 2,
+            "total": 18,
+            "value": 0.1111111111111111,
+            "ci95_low": 0.031019522645612366,
+            "ci95_high": 0.32799765130178804
+          },
+          "goal_rate": {
+            "successes": 16,
+            "total": 18,
+            "value": 0.8888888888888888,
+            "ci95_low": 0.6720023486982118,
+            "ci95_high": 0.9689804773543876
+          }
+        }
+      },
+      "by_height_band": {
+        "high": {
+          "attempts": 25,
+          "save_rate": {
+            "successes": 0,
+            "total": 25,
+            "value": 0.0,
+            "ci95_low": 1.2029374011637166e-17,
+            "ci95_high": 0.1331922509390485
+          },
+          "goal_rate": {
+            "successes": 25,
+            "total": 25,
+            "value": 1.0,
+            "ci95_low": 0.8668077490609514,
+            "ci95_high": 0.9999999999999998
+          }
+        },
+        "low": {
+          "attempts": 21,
+          "save_rate": {
+            "successes": 1,
+            "total": 21,
+            "value": 0.047619047619047616,
+            "ci95_low": 0.0084559878098264,
+            "ci95_high": 0.2266936007412256
+          },
+          "goal_rate": {
+            "successes": 20,
+            "total": 21,
+            "value": 0.9523809523809523,
+            "ci95_low": 0.7733063992587744,
+            "ci95_high": 0.9915440121901736
+          }
+        },
+        "middle": {
+          "attempts": 18,
+          "save_rate": {
+            "successes": 1,
+            "total": 18,
+            "value": 0.05555555555555555,
+            "ci95_low": 0.009875190978303089,
+            "ci95_high": 0.25757300781872594
+          },
+          "goal_rate": {
+            "successes": 17,
+            "total": 18,
+            "value": 0.9444444444444444,
+            "ci95_low": 0.7424269921812741,
+            "ci95_high": 0.9901248090216969
+          }
+        }
+      },
+      "by_horizontal_band": {
+        "left": {
+          "attempts": 14,
+          "save_rate": {
+            "successes": 0,
+            "total": 14,
+            "value": 0.0,
+            "ci95_low": 2.1779500349382702e-17,
+            "ci95_high": 0.2153108027376358
+          },
+          "goal_rate": {
+            "successes": 14,
+            "total": 14,
+            "value": 1.0,
+            "ci95_low": 0.7846891972623642,
+            "ci95_high": 1.0000000000000002
+          }
+        },
+        "left-center": {
+          "attempts": 11,
+          "save_rate": {
+            "successes": 0,
+            "total": 11,
+            "value": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.2588329669680317
+          },
+          "goal_rate": {
+            "successes": 11,
+            "total": 11,
+            "value": 1.0,
+            "ci95_low": 0.7411670330319683,
+            "ci95_high": 1.0000000000000002
+          }
+        },
+        "right": {
+          "attempts": 16,
+          "save_rate": {
+            "successes": 0,
+            "total": 16,
+            "value": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.1936076805344365
+          },
+          "goal_rate": {
+            "successes": 16,
+            "total": 16,
+            "value": 1.0,
+            "ci95_low": 0.8063923194655636,
+            "ci95_high": 1.0000000000000002
+          }
+        },
+        "right-center": {
+          "attempts": 23,
+          "save_rate": {
+            "successes": 2,
+            "total": 23,
+            "value": 0.08695652173913043,
+            "ci95_low": 0.024180004484220342,
+            "ci95_high": 0.2679598107574366
+          },
+          "goal_rate": {
+            "successes": 21,
+            "total": 23,
+            "value": 0.9130434782608695,
+            "ci95_low": 0.7320401892425633,
+            "ci95_high": 0.9758199955157797
+          }
+        }
+      },
+      "by_flight_time_band": {
+        "fast": {
+          "attempts": 24,
+          "save_rate": {
+            "successes": 0,
+            "total": 24,
+            "value": 0.0,
+            "ci95_low": 1.1962983316807505e-17,
+            "ci95_high": 0.1379762046749802
+          },
+          "goal_rate": {
+            "successes": 24,
+            "total": 24,
+            "value": 1.0,
+            "ci95_low": 0.8620237953250198,
+            "ci95_high": 1.0
+          }
+        },
+        "medium": {
+          "attempts": 19,
+          "save_rate": {
+            "successes": 0,
+            "total": 19,
+            "value": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.16817922405261626
+          },
+          "goal_rate": {
+            "successes": 19,
+            "total": 19,
+            "value": 1.0,
+            "ci95_low": 0.8318207759473837,
+            "ci95_high": 1.0
+          }
+        },
+        "slow": {
+          "attempts": 21,
+          "save_rate": {
+            "successes": 2,
+            "total": 21,
+            "value": 0.09523809523809523,
+            "ci95_low": 0.026518767438074544,
+            "ci95_high": 0.28914139073918255
+          },
+          "goal_rate": {
+            "successes": 19,
+            "total": 21,
+            "value": 0.9047619047619048,
+            "ci95_low": 0.7108586092608175,
+            "ci95_high": 0.9734812325619254
+          }
+        }
+      },
+      "by_first_dive_action": {
+        "none": {
+          "attempts": 64,
+          "save_rate": {
+            "successes": 2,
+            "total": 64,
+            "value": 0.03125,
+            "ci95_low": 0.00861213834617187,
+            "ci95_high": 0.10697291770958313
+          },
+          "goal_rate": {
+            "successes": 62,
+            "total": 64,
+            "value": 0.96875,
+            "ci95_low": 0.8930270822904168,
+            "ci95_high": 0.9913878616538282
+          }
+        }
+      }
+    },
+    {
+      "policy": "random_legal",
+      "policy_type": "scripted",
+      "attempts": 64,
+      "expected_attempts": 64,
+      "complete": true,
+      "outcomes": {
+        "BlockedThenOut": 2,
+        "Goal": 62
+      },
+      "save_rate": {
+        "successes": 2,
+        "total": 64,
+        "value": 0.03125,
+        "ci95_low": 0.00861213834617187,
+        "ci95_high": 0.10697291770958313
+      },
+      "goal_rate": {
+        "successes": 62,
+        "total": 64,
+        "value": 0.96875,
+        "ci95_low": 0.8930270822904168,
+        "ci95_high": 0.9913878616538282
+      },
+      "invalid_rate": {
+        "successes": 0,
+        "total": 64,
+        "value": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.05662405979280534
+      },
+      "timeout_rate": {
+        "successes": 0,
+        "total": 64,
+        "value": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.05662405979280534
+      },
+      "glove_contact_rate": {
+        "successes": 3,
+        "total": 64,
+        "value": 0.046875,
+        "ci95_low": 0.016069016786292977,
+        "ci95_high": 0.12899653740093686
+      },
+      "goalkeeper_contact_rate": {
+        "successes": 7,
+        "total": 64,
+        "value": 0.109375,
+        "ci95_low": 0.054001133444167966,
+        "ci95_high": 0.2089864132689612
+      },
+      "contact_then_goal_rate": {
+        "successes": 5,
+        "total": 64,
+        "value": 0.078125,
+        "ci95_low": 0.03383117690855045,
+        "ci95_high": 0.17019537354162903
+      },
+      "wrong_side_rate": {
+        "successes": 33,
+        "total": 64,
+        "value": 0.515625,
+        "ci95_low": 0.3958160147858012,
+        "ci95_high": 0.6336644833456736
+      },
+      "wrong_height_rate": {
+        "successes": 47,
+        "total": 64,
+        "value": 0.734375,
+        "ci95_low": 0.6151712627143486,
+        "ci95_high": 0.8270362092577738
+      },
+      "action_mask_violations": 0,
+      "duplicate_terminal_events": 0,
+      "action_usage": {
+        "Hold": {
+          "count": 973,
+          "rate": 0.9144736842105263
+        },
+        "ShuffleLeft": {
+          "count": 13,
+          "rate": 0.012218045112781954
+        },
+        "ShuffleRight": {
+          "count": 14,
+          "rate": 0.013157894736842105
+        },
+        "DiveLeftLow": {
+          "count": 10,
+          "rate": 0.009398496240601503
+        },
+        "DiveLeftMiddle": {
+          "count": 7,
+          "rate": 0.006578947368421052
+        },
+        "DiveLeftHigh": {
+          "count": 11,
+          "rate": 0.010338345864661654
+        },
+        "DiveRightLow": {
+          "count": 13,
+          "rate": 0.012218045112781954
+        },
+        "DiveRightMiddle": {
+          "count": 17,
+          "rate": 0.015977443609022556
+        },
+        "DiveRightHigh": {
+          "count": 6,
+          "rate": 0.005639097744360902
+        }
+      },
+      "by_quadrant": {
+        "high-left": {
+          "attempts": 14,
+          "save_rate": {
+            "successes": 1,
+            "total": 14,
+            "value": 0.07142857142857142,
+            "ci95_low": 0.012722215247890944,
+            "ci95_high": 0.31468704424151117
+          },
+          "goal_rate": {
+            "successes": 13,
+            "total": 14,
+            "value": 0.9285714285714286,
+            "ci95_low": 0.6853129557584889,
+            "ci95_high": 0.9872777847521091
+          }
+        },
+        "high-right": {
+          "attempts": 21,
+          "save_rate": {
+            "successes": 0,
+            "total": 21,
+            "value": 0.0,
+            "ci95_low": -1.1731740316366828e-17,
+            "ci95_high": 0.154639018924847
+          },
+          "goal_rate": {
+            "successes": 21,
+            "total": 21,
+            "value": 1.0,
+            "ci95_low": 0.8453609810751531,
+            "ci95_high": 1.0000000000000002
+          }
+        },
+        "low-left": {
+          "attempts": 11,
+          "save_rate": {
+            "successes": 0,
+            "total": 11,
+            "value": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.2588329669680317
+          },
+          "goal_rate": {
+            "successes": 11,
+            "total": 11,
+            "value": 1.0,
+            "ci95_low": 0.7411670330319683,
+            "ci95_high": 1.0000000000000002
+          }
+        },
+        "low-right": {
+          "attempts": 18,
+          "save_rate": {
+            "successes": 1,
+            "total": 18,
+            "value": 0.05555555555555555,
+            "ci95_low": 0.009875190978303089,
+            "ci95_high": 0.25757300781872594
+          },
+          "goal_rate": {
+            "successes": 17,
+            "total": 18,
+            "value": 0.9444444444444444,
+            "ci95_low": 0.7424269921812741,
+            "ci95_high": 0.9901248090216969
+          }
+        }
+      },
+      "by_height_band": {
+        "high": {
+          "attempts": 25,
+          "save_rate": {
+            "successes": 1,
+            "total": 25,
+            "value": 0.04,
+            "ci95_low": 0.007096233501987266,
+            "ci95_high": 0.19544063736193734
+          },
+          "goal_rate": {
+            "successes": 24,
+            "total": 25,
+            "value": 0.96,
+            "ci95_low": 0.8045593626380625,
+            "ci95_high": 0.9929037664980126
+          }
+        },
+        "low": {
+          "attempts": 21,
+          "save_rate": {
+            "successes": 1,
+            "total": 21,
+            "value": 0.047619047619047616,
+            "ci95_low": 0.0084559878098264,
+            "ci95_high": 0.2266936007412256
+          },
+          "goal_rate": {
+            "successes": 20,
+            "total": 21,
+            "value": 0.9523809523809523,
+            "ci95_low": 0.7733063992587744,
+            "ci95_high": 0.9915440121901736
+          }
+        },
+        "middle": {
+          "attempts": 18,
+          "save_rate": {
+            "successes": 0,
+            "total": 18,
+            "value": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.17587922364665765
+          },
+          "goal_rate": {
+            "successes": 18,
+            "total": 18,
+            "value": 1.0,
+            "ci95_low": 0.8241207763533424,
+            "ci95_high": 1.0
+          }
+        }
+      },
+      "by_horizontal_band": {
+        "left": {
+          "attempts": 14,
+          "save_rate": {
+            "successes": 1,
+            "total": 14,
+            "value": 0.07142857142857142,
+            "ci95_low": 0.012722215247890944,
+            "ci95_high": 0.31468704424151117
+          },
+          "goal_rate": {
+            "successes": 13,
+            "total": 14,
+            "value": 0.9285714285714286,
+            "ci95_low": 0.6853129557584889,
+            "ci95_high": 0.9872777847521091
+          }
+        },
+        "left-center": {
+          "attempts": 11,
+          "save_rate": {
+            "successes": 0,
+            "total": 11,
+            "value": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.2588329669680317
+          },
+          "goal_rate": {
+            "successes": 11,
+            "total": 11,
+            "value": 1.0,
+            "ci95_low": 0.7411670330319683,
+            "ci95_high": 1.0000000000000002
+          }
+        },
+        "right": {
+          "attempts": 16,
+          "save_rate": {
+            "successes": 0,
+            "total": 16,
+            "value": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.1936076805344365
+          },
+          "goal_rate": {
+            "successes": 16,
+            "total": 16,
+            "value": 1.0,
+            "ci95_low": 0.8063923194655636,
+            "ci95_high": 1.0000000000000002
+          }
+        },
+        "right-center": {
+          "attempts": 23,
+          "save_rate": {
+            "successes": 1,
+            "total": 23,
+            "value": 0.043478260869565216,
+            "ci95_low": 0.007716666143453147,
+            "ci95_high": 0.20991155070258874
+          },
+          "goal_rate": {
+            "successes": 22,
+            "total": 23,
+            "value": 0.9565217391304348,
+            "ci95_low": 0.7900884492974113,
+            "ci95_high": 0.9922833338565469
+          }
+        }
+      },
+      "by_flight_time_band": {
+        "fast": {
+          "attempts": 21,
+          "save_rate": {
+            "successes": 0,
+            "total": 21,
+            "value": 0.0,
+            "ci95_low": -1.1731740316366828e-17,
+            "ci95_high": 0.154639018924847
+          },
+          "goal_rate": {
+            "successes": 21,
+            "total": 21,
+            "value": 1.0,
+            "ci95_low": 0.8453609810751531,
+            "ci95_high": 1.0000000000000002
+          }
+        },
+        "medium": {
+          "attempts": 20,
+          "save_rate": {
+            "successes": 0,
+            "total": 20,
+            "value": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.16112515805281938
+          },
+          "goal_rate": {
+            "successes": 20,
+            "total": 20,
+            "value": 1.0,
+            "ci95_low": 0.8388748419471806,
+            "ci95_high": 1.0
+          }
+        },
+        "slow": {
+          "attempts": 23,
+          "save_rate": {
+            "successes": 2,
+            "total": 23,
+            "value": 0.08695652173913043,
+            "ci95_low": 0.024180004484220342,
+            "ci95_high": 0.2679598107574366
+          },
+          "goal_rate": {
+            "successes": 21,
+            "total": 23,
+            "value": 0.9130434782608695,
+            "ci95_low": 0.7320401892425633,
+            "ci95_high": 0.9758199955157797
+          }
+        }
+      },
+      "by_first_dive_action": {
+        "DiveLeftHigh": {
+          "attempts": 11,
+          "save_rate": {
+            "successes": 1,
+            "total": 11,
+            "value": 0.09090909090909091,
+            "ci95_low": 0.01623217288588484,
+            "ci95_high": 0.37735843645159567
+          },
+          "goal_rate": {
+            "successes": 10,
+            "total": 11,
+            "value": 0.9090909090909091,
+            "ci95_low": 0.6226415635484044,
+            "ci95_high": 0.9837678271141151
+          }
+        },
+        "DiveLeftLow": {
+          "attempts": 10,
+          "save_rate": {
+            "successes": 0,
+            "total": 10,
+            "value": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.2775327998628892
+          },
+          "goal_rate": {
+            "successes": 10,
+            "total": 10,
+            "value": 1.0,
+            "ci95_low": 0.7224672001371106,
+            "ci95_high": 0.9999999999999999
+          }
+        },
+        "DiveLeftMiddle": {
+          "attempts": 7,
+          "save_rate": {
+            "successes": 0,
+            "total": 7,
+            "value": 0.0,
+            "ci95_low": 3.584186086443356e-17,
+            "ci95_high": 0.3543304350666874
+          },
+          "goal_rate": {
+            "successes": 7,
+            "total": 7,
+            "value": 1.0,
+            "ci95_low": 0.6456695649333126,
+            "ci95_high": 1.0
+          }
+        },
+        "DiveRightHigh": {
+          "attempts": 6,
+          "save_rate": {
+            "successes": 0,
+            "total": 6,
+            "value": 0.0,
+            "ci95_low": 3.384324554477539e-17,
+            "ci95_high": 0.39033428790216534
+          },
+          "goal_rate": {
+            "successes": 6,
+            "total": 6,
+            "value": 1.0,
+            "ci95_low": 0.6096657120978346,
+            "ci95_high": 1.0
+          }
+        },
+        "DiveRightLow": {
+          "attempts": 13,
+          "save_rate": {
+            "successes": 0,
+            "total": 13,
+            "value": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.22809537235419838
+          },
+          "goal_rate": {
+            "successes": 13,
+            "total": 13,
+            "value": 1.0,
+            "ci95_low": 0.7719046276458015,
+            "ci95_high": 1.0
+          }
+        },
+        "DiveRightMiddle": {
+          "attempts": 17,
+          "save_rate": {
+            "successes": 1,
+            "total": 17,
+            "value": 0.058823529411764705,
+            "ci95_low": 0.010460400984997568,
+            "ci95_high": 0.269820306375754
+          },
+          "goal_rate": {
+            "successes": 16,
+            "total": 17,
+            "value": 0.9411764705882353,
+            "ci95_low": 0.7301796936242461,
+            "ci95_high": 0.9895395990150025
+          }
+        }
+      }
+    },
+    {
+      "policy": "onnx:GoalkeeperState-v0-5000019",
+      "policy_type": "onnx",
+      "attempts": 64,
+      "expected_attempts": 64,
+      "complete": true,
+      "outcomes": {
+        "BlockedThenOut": 20,
+        "Goal": 36,
+        "Saved": 8
+      },
+      "save_rate": {
+        "successes": 28,
+        "total": 64,
+        "value": 0.4375,
+        "ci95_low": 0.32294009704403076,
+        "ci95_high": 0.5591379104300699
+      },
+      "goal_rate": {
+        "successes": 36,
+        "total": 64,
+        "value": 0.5625,
+        "ci95_low": 0.4408620895699301,
+        "ci95_high": 0.6770599029559692
+      },
+      "invalid_rate": {
+        "successes": 0,
+        "total": 64,
+        "value": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.05662405979280534
+      },
+      "timeout_rate": {
+        "successes": 0,
+        "total": 64,
+        "value": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.05662405979280534
+      },
+      "glove_contact_rate": {
+        "successes": 11,
+        "total": 64,
+        "value": 0.171875,
+        "ci95_low": 0.09877742301244645,
+        "ci95_high": 0.282132116226582
+      },
+      "goalkeeper_contact_rate": {
+        "successes": 46,
+        "total": 64,
+        "value": 0.71875,
+        "ci95_low": 0.5986606971779259,
+        "ci95_high": 0.8140662766627217
+      },
+      "contact_then_goal_rate": {
+        "successes": 18,
+        "total": 64,
+        "value": 0.28125,
+        "ci95_low": 0.18593372333727834,
+        "ci95_high": 0.40133930282207403
+      },
+      "wrong_side_rate": {
+        "successes": 2,
+        "total": 64,
+        "value": 0.03125,
+        "ci95_low": 0.00861213834617187,
+        "ci95_high": 0.10697291770958313
+      },
+      "wrong_height_rate": {
+        "successes": 48,
+        "total": 64,
+        "value": 0.75,
+        "ci95_low": 0.631837235413303,
+        "ci95_high": 0.8398507346902943
+      },
+      "action_mask_violations": 0,
+      "duplicate_terminal_events": 0,
+      "action_usage": {
+        "Hold": {
+          "count": 1259,
+          "rate": 0.7219036697247706
+        },
+        "ShuffleLeft": {
+          "count": 147,
+          "rate": 0.08428899082568807
+        },
+        "ShuffleRight": {
+          "count": 259,
+          "rate": 0.14850917431192662
+        },
+        "DiveLeftLow": {
+          "count": 30,
+          "rate": 0.017201834862385322
+        },
+        "DiveLeftMiddle": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "DiveLeftHigh": {
+          "count": 10,
+          "rate": 0.005733944954128441
+        },
+        "DiveRightLow": {
+          "count": 0,
+          "rate": 0.0
+        },
+        "DiveRightMiddle": {
+          "count": 39,
+          "rate": 0.02236238532110092
+        },
+        "DiveRightHigh": {
+          "count": 0,
+          "rate": 0.0
+        }
+      },
+      "by_quadrant": {
+        "high-left": {
+          "attempts": 14,
+          "save_rate": {
+            "successes": 3,
+            "total": 14,
+            "value": 0.21428571428571427,
+            "ci95_low": 0.07571386712693182,
+            "ci95_high": 0.47589230586600295
+          },
+          "goal_rate": {
+            "successes": 11,
+            "total": 14,
+            "value": 0.7857142857142857,
+            "ci95_low": 0.524107694133997,
+            "ci95_high": 0.924286132873068
+          }
+        },
+        "high-right": {
+          "attempts": 21,
+          "save_rate": {
+            "successes": 7,
+            "total": 21,
+            "value": 0.3333333333333333,
+            "ci95_low": 0.17194752605083477,
+            "ci95_high": 0.5462654802574476
+          },
+          "goal_rate": {
+            "successes": 14,
+            "total": 21,
+            "value": 0.6666666666666666,
+            "ci95_low": 0.45373451974255247,
+            "ci95_high": 0.8280524739491651
+          }
+        },
+        "low-left": {
+          "attempts": 11,
+          "save_rate": {
+            "successes": 8,
+            "total": 11,
+            "value": 0.7272727272727273,
+            "ci95_low": 0.43435469882387095,
+            "ci95_high": 0.9025394070997511
+          },
+          "goal_rate": {
+            "successes": 3,
+            "total": 11,
+            "value": 0.2727272727272727,
+            "ci95_low": 0.0974605929002489,
+            "ci95_high": 0.5656453011761291
+          }
+        },
+        "low-right": {
+          "attempts": 18,
+          "save_rate": {
+            "successes": 10,
+            "total": 18,
+            "value": 0.5555555555555556,
+            "ci95_low": 0.33716415642042774,
+            "ci95_high": 0.7544048187299437
+          },
+          "goal_rate": {
+            "successes": 8,
+            "total": 18,
+            "value": 0.4444444444444444,
+            "ci95_low": 0.24559518127005636,
+            "ci95_high": 0.6628358435795723
+          }
+        }
+      },
+      "by_height_band": {
+        "high": {
+          "attempts": 25,
+          "save_rate": {
+            "successes": 4,
+            "total": 25,
+            "value": 0.16,
+            "ci95_low": 0.0640345145667644,
+            "ci95_high": 0.3465362160717886
+          },
+          "goal_rate": {
+            "successes": 21,
+            "total": 25,
+            "value": 0.84,
+            "ci95_low": 0.6534637839282114,
+            "ci95_high": 0.9359654854332357
+          }
+        },
+        "low": {
+          "attempts": 21,
+          "save_rate": {
+            "successes": 11,
+            "total": 21,
+            "value": 0.5238095238095238,
+            "ci95_low": 0.3236953458284443,
+            "ci95_high": 0.7165599389846582
+          },
+          "goal_rate": {
+            "successes": 10,
+            "total": 21,
+            "value": 0.47619047619047616,
+            "ci95_low": 0.2834400610153417,
+            "ci95_high": 0.6763046541715557
+          }
+        },
+        "middle": {
+          "attempts": 18,
+          "save_rate": {
+            "successes": 13,
+            "total": 18,
+            "value": 0.7222222222222222,
+            "ci95_low": 0.4912734343970254,
+            "ci95_high": 0.8750024662044601
+          },
+          "goal_rate": {
+            "successes": 5,
+            "total": 18,
+            "value": 0.2777777777777778,
+            "ci95_low": 0.12499753379553996,
+            "ci95_high": 0.5087265656029746
+          }
+        }
+      },
+      "by_horizontal_band": {
+        "left": {
+          "attempts": 14,
+          "save_rate": {
+            "successes": 5,
+            "total": 14,
+            "value": 0.35714285714285715,
+            "ci95_low": 0.1634473175355414,
+            "ci95_high": 0.612355768960926
+          },
+          "goal_rate": {
+            "successes": 9,
+            "total": 14,
+            "value": 0.6428571428571429,
+            "ci95_low": 0.387644231039074,
+            "ci95_high": 0.8365526824644587
+          }
+        },
+        "left-center": {
+          "attempts": 11,
+          "save_rate": {
+            "successes": 6,
+            "total": 11,
+            "value": 0.5454545454545454,
+            "ci95_low": 0.28009153740932197,
+            "ci95_high": 0.7872872837754022
+          },
+          "goal_rate": {
+            "successes": 5,
+            "total": 11,
+            "value": 0.45454545454545453,
+            "ci95_low": 0.21271271622459764,
+            "ci95_high": 0.719908462590678
+          }
+        },
+        "right": {
+          "attempts": 16,
+          "save_rate": {
+            "successes": 2,
+            "total": 16,
+            "value": 0.125,
+            "ci95_low": 0.03497748774324047,
+            "ci95_high": 0.3602282726575869
+          },
+          "goal_rate": {
+            "successes": 14,
+            "total": 16,
+            "value": 0.875,
+            "ci95_low": 0.6397717273424132,
+            "ci95_high": 0.9650225122567595
+          }
+        },
+        "right-center": {
+          "attempts": 23,
+          "save_rate": {
+            "successes": 15,
+            "total": 23,
+            "value": 0.6521739130434783,
+            "ci95_low": 0.44890335377263,
+            "ci95_high": 0.8118872406120228
+          },
+          "goal_rate": {
+            "successes": 8,
+            "total": 23,
+            "value": 0.34782608695652173,
+            "ci95_low": 0.1881127593879773,
+            "ci95_high": 0.55109664622737
+          }
+        }
+      },
+      "by_flight_time_band": {
+        "fast": {
+          "attempts": 12,
+          "save_rate": {
+            "successes": 0,
+            "total": 12,
+            "value": 0.0,
+            "ci95_low": 2.1025014877572554e-17,
+            "ci95_high": 0.24249400665524087
+          },
+          "goal_rate": {
+            "successes": 12,
+            "total": 12,
+            "value": 1.0,
+            "ci95_low": 0.7575059933447591,
+            "ci95_high": 1.0
+          }
+        },
+        "medium": {
+          "attempts": 15,
+          "save_rate": {
+            "successes": 1,
+            "total": 15,
+            "value": 0.06666666666666667,
+            "ci95_low": 0.011866895493268559,
+            "ci95_high": 0.29816529873780023
+          },
+          "goal_rate": {
+            "successes": 14,
+            "total": 15,
+            "value": 0.9333333333333333,
+            "ci95_low": 0.7018347012621998,
+            "ci95_high": 0.9881331045067316
+          }
+        },
+        "slow": {
+          "attempts": 37,
+          "save_rate": {
+            "successes": 27,
+            "total": 37,
+            "value": 0.7297297297297297,
+            "ci95_low": 0.5702183167528574,
+            "ci95_high": 0.8460253848895091
+          },
+          "goal_rate": {
+            "successes": 10,
+            "total": 37,
+            "value": 0.2702702702702703,
+            "ci95_low": 0.15397461511049093,
+            "ci95_high": 0.4297816832471428
+          }
+        }
+      },
+      "by_first_dive_action": {
+        "DiveLeftLow": {
+          "attempts": 27,
+          "save_rate": {
+            "successes": 13,
+            "total": 27,
+            "value": 0.48148148148148145,
+            "ci95_low": 0.30743226976218463,
+            "ci95_high": 0.660143842450477
+          },
+          "goal_rate": {
+            "successes": 14,
+            "total": 27,
+            "value": 0.5185185185185185,
+            "ci95_low": 0.3398561575495229,
+            "ci95_high": 0.6925677302378153
+          }
+        },
+        "DiveRightMiddle": {
+          "attempts": 37,
+          "save_rate": {
+            "successes": 15,
+            "total": 37,
+            "value": 0.40540540540540543,
+            "ci95_low": 0.2634651819201429,
+            "ci95_high": 0.5651403526977063
+          },
+          "goal_rate": {
+            "successes": 22,
+            "total": 37,
+            "value": 0.5945945945945946,
+            "ci95_low": 0.4348596473022937,
+            "ci95_high": 0.7365348180798572
+          }
+        }
+      }
+    }
+  ]
+}

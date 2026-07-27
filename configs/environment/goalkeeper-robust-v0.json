@@ -1,0 +1,62 @@
+{
+    "schema_version": 1,
+    "environment_id": "penalty-shootout-kernel-v1",
+    "behavior_name": "GoalkeeperRobust-v0",
+    "observation_spec_id": "state-po-v0",
+    "reward_spec_id": "goalkeeper-sparse-v0",
+    "action_spec_id": "goalkeeper-discrete-v0",
+    "scenario_suite_id": "on-target-v0",
+    "vector_observation_size": 24,
+    "discrete_branches": [
+        9
+    ],
+    "observation_order": [
+        "ball_local_x",
+        "ball_local_y",
+        "ball_local_z",
+        "ball_local_vx",
+        "ball_local_vy",
+        "ball_local_vz",
+        "ball_angular_vx",
+        "ball_angular_vy",
+        "ball_angular_vz",
+        "goalkeeper_local_x",
+        "goalkeeper_lateral_velocity",
+        "motor_ready",
+        "motor_shuffling",
+        "motor_diving",
+        "motor_recovering",
+        "dive_left",
+        "dive_right",
+        "dive_low",
+        "dive_middle",
+        "dive_high",
+        "attempt_time",
+        "ball_flight_time",
+        "reserved_0",
+        "reserved_1"
+    ],
+    "excluded_privileged_fields": [
+        "requested_target",
+        "future_goal_plane_intersection",
+        "launch_velocity",
+        "sampled_flight_time_parameter",
+        "terminal_outcome"
+    ],
+    "partial_observation": {
+        "source": "visible_state_snapshot",
+        "delay_application": "before_noise",
+        "noise_application": "after_delay",
+        "clamp_range": [
+            -1.0,
+            1.0
+        ],
+        "controlled_by_environment_parameters": [
+            "stage4.obs_delay_steps",
+            "stage4.ball_position_noise_m",
+            "stage4.ball_velocity_noise_mps",
+            "stage4.keeper_position_noise_m",
+            "stage4.dropout_probability"
+        ]
+    }
+}

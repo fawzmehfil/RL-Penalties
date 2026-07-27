@@ -369,10 +369,55 @@ The full Stage 3 gate is not a unit test: a trained checkpoint must beat both
 `StandCenter` and `RandomLegal` by at least five percentage points on the same
 20,000 fixed shots, with no invalid, timeout, or off-target inflation.
 
+## Stage 4 goalkeeper robustness
+
+Stage 4 keeps the Stage 3 clean benchmark intact and adds a separate robustness
+layer for `GoalkeeperRobust-v0`. The new `state-po-v0` observation profile keeps
+the same 24-float order as `state-v0`, but the values can be delayed, noised, or
+dropped through ML-Agents environment parameters. Terminal benchmark telemetry
+records those perturbation settings; observations still exclude target, launch,
+future-impact, and outcome fields.
+
+Prepare and verify the Stage 4 robust scene/build with:
+
+```bash
+./scripts/verify_stage4.sh
+```
+
+The Stage 4 benchmark configs live under `configs/benchmarks/`:
+
+- `goalkeeper-robust-v0-id-20k`: in-distribution shots through `state-po-v0`
+- `goalkeeper-robust-v0-delay-noise-20k`: delayed/noisy visible state
+- `goalkeeper-robust-v0-speed-ood-20k`: faster flight-time OOD range
+- `goalkeeper-robust-v0-edge-ood-20k`: high-right edge/corner OOD range
+
+Example robust smoke evaluation:
+
+```bash
+.venv/bin/python -m penalty_shootout.evaluation.goalkeeper \
+  --benchmark configs/benchmarks/goalkeeper-robust-v0-delay-noise-20k.json \
+  --build builds/macos/PenaltyShootoutStage4.app \
+  --policy stand_center \
+  --policy random_legal \
+  --policy onnx:results/gk-state-v0_ppo_seed-001/GoalkeeperState-v0/GoalkeeperState-v0-5000019.onnx \
+  --attempts-per-arena 4 \
+  --run-id stage4-delay-noise-smoke
+```
+
+Robust training configs:
+
+- `configs/training/goalkeeper-robust-v0-ppo.yaml`
+- `configs/training/goalkeeper-robust-v0-ppo-recurrent.yaml`
+
+Stage 4 reports are intentionally separate from Stage 3 evidence:
+`docs/stage4-robustness-report.json`,
+`docs/stage4-ablation-report.json`, and
+`docs/stage4-training-summary.json`.
+
 ## Later milestones
 
-Full replay tooling, Gymnasium APIs, partial observability, shooter training,
-self-play, and visual polish remain later milestones.
+Full replay tooling, Gymnasium APIs, shooter training, self-play, richer
+goalkeeper controls, and visual polish remain later milestones.
 
 ## Open-source and third-party notices
 

@@ -78,6 +78,89 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void Stage4PartialObservationManifestPreservesStateVectorShape()
+        {
+            Assert.That(
+                KernelConstants.GoalkeeperRobustBehaviorName,
+                Is.EqualTo("GoalkeeperRobust-v0"));
+            Assert.That(
+                KernelConstants.GoalkeeperPartialObservationSpecId,
+                Is.EqualTo("state-po-v0"));
+
+            var observations = new List<float>();
+            GoalkeeperTrainingContracts.WriteStatePartialV0(
+                new GoalkeeperVisibleStateSnapshot
+                {
+                    MotorState = GoalkeeperMotorState.Ready,
+                    DiveAction = GoalkeeperAction.Hold,
+                },
+                GoalkeeperPartialObservationSettings.None,
+                observations.Add);
+            Assert.That(observations, Has.Count.EqualTo(24));
+            Assert.That(observations, Is.All.InRange(-1f, 1f));
+
+            var manifest = KernelManifestUtility.CreateGoalkeeperRobustJson();
+            StringAssert.Contains(KernelConstants.GoalkeeperRobustBehaviorName, manifest);
+            StringAssert.Contains(KernelConstants.GoalkeeperPartialObservationSpecId, manifest);
+            StringAssert.Contains("requested_target", manifest);
+            StringAssert.Contains("future_goal_plane_intersection", manifest);
+        }
+
+        [Test]
+        public void Stage4ObservationDelayBufferReturnsDeterministicDelayedSnapshots()
+        {
+            var buffer = new GoalkeeperObservationDelayBuffer(4);
+            var first = new GoalkeeperVisibleStateSnapshot { AttemptTime = 0.1f };
+            var second = new GoalkeeperVisibleStateSnapshot { AttemptTime = 0.2f };
+            var third = new GoalkeeperVisibleStateSnapshot { AttemptTime = 0.3f };
+
+            Assert.That(buffer.PushAndRead(first, 2).AttemptTime, Is.EqualTo(0.1f));
+            Assert.That(buffer.PushAndRead(second, 1).AttemptTime, Is.EqualTo(0.1f));
+            Assert.That(buffer.PushAndRead(third, 1).AttemptTime, Is.EqualTo(0.2f));
+            Assert.That(buffer.Count, Is.EqualTo(3));
+
+            buffer.Reset();
+            Assert.That(buffer.Count, Is.Zero);
+            Assert.That(buffer.PushAndRead(third, 0).AttemptTime, Is.EqualTo(0.3f));
+        }
+
+        [Test]
+        public void Stage4ObservationPerturbationIsSeededAndDropoutIsBounded()
+        {
+            var snapshot = new GoalkeeperVisibleStateSnapshot
+            {
+                BallLocalPosition = new Vector3(1f, 2f, 3f),
+                BallLocalVelocity = new Vector3(4f, 5f, 6f),
+                BallAngularVelocity = new Vector3(7f, 8f, 9f),
+                GoalkeeperLocalX = 0.5f,
+                MotorState = GoalkeeperMotorState.Ready,
+                DiveAction = GoalkeeperAction.Hold,
+            };
+            var settings = new GoalkeeperPartialObservationSettings
+            {
+                DelaySteps = 3,
+                BallPositionNoiseMeters = 0.04f,
+                BallVelocityNoiseMetersPerSecond = 0.25f,
+                GoalkeeperPositionNoiseMeters = 0.03f,
+                DropoutProbability = 0f,
+                Seed = 123UL,
+                ObservationIndex = 7,
+            };
+
+            var first = GoalkeeperTrainingContracts.PerturbVisibleState(snapshot, settings);
+            var second = GoalkeeperTrainingContracts.PerturbVisibleState(snapshot, settings);
+            Assert.That(first.BallLocalPosition, Is.EqualTo(second.BallLocalPosition));
+            Assert.That(first.BallLocalVelocity, Is.EqualTo(second.BallLocalVelocity));
+            Assert.That(first.GoalkeeperLocalX, Is.EqualTo(second.GoalkeeperLocalX));
+
+            settings.DropoutProbability = 1f;
+            var dropped = GoalkeeperTrainingContracts.PerturbVisibleState(snapshot, settings);
+            Assert.That(dropped.BallLocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(dropped.BallLocalVelocity, Is.EqualTo(Vector3.zero));
+            Assert.That(dropped.BallAngularVelocity, Is.EqualTo(Vector3.zero));
+        }
+
+        [Test]
         public void Stage2SparseRewardMapsOnlyTerminalGoalkeeperTaskOutcomes()
         {
             Assert.That(

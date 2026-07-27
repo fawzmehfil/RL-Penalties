@@ -71,6 +71,32 @@ namespace PenaltyShootout.Kernel.Tests
             StringAssert.Contains("\"accepted_action_counts\":[3,0,0,0,1,0,0,0,0]", json);
             StringAssert.Contains("\"requested_target_local\"", json);
             StringAssert.Contains("\"measured_centre_plane_intersection_local\"", json);
+
+            var robustJson = GoalkeeperBenchmarkTelemetry.CreateJson(
+                result,
+                1f,
+                KernelConstants.GoalkeeperPartialObservationSpecId,
+                new GoalkeeperPartialObservationSettings
+                {
+                    DelaySteps = 3,
+                    BallPositionNoiseMeters = 0.04f,
+                    BallVelocityNoiseMetersPerSecond = 0.25f,
+                    GoalkeeperPositionNoiseMeters = 0.03f,
+                    DropoutProbability = 0.05f,
+                });
+            StringAssert.Contains("\"behavior_name\":\"GoalkeeperRobust-v0\"", robustJson);
+            StringAssert.Contains("\"observation_spec_id\":\"state-po-v0\"", robustJson);
+            StringAssert.Contains("\"stage4_obs_delay_steps\":3", robustJson);
+            StringAssert.Contains("\"stage4_ball_position_noise_m\"", robustJson);
+            StringAssert.Contains("\"stage4_ball_velocity_noise_mps\"", robustJson);
+            Assert.That(
+                GoalkeeperBenchmarkTelemetry.CurrentBenchmarkId(
+                    new[] { "player", "--benchmark-id=goalkeeper-robust-v0-delay-noise-20k" }),
+                Is.EqualTo(KernelConstants.Stage4DelayNoiseBenchmarkId));
+            Assert.That(
+                GoalkeeperBenchmarkTelemetry.CurrentBenchmarkId(
+                    new[] { "player", "--benchmark-id", "goalkeeper-robust-v0-edge-ood-20k" }),
+                Is.EqualTo(KernelConstants.Stage4EdgeOodBenchmarkId));
         }
 
         [UnityTest]

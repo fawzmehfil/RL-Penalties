@@ -25,6 +25,11 @@ namespace PenaltyShootout.MLAgents
         private GoalkeeperAction? bufferedDiveAction;
         private bool hasPendingAction;
         private int stage2Lesson;
+        private GoalkeeperPartialObservationSettings stage4ObservationSettings =
+            GoalkeeperPartialObservationSettings.None;
+        private readonly GoalkeeperObservationDelayBuffer partialObservationBuffer =
+            new GoalkeeperObservationDelayBuffer();
+        private int partialObservationIndex;
 
         public PenaltyAreaController Controller
         {
@@ -84,6 +89,8 @@ namespace PenaltyShootout.MLAgents
             currentMask = GoalkeeperActionMask.HoldOnly;
             bufferedDiveAction = null;
             hasPendingAction = false;
+            partialObservationBuffer.Reset();
+            partialObservationIndex = 0;
             // An initial decision is required so Python reset() receives the
             // behavior specification before the physical shot begins.
             RequestDecision();
@@ -95,6 +102,28 @@ namespace PenaltyShootout.MLAgents
             {
                 GoalkeeperTrainingContracts.WriteStateV0(
                     controller,
+                    sensor.AddObservation);
+                return;
+            }
+
+            if (observationProfile == GoalkeeperObservationProfile.StatePartialV0)
+            {
+                var snapshot = GoalkeeperTrainingContracts.CaptureVisibleState(controller);
+                var delayed = partialObservationBuffer.PushAndRead(
+                    snapshot,
+                    stage4ObservationSettings.DelaySteps);
+                var settings = stage4ObservationSettings;
+                settings.Seed = controller == null
+                    ? 0UL
+                    : Pcg32.DeriveSeed(
+                        controller.MasterSeed,
+                        controller.ArenaId,
+                        controller.AttemptId);
+                settings.ObservationIndex = partialObservationIndex;
+                partialObservationIndex++;
+                GoalkeeperTrainingContracts.WriteStatePartialV0(
+                    delayed,
+                    settings,
                     sensor.AddObservation);
                 return;
             }
@@ -175,24 +204,34 @@ namespace PenaltyShootout.MLAgents
             currentMask = GoalkeeperActionMask.HoldOnly;
             bufferedDiveAction = null;
             hasPendingAction = false;
+            partialObservationBuffer.Reset();
+            partialObservationIndex = 0;
         }
 
         public void OnAttemptEnded(AttemptResult result)
         {
             var reward = GoalkeeperTrainingContracts.SparseReward(result.Outcome);
-            if (observationProfile == GoalkeeperObservationProfile.StateV0)
+            if (IsTrainableObservationProfile())
             {
                 SetReward(reward);
                 RecordStage2Stats(result, reward);
+                if (observationProfile == GoalkeeperObservationProfile.StatePartialV0)
+                {
+                    RecordStage4Stats(result, reward);
+                }
             }
 
-            GoalkeeperBenchmarkTelemetry.Emit(result, reward);
+            GoalkeeperBenchmarkTelemetry.Emit(
+                result,
+                reward,
+                GoalkeeperTrainingContracts.ObservationSpecIdForProfile(observationProfile),
+                stage4ObservationSettings);
             EndEpisode();
         }
 
         private void ApplyCurriculumParameters()
         {
-            if (observationProfile != GoalkeeperObservationProfile.StateV0 ||
+            if (!IsTrainableObservationProfile() ||
                 controller == null ||
                 controller.ShotConfiguration == null)
             {
@@ -219,6 +258,32 @@ namespace PenaltyShootout.MLAgents
                 parameters.GetWithDefault("stage2.launch_delay_min", shots.MinimumLaunchDelay);
             shots.MaximumLaunchDelay =
                 parameters.GetWithDefault("stage2.launch_delay_max", shots.MaximumLaunchDelay);
+
+            if (observationProfile == GoalkeeperObservationProfile.StatePartialV0)
+            {
+                stage4ObservationSettings = new GoalkeeperPartialObservationSettings
+                {
+                    DelaySteps = Mathf.Clamp(
+                        Mathf.RoundToInt(parameters.GetWithDefault("stage4.obs_delay_steps", 0f)),
+                        0,
+                        64),
+                    BallPositionNoiseMeters = Mathf.Max(
+                        0f,
+                        parameters.GetWithDefault("stage4.ball_position_noise_m", 0f)),
+                    BallVelocityNoiseMetersPerSecond = Mathf.Max(
+                        0f,
+                        parameters.GetWithDefault("stage4.ball_velocity_noise_mps", 0f)),
+                    GoalkeeperPositionNoiseMeters = Mathf.Max(
+                        0f,
+                        parameters.GetWithDefault("stage4.keeper_position_noise_m", 0f)),
+                    DropoutProbability = Mathf.Clamp01(
+                        parameters.GetWithDefault("stage4.dropout_probability", 0f)),
+                };
+            }
+            else
+            {
+                stage4ObservationSettings = GoalkeeperPartialObservationSettings.None;
+            }
         }
 
         private static void ApplyLessonDefaults(
@@ -284,6 +349,37 @@ namespace PenaltyShootout.MLAgents
             stats.Add("Stage2/EpisodeLengthSeconds", result.AttemptTime);
             stats.Add("Stage2/SparseReward", reward);
             stats.Add("Stage2/Lesson", stage2Lesson);
+        }
+
+        private void RecordStage4Stats(AttemptResult result, float reward)
+        {
+            var stats = Academy.Instance.StatsRecorder;
+            stats.Add("Stage4/SaveRate",
+                result.Outcome == AttemptOutcome.Saved ||
+                result.Outcome == AttemptOutcome.BlockedThenOut ? 1f : 0f);
+            stats.Add("Stage4/GoalRate", result.Outcome == AttemptOutcome.Goal ? 1f : 0f);
+            stats.Add("Stage4/InvalidRate", result.Outcome == AttemptOutcome.Invalid ? 1f : 0f);
+            stats.Add("Stage4/ActionMaskViolations", result.ActionMaskViolations);
+            stats.Add("Stage4/SparseReward", reward);
+            stats.Add("Stage4/ObservationDelaySteps", stage4ObservationSettings.DelaySteps);
+            stats.Add(
+                "Stage4/BallPositionNoiseMeters",
+                stage4ObservationSettings.BallPositionNoiseMeters);
+            stats.Add(
+                "Stage4/BallVelocityNoiseMetersPerSecond",
+                stage4ObservationSettings.BallVelocityNoiseMetersPerSecond);
+            stats.Add(
+                "Stage4/GoalkeeperPositionNoiseMeters",
+                stage4ObservationSettings.GoalkeeperPositionNoiseMeters);
+            stats.Add(
+                "Stage4/DropoutProbability",
+                stage4ObservationSettings.DropoutProbability);
+        }
+
+        private bool IsTrainableObservationProfile()
+        {
+            return observationProfile == GoalkeeperObservationProfile.StateV0 ||
+                observationProfile == GoalkeeperObservationProfile.StatePartialV0;
         }
     }
 }

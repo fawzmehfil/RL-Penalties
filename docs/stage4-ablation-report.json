@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "stage": 4,
+  "report_id": "stage4-ablation-report",
+  "planned_ablations": [
+    "clean state-v0 reference checkpoint",
+    "state-po-v0 without perturbation",
+    "state-po-v0 delayed/noisy feed-forward PPO",
+    "state-po-v0 delayed/noisy recurrent PPO",
+    "speed OOD benchmark",
+    "edge OOD benchmark"
+  ],
+  "passed": false,
+  "status": "pending; robust feed-forward and recurrent PPO seeds are not trained yet"
+}

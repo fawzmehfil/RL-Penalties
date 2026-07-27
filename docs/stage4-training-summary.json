@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "stage": 4,
+  "behavior_name": "GoalkeeperRobust-v0",
+  "observation_spec_id": "state-po-v0",
+  "reward_spec_id": "goalkeeper-sparse-v0",
+  "feed_forward_trainer_config": "configs/training/goalkeeper-robust-v0-ppo.yaml",
+  "recurrent_trainer_config": "configs/training/goalkeeper-robust-v0-ppo-recurrent.yaml",
+  "required_feed_forward_seeds": 3,
+  "required_recurrent_seeds": 3,
+  "trained_feed_forward_seeds": [],
+  "trained_recurrent_seeds": [],
+  "passed": false,
+  "status": "pending; Stage 4 robust PPO training has not been run"
+}

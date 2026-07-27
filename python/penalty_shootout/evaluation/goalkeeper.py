@@ -10,7 +10,7 @@ import platform
 import time
 import uuid
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -26,6 +26,8 @@ from mlagents_envs.side_channel.stats_side_channel import StatsSideChannel
 
 
 BEHAVIOR_NAME = "GoalkeeperState-v0"
+ROBUST_BEHAVIOR_NAME = "GoalkeeperRobust-v0"
+SUPPORTED_BEHAVIOR_NAMES = {BEHAVIOR_NAME, ROBUST_BEHAVIOR_NAME}
 OBSERVATION_SHAPES = [[24]]
 DISCRETE_BRANCHES = [9]
 STAGE3_TELEMETRY_CHANNEL_ID = uuid.UUID("b8d7b5b3-bfa6-4c46-9a3f-2e34d9fd7a31")
@@ -70,6 +72,9 @@ class BenchmarkConfig:
     primary_metric: str
     save_outcomes: tuple[str, ...]
     failure_outcomes: tuple[str, ...]
+    observation_shapes: tuple[tuple[int, ...], ...] = ((24,),)
+    discrete_branches: tuple[int, ...] = (9,)
+    environment_parameters: dict[str, float] = field(default_factory=dict)
 
 
 class GoalkeeperPolicy:
@@ -273,6 +278,17 @@ def load_benchmark_config(path: Path) -> BenchmarkConfig:
         primary_metric=str(raw["primary_metric"]),
         save_outcomes=tuple(raw["save_outcomes"]),
         failure_outcomes=tuple(raw["failure_outcomes"]),
+        observation_shapes=tuple(
+            tuple(int(value) for value in shape)
+            for shape in raw.get("observation_shapes", OBSERVATION_SHAPES)
+        ),
+        discrete_branches=tuple(
+            int(value) for value in raw.get("discrete_branches", DISCRETE_BRANCHES)
+        ),
+        environment_parameters={
+            str(key): float(value)
+            for key, value in raw.get("environment_parameters", {}).items()
+        },
     )
     validate_benchmark_config(config)
     return config
@@ -281,8 +297,22 @@ def load_benchmark_config(path: Path) -> BenchmarkConfig:
 def validate_benchmark_config(config: BenchmarkConfig) -> None:
     if config.schema_version != 1:
         raise ValueError(f"Unsupported benchmark schema: {config.schema_version}")
-    if config.behavior_name != BEHAVIOR_NAME:
+    if config.behavior_name not in SUPPORTED_BEHAVIOR_NAMES:
         raise ValueError(f"Unsupported behavior: {config.behavior_name}")
+    if [list(shape) for shape in config.observation_shapes] != OBSERVATION_SHAPES:
+        raise ValueError(f"Unsupported observation shapes: {config.observation_shapes}")
+    if list(config.discrete_branches) != DISCRETE_BRANCHES:
+        raise ValueError(f"Unsupported discrete branches: {config.discrete_branches}")
+    if (
+        config.behavior_name == BEHAVIOR_NAME
+        and config.observation_spec_id != "state-v0"
+    ):
+        raise ValueError("GoalkeeperState-v0 requires state-v0 observations")
+    if (
+        config.behavior_name == ROBUST_BEHAVIOR_NAME
+        and config.observation_spec_id != "state-po-v0"
+    ):
+        raise ValueError("GoalkeeperRobust-v0 requires state-po-v0 observations")
     if config.arena_count <= 0 or config.attempts_per_arena <= 0:
         raise ValueError("arena_count and attempts_per_arena must be positive")
     if config.total_attempts != config.arena_count * config.attempts_per_arena:
@@ -323,15 +353,18 @@ def run_policy(
     parameters = EnvironmentParametersChannel()
     stats = StatsSideChannel()
     parameters.set_float_parameter("stage2.lesson", float(config.stage2_lesson))
+    for key, value in sorted(config.environment_parameters.items()):
+        parameters.set_float_parameter(key, float(value))
     additional_args = [
         "-batchmode",
         "-nographics",
         STAGE3_TELEMETRY_FLAG,
         f"--stage3-master-seed={config.master_seed}",
+        f"--benchmark-id={config.benchmark_id}",
     ]
     if player_log_path is not None:
         player_log_path.parent.mkdir(parents=True, exist_ok=True)
-        additional_args.extend(["-logFile", str(player_log_path)])
+        additional_args.extend(["-logFile", str(player_log_path.resolve())])
 
     env = UnityEnvironment(
         file_name=str(build_path),
@@ -349,7 +382,7 @@ def run_policy(
 
     try:
         env.reset()
-        behavior_name = require_stage3_behavior(env)
+        behavior_name = require_behavior(env, config)
         for _ in range(max_environment_steps):
             drain_telemetry(
                 telemetry,
@@ -386,19 +419,25 @@ def run_policy(
         env.close()
 
 
-def require_stage3_behavior(env: UnityEnvironment) -> str:
+def require_behavior(env: UnityEnvironment, config: BenchmarkConfig) -> str:
     behavior_names = list(env.behavior_specs)
-    if len(behavior_names) != 1 or behavior_names[0].split("?", maxsplit=1)[0] != BEHAVIOR_NAME:
+    if (
+        len(behavior_names) != 1
+        or behavior_names[0].split("?", maxsplit=1)[0] != config.behavior_name
+    ):
         raise RuntimeError(f"Unexpected behavior names: {behavior_names}")
     behavior_name = behavior_names[0]
     specification = env.behavior_specs[behavior_name]
     branches = list(specification.action_spec.discrete_branches)
-    if specification.action_spec.continuous_size != 0 or branches != DISCRETE_BRANCHES:
+    if (
+        specification.action_spec.continuous_size != 0
+        or branches != list(config.discrete_branches)
+    ):
         raise RuntimeError(f"Unexpected action specification: {specification.action_spec}")
     observation_shapes = [
         list(observation.shape) for observation in specification.observation_specs
     ]
-    if observation_shapes != OBSERVATION_SHAPES:
+    if observation_shapes != [list(shape) for shape in config.observation_shapes]:
         raise RuntimeError(f"Unexpected observation shapes: {observation_shapes}")
     return behavior_name
 
@@ -693,7 +732,7 @@ def build_report(
     status = (
         "passed"
         if passed and full
-        else "smoke run; full Stage 3 gate not evaluated"
+        else "smoke run; full benchmark gate not evaluated"
         if not full
         else "no trained checkpoint policy evaluated"
         if not comparisons
@@ -706,6 +745,8 @@ def build_report(
         "behavior_name": config.behavior_name,
         "observation_spec_id": config.observation_spec_id,
         "reward_spec_id": config.reward_spec_id,
+        "action_spec_id": config.action_spec_id,
+        "scenario_suite_id": config.scenario_suite_id,
         "build": str(build_path),
         "run_id": run_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -715,6 +756,9 @@ def build_report(
         "arena_count": config.arena_count,
         "attempts_per_arena": attempts_per_arena,
         "total_attempts": config.arena_count * attempts_per_arena,
+        "observation_shapes": [list(shape) for shape in config.observation_shapes],
+        "discrete_branches": list(config.discrete_branches),
+        "environment_parameters": dict(sorted(config.environment_parameters.items())),
         "full_benchmark": full,
         "primary_metric": config.primary_metric,
         "minimum_trained_margin_vs_baselines": 0.05,
@@ -809,12 +853,17 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
         "behavior_name": report["behavior_name"],
         "observation_spec_id": report["observation_spec_id"],
         "reward_spec_id": report["reward_spec_id"],
+        "action_spec_id": report.get("action_spec_id", "goalkeeper-discrete-v0"),
+        "scenario_suite_id": report.get("scenario_suite_id", "on-target-v0"),
         "run_id": report["run_id"],
         "generated_at": report["generated_at"],
         "full_benchmark": report["full_benchmark"],
         "arena_count": report["arena_count"],
         "attempts_per_arena": report["attempts_per_arena"],
         "total_attempts": report["total_attempts"],
+        "observation_shapes": report.get("observation_shapes", OBSERVATION_SHAPES),
+        "discrete_branches": report.get("discrete_branches", DISCRETE_BRANCHES),
+        "environment_parameters": report.get("environment_parameters", {}),
         "primary_metric": report["primary_metric"],
         "comparisons": report["comparisons"],
         "passed": report["passed"],

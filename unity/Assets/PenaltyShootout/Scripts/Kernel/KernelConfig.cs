@@ -13,11 +13,18 @@ namespace PenaltyShootout.Kernel
         public const string MotorProfileId = "keeper-proxy-hands-v1";
         public const string BehaviorName = "GoalkeeperKernel-v0";
         public const string GoalkeeperStateBehaviorName = "GoalkeeperState-v0";
+        public const string GoalkeeperRobustBehaviorName = "GoalkeeperRobust-v0";
         public const string GoalkeeperStateObservationSpecId = "state-v0";
+        public const string GoalkeeperPartialObservationSpecId = "state-po-v0";
         public const string GoalkeeperSparseRewardSpecId = "goalkeeper-sparse-v0";
         public const int GoalkeeperStateObservationSize = 24;
         public const int GoalkeeperActionCount = 9;
         public const string Stage3BenchmarkId = "goalkeeper-state-v0-id-20k";
+        public const string Stage4InDistributionBenchmarkId = "goalkeeper-robust-v0-id-20k";
+        public const string Stage4DelayNoiseBenchmarkId =
+            "goalkeeper-robust-v0-delay-noise-20k";
+        public const string Stage4SpeedOodBenchmarkId = "goalkeeper-robust-v0-speed-ood-20k";
+        public const string Stage4EdgeOodBenchmarkId = "goalkeeper-robust-v0-edge-ood-20k";
         public const int ManifestSchemaVersion = 2;
         public const int AcceptanceSchemaVersion = 2;
 
@@ -66,6 +73,17 @@ namespace PenaltyShootout.Kernel
         public int[] discrete_branches;
         public string[] observation_order;
         public string[] excluded_privileged_fields;
+        public ManifestPartialObservation partial_observation;
+    }
+
+    [Serializable]
+    internal sealed class ManifestPartialObservation
+    {
+        public string source;
+        public string delay_application;
+        public string noise_application;
+        public float[] clamp_range;
+        public string[] controlled_by_environment_parameters;
     }
 
     [Serializable]
@@ -318,12 +336,34 @@ namespace PenaltyShootout.Kernel
 
         public static string CreateGoalkeeperStateJson(bool prettyPrint = true)
         {
+            return CreateGoalkeeperObservationManifestJson(
+                KernelConstants.GoalkeeperStateBehaviorName,
+                KernelConstants.GoalkeeperStateObservationSpecId,
+                false,
+                prettyPrint);
+        }
+
+        public static string CreateGoalkeeperRobustJson(bool prettyPrint = true)
+        {
+            return CreateGoalkeeperObservationManifestJson(
+                KernelConstants.GoalkeeperRobustBehaviorName,
+                KernelConstants.GoalkeeperPartialObservationSpecId,
+                true,
+                prettyPrint);
+        }
+
+        private static string CreateGoalkeeperObservationManifestJson(
+            string behaviorName,
+            string observationSpecId,
+            bool partialObservation,
+            bool prettyPrint)
+        {
             var manifest = new GoalkeeperStateManifest
             {
                 schema_version = 1,
                 environment_id = KernelConstants.EnvironmentId,
-                behavior_name = KernelConstants.GoalkeeperStateBehaviorName,
-                observation_spec_id = KernelConstants.GoalkeeperStateObservationSpecId,
+                behavior_name = behaviorName,
+                observation_spec_id = observationSpecId,
                 reward_spec_id = KernelConstants.GoalkeeperSparseRewardSpecId,
                 action_spec_id = KernelConstants.ActionSpecId,
                 scenario_suite_id = KernelConstants.ScenarioSuiteId,
@@ -364,6 +404,23 @@ namespace PenaltyShootout.Kernel
                     "sampled_flight_time_parameter",
                     "terminal_outcome",
                 },
+                partial_observation = partialObservation
+                    ? new ManifestPartialObservation
+                    {
+                        source = "visible_state_snapshot",
+                        delay_application = "before_noise",
+                        noise_application = "after_delay",
+                        clamp_range = new[] { -1f, 1f },
+                        controlled_by_environment_parameters = new[]
+                        {
+                            "stage4.obs_delay_steps",
+                            "stage4.ball_position_noise_m",
+                            "stage4.ball_velocity_noise_mps",
+                            "stage4.keeper_position_noise_m",
+                            "stage4.dropout_probability",
+                        },
+                    }
+                    : null,
             };
             return JsonUtility.ToJson(manifest, prettyPrint) + Environment.NewLine;
         }

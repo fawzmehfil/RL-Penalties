@@ -9,6 +9,7 @@ namespace PenaltyShootout.MLAgents
     public static class GoalkeeperBenchmarkTelemetry
     {
         public const string EnableFlag = "--stage3-benchmark-telemetry";
+        public const string BenchmarkIdArgument = "--benchmark-id";
         public const string ChannelId = "b8d7b5b3-bfa6-4c46-9a3f-2e34d9fd7a31";
 
         private static RawBytesChannel channel;
@@ -40,7 +41,11 @@ namespace PenaltyShootout.MLAgents
             return false;
         }
 
-        public static void Emit(AttemptResult result, float reward)
+        public static void Emit(
+            AttemptResult result,
+            float reward,
+            string observationSpecId = null,
+            GoalkeeperPartialObservationSettings observationSettings = default)
         {
             if (result == null || !CommandLineEnablesTelemetry())
             {
@@ -48,13 +53,18 @@ namespace PenaltyShootout.MLAgents
             }
 
             EnsureRegistered();
-            var json = CreateJson(result, reward);
+            var json = CreateJson(result, reward, observationSpecId, observationSettings);
             channel.SendRawBytes(Encoding.UTF8.GetBytes(json));
         }
 
-        public static string CreateJson(AttemptResult result, float reward)
+        public static string CreateJson(
+            AttemptResult result,
+            float reward,
+            string observationSpecId = null,
+            GoalkeeperPartialObservationSettings observationSettings = default)
         {
-            return JsonUtility.ToJson(CreatePayload(result, reward));
+            return JsonUtility.ToJson(
+                CreatePayload(result, reward, observationSpecId, observationSettings));
         }
 
         private static void EnsureRegistered()
@@ -69,19 +79,61 @@ namespace PenaltyShootout.MLAgents
             registered = true;
         }
 
-        private static Payload CreatePayload(AttemptResult result, float reward)
+        public static string CurrentBenchmarkId(string[] args = null)
+        {
+            args ??= Environment.GetCommandLineArgs();
+            for (var index = 0; index < args.Length; index++)
+            {
+                var argument = args[index];
+                if (string.IsNullOrEmpty(argument))
+                {
+                    continue;
+                }
+
+                if (argument.StartsWith(BenchmarkIdArgument + "=", StringComparison.Ordinal))
+                {
+                    return argument.Substring(BenchmarkIdArgument.Length + 1);
+                }
+
+                if (argument == BenchmarkIdArgument && index + 1 < args.Length)
+                {
+                    return args[index + 1];
+                }
+            }
+
+            return KernelConstants.Stage3BenchmarkId;
+        }
+
+        private static Payload CreatePayload(
+            AttemptResult result,
+            float reward,
+            string observationSpecId,
+            GoalkeeperPartialObservationSettings observationSettings)
         {
             var firstDive = result.FirstDiveDecisionIndex >= 0;
             return new Payload
             {
                 schema_version = 1,
                 message_type = "stage3_attempt_result",
-                benchmark_id = KernelConstants.Stage3BenchmarkId,
+                benchmark_id = CurrentBenchmarkId(),
                 environment_id = result.EnvironmentId,
-                behavior_name = KernelConstants.GoalkeeperStateBehaviorName,
-                observation_spec_id = KernelConstants.GoalkeeperStateObservationSpecId,
+                behavior_name =
+                    observationSpecId == KernelConstants.GoalkeeperPartialObservationSpecId
+                        ? KernelConstants.GoalkeeperRobustBehaviorName
+                        : KernelConstants.GoalkeeperStateBehaviorName,
+                observation_spec_id = string.IsNullOrEmpty(observationSpecId)
+                    ? KernelConstants.GoalkeeperStateObservationSpecId
+                    : observationSpecId,
                 reward_spec_id = KernelConstants.GoalkeeperSparseRewardSpecId,
                 scenario_suite_id = result.ScenarioSuiteId,
+                stage4_obs_delay_steps = observationSettings.DelaySteps,
+                stage4_ball_position_noise_m =
+                    observationSettings.BallPositionNoiseMeters,
+                stage4_ball_velocity_noise_mps =
+                    observationSettings.BallVelocityNoiseMetersPerSecond,
+                stage4_keeper_position_noise_m =
+                    observationSettings.GoalkeeperPositionNoiseMeters,
+                stage4_dropout_probability = observationSettings.DropoutProbability,
                 attempt_id = result.AttemptId,
                 arena_id = result.ArenaId,
                 seed = result.Seed.ToString(),
@@ -142,6 +194,11 @@ namespace PenaltyShootout.MLAgents
             public string observation_spec_id;
             public string reward_spec_id;
             public string scenario_suite_id;
+            public int stage4_obs_delay_steps;
+            public float stage4_ball_position_noise_m;
+            public float stage4_ball_velocity_noise_mps;
+            public float stage4_keeper_position_noise_m;
+            public float stage4_dropout_probability;
             public long attempt_id;
             public int arena_id;
             public string seed;
