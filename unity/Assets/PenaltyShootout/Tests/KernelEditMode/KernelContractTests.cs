@@ -9,6 +9,7 @@ namespace PenaltyShootout.Kernel.Tests
         private EnvironmentKernelConfig environment;
         private ShotDistributionConfig shots;
         private GoalkeeperMotorConfig motor;
+        private GoalkeeperControlMotorConfig controlMotor;
 
         [SetUp]
         public void SetUp()
@@ -16,6 +17,8 @@ namespace PenaltyShootout.Kernel.Tests
             environment = ScriptableObject.CreateInstance<EnvironmentKernelConfig>();
             shots = ScriptableObject.CreateInstance<ShotDistributionConfig>();
             motor = ScriptableObject.CreateInstance<GoalkeeperMotorConfig>();
+            controlMotor =
+                ScriptableObject.CreateInstance<GoalkeeperControlMotorConfig>();
         }
 
         [TearDown]
@@ -24,6 +27,7 @@ namespace PenaltyShootout.Kernel.Tests
             Object.DestroyImmediate(environment);
             Object.DestroyImmediate(shots);
             Object.DestroyImmediate(motor);
+            Object.DestroyImmediate(controlMotor);
         }
 
         [Test]
@@ -104,6 +108,198 @@ namespace PenaltyShootout.Kernel.Tests
             StringAssert.Contains(KernelConstants.GoalkeeperPartialObservationSpecId, manifest);
             StringAssert.Contains("requested_target", manifest);
             StringAssert.Contains("future_goal_plane_intersection", manifest);
+        }
+
+        [Test]
+        public void Stage5ControlContractIsVersionedAndObservationShapeIsStable()
+        {
+            Assert.That(
+                KernelConstants.GoalkeeperControlBehaviorName,
+                Is.EqualTo("GoalkeeperControl-v1"));
+            Assert.That(
+                KernelConstants.GoalkeeperControlObservationSpecId,
+                Is.EqualTo("control-state-v1"));
+            Assert.That(
+                KernelConstants.GoalkeeperControlActionSpecId,
+                Is.EqualTo("goalkeeper-hybrid-v1"));
+            Assert.That(
+                KernelConstants.GoalkeeperControlMotorProfileId,
+                Is.EqualTo("keeper-control-v1"));
+            Assert.That(
+                GoalkeeperControlSpace.ContinuousActionCount,
+                Is.EqualTo(4));
+            Assert.That(
+                GoalkeeperControlSpace.CommitBranchSize,
+                Is.EqualTo(2));
+
+            var observations = new List<float>();
+            GoalkeeperTrainingContracts.WriteControlStateV1(
+                null,
+                observations.Add);
+            Assert.That(
+                observations,
+                Has.Count.EqualTo(
+                    KernelConstants.GoalkeeperControlObservationSize));
+            Assert.That(observations, Is.All.InRange(-1f, 1f));
+
+            var manifest =
+                KernelManifestUtility.CreateGoalkeeperControlJson(controlMotor);
+            StringAssert.Contains("\"continuous_actions\": 4", manifest);
+            StringAssert.Contains("\"discrete_branches\"", manifest);
+            StringAssert.Contains("\"commit_save\"", manifest);
+            StringAssert.Contains("\"left_glove_x\"", manifest);
+            StringAssert.Contains("\"right_glove_y\"", manifest);
+            StringAssert.Contains("\"requested_target\"", manifest);
+            StringAssert.Contains("\"future_goal_plane_intersection\"", manifest);
+            StringAssert.DoesNotContain("\"requested_target_local\"", manifest);
+        }
+
+        [Test]
+        public void Stage5ControlObservationOrderAndRangesAreExact()
+        {
+            var snapshot = new GoalkeeperControlVisibleStateSnapshot
+            {
+                BallLocalPosition = new Vector3(5f, -4f, 11f),
+                BallLocalVelocity = new Vector3(25f, -25f, 12.5f),
+                BallAngularVelocity = new Vector3(50f, -50f, 25f),
+                GoalkeeperRootLocalPosition = new Vector3(3.1f, 1.2f, 0.3f),
+                GoalkeeperRootLocalVelocity = new Vector3(5f, -5f, 0f),
+                GoalkeeperBodyRoll = 1f,
+                MotorState = GoalkeeperControlMotorState.Planting,
+                MotorStateProgress = 0.25f,
+                LatchedAim = new Vector2(-0.4f, 0.6f),
+                ReachAim = new Vector2(-0.2f, 0.8f),
+                ReachExtension = 0.75f,
+                LeftGloveLocalPosition = new Vector3(-1.83f, 1.22f, 0f),
+                RightGloveLocalPosition = new Vector3(1.83f, 2.44f, 0f),
+                CanCommit = false,
+                AttemptTime = 2f,
+                BallFlightTime = 0.5f,
+            };
+            var observations = new List<float>();
+            GoalkeeperTrainingContracts.WriteControlStateV1(
+                snapshot,
+                observations.Add);
+
+            Assert.That(observations, Has.Count.EqualTo(32));
+            Assert.That(observations[0], Is.EqualTo(1f).Within(1e-5f));
+            Assert.That(observations[9], Is.EqualTo(1f).Within(1e-5f));
+            Assert.That(observations[14], Is.Zero);
+            Assert.That(observations[16], Is.EqualTo(1f));
+            Assert.That(observations[19], Is.EqualTo(0.25f).Within(1e-5f));
+            Assert.That(observations[24], Is.EqualTo(0.75f).Within(1e-5f));
+            Assert.That(observations[29], Is.Zero);
+            Assert.That(observations[30], Is.EqualTo(0.5f).Within(1e-5f));
+            Assert.That(observations[31], Is.EqualTo(0.5f).Within(1e-5f));
+            Assert.That(observations, Is.All.InRange(-1f, 1f));
+        }
+
+        [Test]
+        public void Stage5HybridCommandsClampAndRejectNonFiniteValues()
+        {
+            var command = new GoalkeeperControlCommand
+            {
+                MoveX = 2f,
+                AimX = -3f,
+                AimY = float.NaN,
+                Reach = float.PositiveInfinity,
+                Commit = true,
+            };
+            var sanitized = command.Sanitized(out var clamped);
+            Assert.That(clamped, Is.True);
+            Assert.That(sanitized.MoveX, Is.EqualTo(1f));
+            Assert.That(sanitized.AimX, Is.EqualTo(-1f));
+            Assert.That(sanitized.AimY, Is.Zero);
+            Assert.That(sanitized.Reach, Is.Zero);
+            Assert.That(sanitized.Commit, Is.True);
+        }
+
+        [Test]
+        public void Stage5TwoBoneSolverPreservesSegmentLengthsAndReachBound()
+        {
+            var shoulder = new Vector3(-0.25f, 1.3f, 0f);
+            var requested = new Vector3(-5f, 4f, 1f);
+            var elbow = GoalkeeperArmRigV1.SolveElbow(
+                shoulder,
+                requested,
+                Vector3.forward,
+                controlMotor.UpperArmLength,
+                controlMotor.ForearmLength,
+                out var hand);
+            Assert.That(
+                Vector3.Distance(shoulder, elbow),
+                Is.EqualTo(controlMotor.UpperArmLength).Within(1e-4f));
+            Assert.That(
+                Vector3.Distance(elbow, hand),
+                Is.EqualTo(controlMotor.ForearmLength).Within(1e-4f));
+            Assert.That(
+                Vector3.Distance(shoulder, hand),
+                Is.LessThanOrEqualTo(
+                    controlMotor.UpperArmLength +
+                    controlMotor.ForearmLength));
+        }
+
+        [Test]
+        public void Stage5MotorCommitsOnceMasksDuringSaveAndResetsCleanly()
+        {
+            var root = CreateControlMotor(out var goalkeeper);
+            goalkeeper.ResetForAttempt(1, 1UL);
+            Assert.That(goalkeeper.ValidateReset(out var resetError), Is.True, resetError);
+
+            var move = GoalkeeperControlCommand.Neutral;
+            move.MoveX = 1f;
+            Assert.That(goalkeeper.TryApplyCommand(move), Is.True);
+            goalkeeper.Tick(0.02f);
+            Assert.That(
+                goalkeeper.State,
+                Is.EqualTo(GoalkeeperControlMotorState.Moving));
+            Assert.That(goalkeeper.LocalPosition.x, Is.GreaterThan(0f));
+
+            var commit = new GoalkeeperControlCommand
+            {
+                MoveX = 0f,
+                AimX = 0.85f,
+                AimY = 0.75f,
+                Reach = 1f,
+                Commit = true,
+            };
+            Assert.That(goalkeeper.TryApplyCommand(commit), Is.True);
+            Assert.That(
+                goalkeeper.State,
+                Is.EqualTo(GoalkeeperControlMotorState.Planting));
+            Assert.That(goalkeeper.GetActionMask().CanCommit, Is.False);
+            Assert.That(goalkeeper.TryApplyCommand(commit), Is.False);
+
+            for (var index = 0; index < 100; index++)
+            {
+                goalkeeper.Tick(0.02f);
+            }
+
+            Assert.That(
+                goalkeeper.State,
+                Is.EqualTo(GoalkeeperControlMotorState.Ready));
+            Assert.That(goalkeeper.PeakRootSpeed, Is.GreaterThan(0f));
+            Assert.That(goalkeeper.PeakReachExtension, Is.GreaterThan(0.9f));
+            Assert.That(
+                Mathf.Abs(goalkeeper.LocalPosition.x),
+                Is.LessThanOrEqualTo(controlMotor.LateralLimit + 1e-4f));
+
+            goalkeeper.ResetForAttempt(2, 2UL);
+            Assert.That(goalkeeper.ValidateReset(out resetError), Is.True, resetError);
+            Assert.That(goalkeeper.TotalRootDistance, Is.Zero);
+            Assert.That(goalkeeper.PeakReachExtension, Is.Zero);
+            Object.DestroyImmediate(root);
+        }
+
+        [Test]
+        public void Stage5LeftAndRightDiveRootsAreMirrored()
+        {
+            var left = SampleControlDive(-0.8f, 0.4f);
+            var right = SampleControlDive(0.8f, 0.4f);
+            Assert.That(left.x, Is.LessThan(0f));
+            Assert.That(right.x, Is.GreaterThan(0f));
+            Assert.That(left.x, Is.EqualTo(-right.x).Within(1e-4f));
+            Assert.That(left.y, Is.EqualTo(right.y).Within(1e-4f));
         }
 
         [Test]
@@ -782,6 +978,40 @@ namespace PenaltyShootout.Kernel.Tests
             goalkeeper.ResetForAttempt(1, 1UL);
             Assert.That(goalkeeper.TryApplyAction(action), Is.True);
             for (var index = 0; index < 18; index++)
+            {
+                goalkeeper.Tick(0.02f);
+            }
+
+            var sampled = goalkeeper.LocalPosition;
+            Object.DestroyImmediate(root);
+            return sampled;
+        }
+
+        private GameObject CreateControlMotor(out GoalkeeperMotorV1 goalkeeper)
+        {
+            var root = new GameObject("ControlMotorRoot");
+            var keeper = new GameObject("ControlKeeper");
+            keeper.transform.SetParent(root.transform, false);
+            keeper.AddComponent<Rigidbody>();
+            goalkeeper = keeper.AddComponent<GoalkeeperMotorV1>();
+            goalkeeper.Configuration = controlMotor;
+            goalkeeper.ArenaOrigin = root.transform;
+            return root;
+        }
+
+        private Vector3 SampleControlDive(float aimX, float aimY)
+        {
+            var root = CreateControlMotor(out var goalkeeper);
+            goalkeeper.ResetForAttempt(1, 1UL);
+            goalkeeper.TryApplyCommand(
+                new GoalkeeperControlCommand
+                {
+                    AimX = aimX,
+                    AimY = aimY,
+                    Reach = 1f,
+                    Commit = true,
+                });
+            for (var index = 0; index < 20; index++)
             {
                 goalkeeper.Tick(0.02f);
             }

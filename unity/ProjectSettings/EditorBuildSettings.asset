@@ -17,6 +17,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/PenaltyShootout/Scenes/RobustTraining.unity
     guid: 31698bc20c3924cf1af1da5bb964025e
+  - enabled: 1
+    path: Assets/PenaltyShootout/Scenes/GoalkeeperControlLab.unity
+    guid: 391e0e29f768a478ab30a87ec5004b24
+  - enabled: 1
+    path: Assets/PenaltyShootout/Scenes/ControlTraining.unity
+    guid: b4bebbcf0a5014270bf1b86c21830441
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "stage": 5,
+  "status": "not-started",
+  "behavior_name": "GoalkeeperControl-v1",
+  "observation_spec_id": "control-state-v1",
+  "action_spec_id": "goalkeeper-hybrid-v1",
+  "motor_profile_id": "keeper-control-v1",
+  "trainer_config": "configs/training/goalkeeper-control-v1-ppo.yaml",
+  "training_runs": [],
+  "selected_checkpoint": null
+}

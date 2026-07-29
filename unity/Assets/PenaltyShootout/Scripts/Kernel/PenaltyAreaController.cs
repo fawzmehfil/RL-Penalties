@@ -18,6 +18,9 @@ namespace PenaltyShootout.Kernel
         [SerializeField]
         private GoalkeeperMotorConfig motorConfiguration;
 
+        [SerializeField]
+        private GoalkeeperControlMotorConfig controlMotorConfiguration;
+
         [Header("Arena references")]
         [SerializeField]
         private Transform arenaOrigin;
@@ -35,6 +38,9 @@ namespace PenaltyShootout.Kernel
         private GoalkeeperMotor goalkeeperMotor;
 
         [SerializeField]
+        private GoalkeeperMotorV1 goalkeeperControlMotor;
+
+        [SerializeField]
         private ScenarioController scenarioController;
 
         [SerializeField]
@@ -47,6 +53,10 @@ namespace PenaltyShootout.Kernel
         private LineRenderer trajectory;
 
         [Header("Execution")]
+        [SerializeField]
+        private GoalkeeperControlMode goalkeeperControlMode =
+            GoalkeeperControlMode.DiscreteV0;
+
         [SerializeField]
         private int arenaId;
 
@@ -68,6 +78,7 @@ namespace PenaltyShootout.Kernel
         private readonly List<Vector3> trajectoryPoints = new List<Vector3>(256);
 
         private IGoalkeeperActionSource resolvedActionSource;
+        private IGoalkeeperControlSourceV1 resolvedControlSource;
         private ScenarioInstance scenario;
         private AttemptResult lastResult;
         private long attemptId;
@@ -92,6 +103,20 @@ namespace PenaltyShootout.Kernel
         private float firstDiveBallFlightTime;
         private readonly int[] acceptedActionCounts =
             new int[KernelConstants.GoalkeeperActionCount];
+        private GoalkeeperControlCommand initialControlCommand;
+        private GoalkeeperControlCommand lastControlCommand;
+        private bool hasSaveCommitment;
+        private int firstCommitDecisionIndex;
+        private float firstCommitAttemptTime;
+        private float firstCommitBallFlightTime;
+        private Vector2 firstCommitAim;
+        private float minimumGloveBallDistance;
+        private int controlCommandClampCount;
+        private int acceptedControlDecisionCount;
+        private int controlMoveCommandCount;
+        private int controlReachCommandCount;
+        private readonly float[] controlAbsoluteActionSums = new float[4];
+        private readonly int[] controlSaturationCounts = new int[4];
         private bool initialized;
 
         public event Action<AttemptResult> AttemptCompleted;
@@ -112,6 +137,12 @@ namespace PenaltyShootout.Kernel
         {
             get => motorConfiguration;
             set => motorConfiguration = value;
+        }
+
+        public GoalkeeperControlMotorConfig ControlMotorConfiguration
+        {
+            get => controlMotorConfiguration;
+            set => controlMotorConfiguration = value;
         }
 
         public Transform ArenaOrigin
@@ -144,6 +175,12 @@ namespace PenaltyShootout.Kernel
             set => goalkeeperMotor = value;
         }
 
+        public GoalkeeperMotorV1 GoalkeeperControlMotor
+        {
+            get => goalkeeperControlMotor;
+            set => goalkeeperControlMotor = value;
+        }
+
         public ScenarioController ScenarioController
         {
             get => scenarioController;
@@ -157,6 +194,7 @@ namespace PenaltyShootout.Kernel
             {
                 actionSource = value;
                 resolvedActionSource = value as IGoalkeeperActionSource;
+                resolvedControlSource = value as IGoalkeeperControlSourceV1;
             }
         }
 
@@ -216,6 +254,12 @@ namespace PenaltyShootout.Kernel
             set => showDebugUi = value;
         }
 
+        public GoalkeeperControlMode ControlMode
+        {
+            get => goalkeeperControlMode;
+            set => goalkeeperControlMode = value;
+        }
+
         public AttemptPhase Phase => stateMachine.Phase;
         public AttemptOutcome CurrentOutcome => outcomeLatch.Outcome;
         public ScenarioInstance CurrentScenario => scenario;
@@ -237,9 +281,63 @@ namespace PenaltyShootout.Kernel
         public GoalkeeperAction GoalkeeperDiveAction =>
             goalkeeperMotor == null ? GoalkeeperAction.Hold : goalkeeperMotor.DiveAction;
         public float GoalkeeperLocalX =>
-            goalkeeperMotor == null ? 0f : goalkeeperMotor.LocalPosition.x;
+            goalkeeperControlMode == GoalkeeperControlMode.HybridV1
+                ? goalkeeperControlMotor == null
+                    ? 0f
+                    : goalkeeperControlMotor.LocalPosition.x
+                : goalkeeperMotor == null
+                    ? 0f
+                    : goalkeeperMotor.LocalPosition.x;
         public float GoalkeeperLateralVelocity =>
-            goalkeeperMotor == null ? 0f : goalkeeperMotor.LateralVelocity;
+            goalkeeperControlMode == GoalkeeperControlMode.HybridV1
+                ? goalkeeperControlMotor == null
+                    ? 0f
+                    : goalkeeperControlMotor.LateralVelocity
+                : goalkeeperMotor == null
+                    ? 0f
+                    : goalkeeperMotor.LateralVelocity;
+        public GoalkeeperControlMotorState GoalkeeperControlMotorState =>
+            goalkeeperControlMotor == null
+                ? GoalkeeperControlMotorState.Ready
+                : goalkeeperControlMotor.State;
+        public Vector3 GoalkeeperControlLocalPosition =>
+            goalkeeperControlMotor == null
+                ? Vector3.zero
+                : goalkeeperControlMotor.LocalPosition;
+        public Vector3 GoalkeeperControlRootVelocity =>
+            goalkeeperControlMotor == null
+                ? Vector3.zero
+                : goalkeeperControlMotor.RootVelocity;
+        public float GoalkeeperControlBodyRollNormalized =>
+            goalkeeperControlMotor == null
+                ? 0f
+                : goalkeeperControlMotor.BodyRollNormalized;
+        public float GoalkeeperControlStateProgress =>
+            goalkeeperControlMotor == null
+                ? 0f
+                : goalkeeperControlMotor.StateProgress;
+        public Vector2 GoalkeeperControlLatchedAim =>
+            goalkeeperControlMotor == null
+                ? Vector2.zero
+                : goalkeeperControlMotor.LatchedAim;
+        public Vector2 GoalkeeperControlReachAim =>
+            goalkeeperControlMotor == null
+                ? Vector2.zero
+                : goalkeeperControlMotor.CurrentReachAim;
+        public float GoalkeeperControlReachExtension =>
+            goalkeeperControlMotor == null
+                ? 0f
+                : goalkeeperControlMotor.CurrentReachExtension;
+        public Vector3 GoalkeeperControlLeftGloveLocal =>
+            goalkeeperControlMotor == null
+                ? Vector3.zero
+                : goalkeeperControlMotor.LeftGloveArenaLocal;
+        public Vector3 GoalkeeperControlRightGloveLocal =>
+            goalkeeperControlMotor == null
+                ? Vector3.zero
+                : goalkeeperControlMotor.RightGloveArenaLocal;
+        public bool GoalkeeperControlCanCommit =>
+            goalkeeperControlMotor != null && goalkeeperControlMotor.CanCommit;
 
         private void Awake()
         {
@@ -271,6 +369,7 @@ namespace PenaltyShootout.Kernel
 
             stateMachine.InitializeTerminal();
             resolvedActionSource = actionSource as IGoalkeeperActionSource;
+            resolvedControlSource = actionSource as IGoalkeeperControlSourceV1;
             Stage3BenchmarkRuntime.ApplyOverrides(this);
             initialized = ValidateDependencies(out var error);
             if (!initialized)
@@ -281,33 +380,68 @@ namespace PenaltyShootout.Kernel
             }
 
             Time.fixedDeltaTime = environmentConfiguration.FixedTimestep;
-            goalkeeperMotor.Configuration = motorConfiguration;
-            goalkeeperMotor.ArenaOrigin = arenaOrigin;
+            if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)
+            {
+                goalkeeperControlMotor.Configuration = controlMotorConfiguration;
+                goalkeeperControlMotor.ArenaOrigin = arenaOrigin;
+            }
+            else
+            {
+                goalkeeperMotor.Configuration = motorConfiguration;
+                goalkeeperMotor.ArenaOrigin = arenaOrigin;
+            }
+
             return true;
         }
 
         public bool ValidateDependencies(out string error)
         {
             if (environmentConfiguration == null ||
-                shotConfiguration == null ||
-                motorConfiguration == null)
+                shotConfiguration == null)
             {
-                error = "Environment, shot, and motor configuration assets are required.";
+                error = "Environment and shot configuration assets are required.";
                 return false;
             }
 
             if (!environmentConfiguration.Validate(out error) ||
-                !shotConfiguration.Validate(out error) ||
-                !motorConfiguration.Validate(out error))
+                !shotConfiguration.Validate(out error))
             {
                 return false;
+            }
+
+            if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)
+            {
+                if (controlMotorConfiguration == null ||
+                    goalkeeperControlMotor == null)
+                {
+                    error =
+                        "Stage 5 control motor configuration and motor are required.";
+                    return false;
+                }
+
+                if (!controlMotorConfiguration.Validate(out error))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if (motorConfiguration == null || goalkeeperMotor == null)
+                {
+                    error = "Stage 1 motor configuration and motor are required.";
+                    return false;
+                }
+
+                if (!motorConfiguration.Validate(out error))
+                {
+                    return false;
+                }
             }
 
             if (arenaOrigin == null ||
                 ball == null ||
                 ballCollider == null ||
                 ballContactSensor == null ||
-                goalkeeperMotor == null ||
                 scenarioController == null)
             {
                 error =
@@ -322,7 +456,18 @@ namespace PenaltyShootout.Kernel
                 return false;
             }
 
-            if (actionSource != null && !(actionSource is IGoalkeeperActionSource))
+            if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1 &&
+                actionSource != null &&
+                !(actionSource is IGoalkeeperControlSourceV1))
+            {
+                error =
+                    "Configured Stage 5 action source does not implement IGoalkeeperControlSourceV1.";
+                return false;
+            }
+
+            if (goalkeeperControlMode == GoalkeeperControlMode.DiscreteV0 &&
+                actionSource != null &&
+                !(actionSource is IGoalkeeperActionSource))
             {
                 error = "Configured action source does not implement IGoalkeeperActionSource.";
                 return false;
@@ -370,7 +515,27 @@ namespace PenaltyShootout.Kernel
             firstDiveDecisionIndex = -1;
             firstDiveAttemptTime = -1f;
             firstDiveBallFlightTime = -1f;
+            initialControlCommand = GoalkeeperControlCommand.Neutral;
+            lastControlCommand = GoalkeeperControlCommand.Neutral;
+            hasSaveCommitment = false;
+            firstCommitDecisionIndex = -1;
+            firstCommitAttemptTime = -1f;
+            firstCommitBallFlightTime = -1f;
+            firstCommitAim = Vector2.zero;
+            minimumGloveBallDistance = float.PositiveInfinity;
+            controlCommandClampCount = 0;
+            acceptedControlDecisionCount = 0;
+            controlMoveCommandCount = 0;
+            controlReachCommandCount = 0;
             Array.Clear(acceptedActionCounts, 0, acceptedActionCounts.Length);
+            Array.Clear(
+                controlAbsoluteActionSums,
+                0,
+                controlAbsoluteActionSums.Length);
+            Array.Clear(
+                controlSaturationCounts,
+                0,
+                controlSaturationCounts.Length);
             outcomeLatch.Reset();
             contactHistory.Reset();
             trajectoryPoints.Clear();
@@ -409,10 +574,27 @@ namespace PenaltyShootout.Kernel
             ballCollider.enabled = false;
             ResetBall(ToWorld(KernelConstants.CanonicalLaunch));
             ballContactSensor.ResetForAttempt(attemptId, scenario.Seed);
-            goalkeeperMotor.ResetForAttempt(attemptId, scenario.Seed);
+            if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)
+            {
+                goalkeeperControlMotor.ResetForAttempt(attemptId, scenario.Seed);
+            }
+            else
+            {
+                goalkeeperMotor.ResetForAttempt(attemptId, scenario.Seed);
+            }
+
             scenarioController.ResetForAttempt(attemptId, scenario.Seed);
             var sensorReset = ballContactSensor.ValidateReset(out var sensorError);
-            var motorReset = goalkeeperMotor.ValidateReset(out var motorError);
+            string motorError;
+            bool motorReset;
+            if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)
+            {
+                motorReset = goalkeeperControlMotor.ValidateReset(out motorError);
+            }
+            else
+            {
+                motorReset = goalkeeperMotor.ValidateReset(out motorError);
+            }
             var scenarioReset = scenarioController.ValidateReset(out var scenarioResetError);
             if (!sensorReset || !motorReset || !scenarioReset)
             {
@@ -428,7 +610,15 @@ namespace PenaltyShootout.Kernel
                 targetMarker.position = ToWorld(scenario.TargetLocal);
             }
 
-            resolvedActionSource?.OnAttemptStarted(attemptId);
+            if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)
+            {
+                resolvedControlSource?.OnAttemptStarted(attemptId);
+            }
+            else
+            {
+                resolvedActionSource?.OnAttemptStarted(attemptId);
+            }
+
             Physics.SyncTransforms();
         }
 
@@ -540,6 +730,7 @@ namespace PenaltyShootout.Kernel
             ballContactSensor.Drain(contactHistory, attemptTime);
 
             var currentLocal = ToLocal(ball.position);
+            UpdateMinimumGloveDistance(currentLocal);
             AddTrajectoryPoint(ball.position);
             if (!KernelMath.IsFinite(currentLocal) ||
                 !KernelMath.IsFinite(ball.linearVelocity) ||
@@ -602,7 +793,15 @@ namespace PenaltyShootout.Kernel
                 return;
             }
 
-            goalkeeperMotor.Tick(deltaTime);
+            if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)
+            {
+                goalkeeperControlMotor.Tick(deltaTime);
+            }
+            else
+            {
+                goalkeeperMotor.Tick(deltaTime);
+            }
+
             physicsTick++;
             if (physicsTick % environmentConfiguration.DecisionPeriodTicks == 0)
             {
@@ -638,6 +837,12 @@ namespace PenaltyShootout.Kernel
 
         private void RequestAction()
         {
+            if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)
+            {
+                RequestControlAction();
+                return;
+            }
+
             var context = new GoalkeeperDecisionContext(
                 attemptId,
                 decisionIndex,
@@ -664,6 +869,75 @@ namespace PenaltyShootout.Kernel
             decisionIndex++;
         }
 
+        private void RequestControlAction()
+        {
+            var context = new GoalkeeperControlDecisionContext(
+                attemptId,
+                decisionIndex,
+                physicsTick,
+                ballFlightTime);
+            var mask = goalkeeperControlMotor.GetActionMask();
+            var requested = resolvedControlSource == null
+                ? GoalkeeperControlCommand.Neutral
+                : resolvedControlSource.DecideControl(context, mask);
+            requested = requested.Sanitized(out var commandClamped);
+            if (commandClamped)
+            {
+                controlCommandClampCount++;
+            }
+            var acceptedCommit = requested.Commit && mask.CanCommit;
+            if (requested.Commit && !mask.CanCommit)
+            {
+                actionMaskViolations++;
+                requested.Commit = false;
+            }
+
+            if (!goalkeeperControlMotor.TryApplyCommand(requested))
+            {
+                actionMaskViolations++;
+                requested.Commit = false;
+                goalkeeperControlMotor.TryApplyCommand(requested);
+                acceptedCommit = false;
+            }
+
+            lastControlCommand = requested;
+            RecordAcceptedControlCommand(requested);
+            if (decisionIndex == 0)
+            {
+                initialControlCommand = requested;
+            }
+
+            if (!hasSaveCommitment && acceptedCommit)
+            {
+                hasSaveCommitment = true;
+                firstCommitDecisionIndex = decisionIndex;
+                firstCommitAttemptTime = attemptTime;
+                firstCommitBallFlightTime = ballFlightTime;
+                firstCommitAim = new Vector2(requested.AimX, requested.AimY);
+            }
+
+            decisionIndex++;
+        }
+
+        private void RecordAcceptedControlCommand(
+            GoalkeeperControlCommand command)
+        {
+            acceptedControlDecisionCount++;
+            controlMoveCommandCount += Mathf.Abs(command.MoveX) > 0.02f ? 1 : 0;
+            controlReachCommandCount += command.Reach > 0f ? 1 : 0;
+            RecordControlChannel(0, command.MoveX);
+            RecordControlChannel(1, command.AimX);
+            RecordControlChannel(2, command.AimY);
+            RecordControlChannel(3, command.Reach);
+        }
+
+        private void RecordControlChannel(int index, float value)
+        {
+            controlAbsoluteActionSums[index] += Mathf.Abs(value);
+            controlSaturationCounts[index] +=
+                Mathf.Abs(value) >= 0.999f ? 1 : 0;
+        }
+
         private void RecordAcceptedAction(GoalkeeperAction action)
         {
             var index = (int)action;
@@ -685,6 +959,24 @@ namespace PenaltyShootout.Kernel
         {
             return action >= GoalkeeperAction.DiveLeftLow &&
                 action <= GoalkeeperAction.DiveRightHigh;
+        }
+
+        private void UpdateMinimumGloveDistance(Vector3 ballLocalPosition)
+        {
+            if (goalkeeperControlMode != GoalkeeperControlMode.HybridV1 ||
+                goalkeeperControlMotor == null)
+            {
+                return;
+            }
+
+            minimumGloveBallDistance = Mathf.Min(
+                minimumGloveBallDistance,
+                Vector3.Distance(
+                    ballLocalPosition,
+                    goalkeeperControlMotor.LeftGloveArenaLocal),
+                Vector3.Distance(
+                    ballLocalPosition,
+                    goalkeeperControlMotor.RightGloveArenaLocal));
         }
 
         private bool IsOutsideDangerRegion(Vector3 localPosition)
@@ -758,6 +1050,8 @@ namespace PenaltyShootout.Kernel
                 Outcome = outcomeLatch.Outcome,
                 AttemptTime = attemptTime,
                 BallFlightTime = ballFlightTime,
+                SampledShotFlightTime = scenario.FlightTime,
+                SampledLaunchDelay = scenario.LaunchDelay,
                 GoalkeeperContact = contactHistory.GoalkeeperTouched,
                 GoalFrameContact = contactHistory.GoalFrameTouched,
                 GoalkeeperContactCount = contactHistory.GoalkeeperContactCount,
@@ -783,9 +1077,60 @@ namespace PenaltyShootout.Kernel
                 AcceptedActionCounts = (int[])acceptedActionCounts.Clone(),
                 ActionMaskViolations = actionMaskViolations,
                 DuplicateTerminalEvents = outcomeLatch.DuplicateTerminalEvents,
+                ControlMode = goalkeeperControlMode,
+                InitialControlCommand = initialControlCommand,
+                LastControlCommand = lastControlCommand,
+                HasSaveCommitment = hasSaveCommitment,
+                FirstCommitDecisionIndex = firstCommitDecisionIndex,
+                FirstCommitAttemptTime = firstCommitAttemptTime,
+                FirstCommitBallFlightTime = firstCommitBallFlightTime,
+                FirstCommitAim = firstCommitAim,
+                GoalkeeperRootDistance =
+                    goalkeeperControlMotor == null
+                        ? 0f
+                        : goalkeeperControlMotor.TotalRootDistance,
+                GoalkeeperPeakRootSpeed =
+                    goalkeeperControlMotor == null
+                        ? 0f
+                        : goalkeeperControlMotor.PeakRootSpeed,
+                GoalkeeperPeakReachExtension =
+                    goalkeeperControlMotor == null
+                        ? 0f
+                        : goalkeeperControlMotor.PeakReachExtension,
+                ControlCommandClampCount =
+                    controlCommandClampCount +
+                    (goalkeeperControlMotor == null
+                        ? 0
+                        : goalkeeperControlMotor.CommandClampCount),
+                ControlTargetClampCount =
+                    goalkeeperControlMotor == null
+                        ? 0
+                        : goalkeeperControlMotor.TargetClampCount,
+                AcceptedControlDecisionCount =
+                    acceptedControlDecisionCount,
+                ControlMoveCommandCount =
+                    controlMoveCommandCount,
+                ControlReachCommandCount =
+                    controlReachCommandCount,
+                ControlAbsoluteActionSums =
+                    (float[])controlAbsoluteActionSums.Clone(),
+                ControlSaturationCounts =
+                    (int[])controlSaturationCounts.Clone(),
+                MinimumGloveBallDistance =
+                    float.IsPositiveInfinity(minimumGloveBallDistance)
+                        ? -1f
+                        : minimumGloveBallDistance,
             };
 
-            resolvedActionSource?.OnAttemptEnded(lastResult);
+            if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)
+            {
+                resolvedControlSource?.OnAttemptEnded(lastResult);
+            }
+            else
+            {
+                resolvedActionSource?.OnAttemptEnded(lastResult);
+            }
+
             AttemptCompleted?.Invoke(lastResult);
         }
 
@@ -864,21 +1209,42 @@ namespace PenaltyShootout.Kernel
 
         private void OnGUI()
         {
-            if (!showDebugUi || Application.isBatchMode || arenaId != 0)
+            if (!showDebugUi ||
+                Application.isBatchMode ||
+                arenaId != 0 ||
+                !initialized)
             {
                 return;
             }
 
-            GUILayout.BeginArea(new Rect(20f, 20f, 410f, 330f), GUI.skin.box);
-            GUILayout.Label("Penalty Shootout RL — Stage 1 Kernel");
+            var hybridControl =
+                goalkeeperControlMode == GoalkeeperControlMode.HybridV1;
+            GUILayout.BeginArea(new Rect(20f, 20f, 430f, 360f), GUI.skin.box);
+            GUILayout.Label(
+                hybridControl
+                    ? "Penalty Shootout RL - Stage 5 Control Lab"
+                    : "Penalty Shootout RL - Stage 1 Kernel");
             GUILayout.Label($"Environment: {KernelConstants.EnvironmentId}");
             GUILayout.Label($"Attempt / seed: {attemptId} / {scenario.Seed}");
             GUILayout.Label($"Phase: {Phase}");
             GUILayout.Label($"Outcome: {CurrentOutcome}");
             GUILayout.Label($"Target: {scenario.TargetLocal:F3}");
             GUILayout.Label($"Flight time / delay: {scenario.FlightTime:F2}s / {scenario.LaunchDelay:F2}s");
-            GUILayout.Label($"Action: {lastAction}");
-            GUILayout.Label($"Motor: {goalkeeperMotor.State}");
+            if (hybridControl)
+            {
+                var command = goalkeeperControlMotor.ActiveCommand;
+                GUILayout.Label($"Motor: {goalkeeperControlMotor.State}");
+                GUILayout.Label(
+                    $"Aim: ({command.AimX:F2}, {command.AimY:F2})  " +
+                    $"Reach: {command.Reach01:F2}  " +
+                    $"Commit available: {goalkeeperControlMotor.CanCommit}");
+            }
+            else
+            {
+                GUILayout.Label($"Action: {lastAction}");
+                GUILayout.Label($"Motor: {goalkeeperMotor.State}");
+            }
+
             GUILayout.Label($"Keeper contacts: {contactHistory.GoalkeeperContactCount}");
             GUILayout.Label(
                 $"Glove contacts: {contactHistory.GloveContactCount} " +
@@ -890,7 +1256,10 @@ namespace PenaltyShootout.Kernel
                 ? $"Measured crossing: {centrePlaneIntersectionLocal:F3}"
                 : "Measured crossing: pending");
             GUILayout.Space(6f);
-            GUILayout.Label("Controls: A/D shuffle, Q/W/E left dives, U/I/O right dives");
+            GUILayout.Label(
+                hybridControl
+                    ? "Controls: A/D move, arrows aim, Shift reach, Space commit"
+                    : "Controls: A/D shuffle, Q/W/E left dives, U/I/O right dives");
             if (GUILayout.Button("Start next procedural attempt"))
             {
                 if (Phase == AttemptPhase.Terminal)

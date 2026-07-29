@@ -14,10 +14,15 @@ namespace PenaltyShootout.Kernel
         public const string BehaviorName = "GoalkeeperKernel-v0";
         public const string GoalkeeperStateBehaviorName = "GoalkeeperState-v0";
         public const string GoalkeeperRobustBehaviorName = "GoalkeeperRobust-v0";
+        public const string GoalkeeperControlBehaviorName = "GoalkeeperControl-v1";
         public const string GoalkeeperStateObservationSpecId = "state-v0";
         public const string GoalkeeperPartialObservationSpecId = "state-po-v0";
+        public const string GoalkeeperControlObservationSpecId = "control-state-v1";
         public const string GoalkeeperSparseRewardSpecId = "goalkeeper-sparse-v0";
+        public const string GoalkeeperControlActionSpecId = "goalkeeper-hybrid-v1";
+        public const string GoalkeeperControlMotorProfileId = "keeper-control-v1";
         public const int GoalkeeperStateObservationSize = 24;
+        public const int GoalkeeperControlObservationSize = 32;
         public const int GoalkeeperActionCount = 9;
         public const string Stage3BenchmarkId = "goalkeeper-state-v0-id-20k";
         public const string Stage4InDistributionBenchmarkId = "goalkeeper-robust-v0-id-20k";
@@ -25,6 +30,12 @@ namespace PenaltyShootout.Kernel
             "goalkeeper-robust-v0-delay-noise-20k";
         public const string Stage4SpeedOodBenchmarkId = "goalkeeper-robust-v0-speed-ood-20k";
         public const string Stage4EdgeOodBenchmarkId = "goalkeeper-robust-v0-edge-ood-20k";
+        public const string Stage5InDistributionBenchmarkId =
+            "goalkeeper-control-v1-id-20k";
+        public const string Stage5SpeedOodBenchmarkId =
+            "goalkeeper-control-v1-speed-ood-20k";
+        public const string Stage5EdgeOodBenchmarkId =
+            "goalkeeper-control-v1-edge-ood-20k";
         public const int ManifestSchemaVersion = 2;
         public const int AcceptanceSchemaVersion = 2;
 
@@ -84,6 +95,59 @@ namespace PenaltyShootout.Kernel
         public string noise_application;
         public float[] clamp_range;
         public string[] controlled_by_environment_parameters;
+    }
+
+    [Serializable]
+    internal sealed class GoalkeeperControlManifest
+    {
+        public int schema_version;
+        public string environment_id;
+        public string behavior_name;
+        public string observation_spec_id;
+        public string reward_spec_id;
+        public string action_spec_id;
+        public string motor_profile_id;
+        public string scenario_suite_id;
+        public int vector_observation_size;
+        public int continuous_actions;
+        public int[] discrete_branches;
+        public string[] continuous_action_order;
+        public string[] discrete_action_order;
+        public string[] observation_order;
+        public string[] excluded_privileged_fields;
+        public ManifestControlMotor motor;
+    }
+
+    [Serializable]
+    internal sealed class ManifestControlMotor
+    {
+        public string[] states;
+        public float lateral_limit_m;
+        public float maximum_move_speed_m_s;
+        public float move_acceleration_m_s2;
+        public float move_deceleration_m_s2;
+        public float plant_duration_s;
+        public float minimum_dive_duration_s;
+        public float maximum_dive_duration_s;
+        public float recovery_duration_s;
+        public float maximum_dive_lateral_displacement_m;
+        public float maximum_dive_root_height_m;
+        public float maximum_body_roll_degrees;
+        public float maximum_midair_aim_correction_m;
+        public ManifestControlArms arms;
+    }
+
+    [Serializable]
+    internal sealed class ManifestControlArms
+    {
+        public string solver;
+        public string control;
+        public float upper_arm_length_m;
+        public float forearm_length_m;
+        public float arm_radius_m;
+        public float glove_radius_m;
+        public float maximum_glove_target_speed_m_s;
+        public float glove_separation_m;
     }
 
     [Serializable]
@@ -350,6 +414,141 @@ namespace PenaltyShootout.Kernel
                 KernelConstants.GoalkeeperPartialObservationSpecId,
                 true,
                 prettyPrint);
+        }
+
+        public static string CreateGoalkeeperControlJson(
+            GoalkeeperControlMotorConfig motor,
+            bool prettyPrint = true)
+        {
+            if (motor == null)
+            {
+                throw new ArgumentNullException(nameof(motor));
+            }
+
+            if (!motor.Validate(out var error))
+            {
+                throw new InvalidOperationException(error);
+            }
+
+            var manifest = new GoalkeeperControlManifest
+            {
+                schema_version = 1,
+                environment_id = KernelConstants.EnvironmentId,
+                behavior_name = KernelConstants.GoalkeeperControlBehaviorName,
+                observation_spec_id =
+                    KernelConstants.GoalkeeperControlObservationSpecId,
+                reward_spec_id = KernelConstants.GoalkeeperSparseRewardSpecId,
+                action_spec_id = KernelConstants.GoalkeeperControlActionSpecId,
+                motor_profile_id =
+                    KernelConstants.GoalkeeperControlMotorProfileId,
+                scenario_suite_id = KernelConstants.ScenarioSuiteId,
+                vector_observation_size =
+                    KernelConstants.GoalkeeperControlObservationSize,
+                continuous_actions =
+                    GoalkeeperControlSpace.ContinuousActionCount,
+                discrete_branches = new[]
+                {
+                    GoalkeeperControlSpace.CommitBranchSize,
+                },
+                continuous_action_order = new[]
+                {
+                    "move_x",
+                    "aim_x",
+                    "aim_y",
+                    "reach",
+                },
+                discrete_action_order = new[]
+                {
+                    "no_commit",
+                    "commit_save",
+                },
+                observation_order = new[]
+                {
+                    "ball_local_x",
+                    "ball_local_y",
+                    "ball_local_z",
+                    "ball_local_vx",
+                    "ball_local_vy",
+                    "ball_local_vz",
+                    "ball_angular_vx",
+                    "ball_angular_vy",
+                    "ball_angular_vz",
+                    "goalkeeper_root_x",
+                    "goalkeeper_root_y",
+                    "goalkeeper_root_vx",
+                    "goalkeeper_root_vy",
+                    "goalkeeper_body_roll",
+                    "motor_ready",
+                    "motor_moving",
+                    "motor_planting",
+                    "motor_diving",
+                    "motor_recovering",
+                    "motor_state_progress",
+                    "latched_aim_x",
+                    "latched_aim_y",
+                    "reach_aim_x",
+                    "reach_aim_y",
+                    "reach_extension",
+                    "left_glove_x",
+                    "left_glove_y",
+                    "right_glove_x",
+                    "right_glove_y",
+                    "can_commit",
+                    "attempt_time",
+                    "ball_flight_time",
+                },
+                excluded_privileged_fields = new[]
+                {
+                    "requested_target",
+                    "future_goal_plane_intersection",
+                    "launch_velocity",
+                    "sampled_flight_time_parameter",
+                    "terminal_outcome",
+                },
+                motor = new ManifestControlMotor
+                {
+                    states = new[]
+                    {
+                        GoalkeeperControlMotorState.Ready.ToString(),
+                        GoalkeeperControlMotorState.Moving.ToString(),
+                        GoalkeeperControlMotorState.Planting.ToString(),
+                        GoalkeeperControlMotorState.Diving.ToString(),
+                        GoalkeeperControlMotorState.Recovering.ToString(),
+                    },
+                    lateral_limit_m = motor.LateralLimit,
+                    maximum_move_speed_m_s = motor.MaximumMoveSpeed,
+                    move_acceleration_m_s2 = motor.MoveAcceleration,
+                    move_deceleration_m_s2 = motor.MoveDeceleration,
+                    plant_duration_s = motor.PlantDuration,
+                    minimum_dive_duration_s = motor.MinimumDiveDuration,
+                    maximum_dive_duration_s = motor.MaximumDiveDuration,
+                    recovery_duration_s = motor.RecoveryDuration,
+                    maximum_dive_lateral_displacement_m =
+                        motor.MaximumDiveLateralDisplacement,
+                    maximum_dive_root_height_m =
+                        motor.MaximumDiveRootHeight,
+                    maximum_body_roll_degrees =
+                        motor.MaximumBodyRollDegrees,
+                    maximum_midair_aim_correction_m =
+                        motor.MaximumAimCorrection,
+                    arms = new ManifestControlArms
+                    {
+                        solver = "deterministic-two-bone-ik",
+                        control =
+                            "shared-policy-target-with-leading-and-trailing-hands",
+                        upper_arm_length_m = motor.UpperArmLength,
+                        forearm_length_m = motor.ForearmLength,
+                        arm_radius_m = motor.ArmRadius,
+                        glove_radius_m = motor.GloveRadius,
+                        maximum_glove_target_speed_m_s =
+                            motor.MaximumGloveTargetSpeed,
+                        glove_separation_m = motor.GloveSeparation,
+                    },
+                },
+            };
+
+            return JsonUtility.ToJson(manifest, prettyPrint) +
+                Environment.NewLine;
         }
 
         private static string CreateGoalkeeperObservationManifestJson(

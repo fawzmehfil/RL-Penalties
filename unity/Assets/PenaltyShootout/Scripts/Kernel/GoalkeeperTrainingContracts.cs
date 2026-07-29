@@ -8,6 +8,28 @@ namespace PenaltyShootout.Kernel
         TransportProbe = 0,
         StateV0 = 1,
         StatePartialV0 = 2,
+        ControlStateV1 = 3,
+    }
+
+    [Serializable]
+    public struct GoalkeeperControlVisibleStateSnapshot
+    {
+        public Vector3 BallLocalPosition;
+        public Vector3 BallLocalVelocity;
+        public Vector3 BallAngularVelocity;
+        public Vector3 GoalkeeperRootLocalPosition;
+        public Vector3 GoalkeeperRootLocalVelocity;
+        public float GoalkeeperBodyRoll;
+        public GoalkeeperControlMotorState MotorState;
+        public float MotorStateProgress;
+        public Vector2 LatchedAim;
+        public Vector2 ReachAim;
+        public float ReachExtension;
+        public Vector3 LeftGloveLocalPosition;
+        public Vector3 RightGloveLocalPosition;
+        public bool CanCommit;
+        public float AttemptTime;
+        public float BallFlightTime;
     }
 
     [Serializable]
@@ -110,6 +132,20 @@ namespace PenaltyShootout.Kernel
             WriteVisibleState(PerturbVisibleState(snapshot, settings), add);
         }
 
+        public static void WriteControlStateV1(
+            PenaltyAreaController controller,
+            Action<float> add)
+        {
+            WriteControlVisibleState(CaptureControlVisibleState(controller), add);
+        }
+
+        public static void WriteControlStateV1(
+            GoalkeeperControlVisibleStateSnapshot snapshot,
+            Action<float> add)
+        {
+            WriteControlVisibleState(snapshot, add);
+        }
+
         public static GoalkeeperVisibleStateSnapshot CaptureVisibleState(
             PenaltyAreaController controller)
         {
@@ -131,6 +167,46 @@ namespace PenaltyShootout.Kernel
                 GoalkeeperLateralVelocity = controller.GoalkeeperLateralVelocity,
                 MotorState = controller.GoalkeeperMotorState,
                 DiveAction = controller.GoalkeeperDiveAction,
+                AttemptTime = controller.AttemptTime,
+                BallFlightTime = controller.BallFlightTime,
+            };
+        }
+
+        public static GoalkeeperControlVisibleStateSnapshot CaptureControlVisibleState(
+            PenaltyAreaController controller)
+        {
+            if (controller == null)
+            {
+                return new GoalkeeperControlVisibleStateSnapshot
+                {
+                    MotorState = GoalkeeperControlMotorState.Ready,
+                    CanCommit = true,
+                };
+            }
+
+            return new GoalkeeperControlVisibleStateSnapshot
+            {
+                BallLocalPosition = controller.BallLocalPosition,
+                BallLocalVelocity = controller.BallLocalVelocity,
+                BallAngularVelocity = controller.BallAngularVelocity,
+                GoalkeeperRootLocalPosition =
+                    controller.GoalkeeperControlLocalPosition,
+                GoalkeeperRootLocalVelocity =
+                    controller.GoalkeeperControlRootVelocity,
+                GoalkeeperBodyRoll =
+                    controller.GoalkeeperControlBodyRollNormalized,
+                MotorState = controller.GoalkeeperControlMotorState,
+                MotorStateProgress =
+                    controller.GoalkeeperControlStateProgress,
+                LatchedAim = controller.GoalkeeperControlLatchedAim,
+                ReachAim = controller.GoalkeeperControlReachAim,
+                ReachExtension =
+                    controller.GoalkeeperControlReachExtension,
+                LeftGloveLocalPosition =
+                    controller.GoalkeeperControlLeftGloveLocal,
+                RightGloveLocalPosition =
+                    controller.GoalkeeperControlRightGloveLocal,
+                CanCommit = controller.GoalkeeperControlCanCommit,
                 AttemptTime = controller.AttemptTime,
                 BallFlightTime = controller.BallFlightTime,
             };
@@ -179,7 +255,9 @@ namespace PenaltyShootout.Kernel
 
         public static string ObservationSpecIdForProfile(GoalkeeperObservationProfile profile)
         {
-            return profile == GoalkeeperObservationProfile.StatePartialV0
+            return profile == GoalkeeperObservationProfile.ControlStateV1
+                ? KernelConstants.GoalkeeperControlObservationSpecId
+                : profile == GoalkeeperObservationProfile.StatePartialV0
                 ? KernelConstants.GoalkeeperPartialObservationSpecId
                 : profile == GoalkeeperObservationProfile.StateV0
                     ? KernelConstants.GoalkeeperStateObservationSpecId
@@ -207,6 +285,47 @@ namespace PenaltyShootout.Kernel
             add(Mathf.Clamp01(snapshot.BallFlightTime / 1f));
             add(0f);
             add(0f);
+        }
+
+        private static void WriteControlVisibleState(
+            GoalkeeperControlVisibleStateSnapshot snapshot,
+            Action<float> add)
+        {
+            AddVector(
+                add,
+                snapshot.BallLocalPosition,
+                5f,
+                4f,
+                KernelConstants.PenaltyMarkDistance);
+            AddVector(add, snapshot.BallLocalVelocity, 25f, 25f, 25f);
+            AddVector(add, snapshot.BallAngularVelocity, 50f, 50f, 50f);
+            add(Clamp(snapshot.GoalkeeperRootLocalPosition.x / 3.1f));
+            add(Clamp(snapshot.GoalkeeperRootLocalPosition.y / 1.2f));
+            add(Clamp(snapshot.GoalkeeperRootLocalVelocity.x / 5f));
+            add(Clamp(snapshot.GoalkeeperRootLocalVelocity.y / 5f));
+            add(Clamp(snapshot.GoalkeeperBodyRoll));
+            AddOneHot(add, (int)snapshot.MotorState, 5);
+            add(Mathf.Clamp01(snapshot.MotorStateProgress));
+            add(Clamp(snapshot.LatchedAim.x));
+            add(Clamp(snapshot.LatchedAim.y));
+            add(Clamp(snapshot.ReachAim.x));
+            add(Clamp(snapshot.ReachAim.y));
+            add(Mathf.Clamp01(snapshot.ReachExtension));
+            add(Clamp(
+                snapshot.LeftGloveLocalPosition.x /
+                KernelConstants.GoalHalfWidth));
+            add(Clamp(
+                snapshot.LeftGloveLocalPosition.y /
+                KernelConstants.CrossbarLowerEdge));
+            add(Clamp(
+                snapshot.RightGloveLocalPosition.x /
+                KernelConstants.GoalHalfWidth));
+            add(Clamp(
+                snapshot.RightGloveLocalPosition.y /
+                KernelConstants.CrossbarLowerEdge));
+            add(snapshot.CanCommit ? 1f : 0f);
+            add(Mathf.Clamp01(snapshot.AttemptTime / 4f));
+            add(Mathf.Clamp01(snapshot.BallFlightTime / 1f));
         }
 
         private static void AddNoise(

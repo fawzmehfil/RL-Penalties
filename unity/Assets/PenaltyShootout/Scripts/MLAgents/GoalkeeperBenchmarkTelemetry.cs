@@ -118,13 +118,19 @@ namespace PenaltyShootout.MLAgents
                 benchmark_id = CurrentBenchmarkId(),
                 environment_id = result.EnvironmentId,
                 behavior_name =
-                    observationSpecId == KernelConstants.GoalkeeperPartialObservationSpecId
+                    observationSpecId == KernelConstants.GoalkeeperControlObservationSpecId
+                        ? KernelConstants.GoalkeeperControlBehaviorName
+                        : observationSpecId == KernelConstants.GoalkeeperPartialObservationSpecId
                         ? KernelConstants.GoalkeeperRobustBehaviorName
                         : KernelConstants.GoalkeeperStateBehaviorName,
                 observation_spec_id = string.IsNullOrEmpty(observationSpecId)
                     ? KernelConstants.GoalkeeperStateObservationSpecId
                     : observationSpecId,
                 reward_spec_id = KernelConstants.GoalkeeperSparseRewardSpecId,
+                action_spec_id =
+                    observationSpecId == KernelConstants.GoalkeeperControlObservationSpecId
+                        ? KernelConstants.GoalkeeperControlActionSpecId
+                        : KernelConstants.ActionSpecId,
                 scenario_suite_id = result.ScenarioSuiteId,
                 stage4_obs_delay_steps = observationSettings.DelaySteps,
                 stage4_ball_position_noise_m =
@@ -144,6 +150,8 @@ namespace PenaltyShootout.MLAgents
                     result.Outcome == AttemptOutcome.BlockedThenOut,
                 attempt_time = result.AttemptTime,
                 ball_flight_time = result.BallFlightTime,
+                sampled_shot_flight_time = result.SampledShotFlightTime,
+                sampled_launch_delay = result.SampledLaunchDelay,
                 goalkeeper_contact = result.GoalkeeperContact,
                 goal_frame_contact = result.GoalFrameContact,
                 goalkeeper_contact_count = result.GoalkeeperContactCount,
@@ -180,6 +188,41 @@ namespace PenaltyShootout.MLAgents
                     new int[KernelConstants.GoalkeeperActionCount],
                 action_mask_violations = result.ActionMaskViolations,
                 duplicate_terminal_events = result.DuplicateTerminalEvents,
+                control_mode = result.ControlMode.ToString(),
+                initial_control_command =
+                    ControlCommandPayload.From(result.InitialControlCommand),
+                last_control_command =
+                    ControlCommandPayload.From(result.LastControlCommand),
+                has_save_commitment = result.HasSaveCommitment,
+                first_commit_decision_index =
+                    result.FirstCommitDecisionIndex,
+                first_commit_attempt_time =
+                    result.FirstCommitAttemptTime,
+                first_commit_ball_flight_time =
+                    result.FirstCommitBallFlightTime,
+                first_commit_aim = Vector2Payload.From(result.FirstCommitAim),
+                goalkeeper_root_distance =
+                    result.GoalkeeperRootDistance,
+                goalkeeper_peak_root_speed =
+                    result.GoalkeeperPeakRootSpeed,
+                goalkeeper_peak_reach_extension =
+                    result.GoalkeeperPeakReachExtension,
+                control_command_clamp_count =
+                    result.ControlCommandClampCount,
+                control_target_clamp_count =
+                    result.ControlTargetClampCount,
+                accepted_control_decision_count =
+                    result.AcceptedControlDecisionCount,
+                control_move_command_count =
+                    result.ControlMoveCommandCount,
+                control_reach_command_count =
+                    result.ControlReachCommandCount,
+                control_absolute_action_sums =
+                    result.ControlAbsoluteActionSums ?? new float[4],
+                control_saturation_counts =
+                    result.ControlSaturationCounts ?? new int[4],
+                minimum_glove_ball_distance =
+                    result.MinimumGloveBallDistance,
             };
         }
 
@@ -193,6 +236,7 @@ namespace PenaltyShootout.MLAgents
             public string behavior_name;
             public string observation_spec_id;
             public string reward_spec_id;
+            public string action_spec_id;
             public string scenario_suite_id;
             public int stage4_obs_delay_steps;
             public float stage4_ball_position_noise_m;
@@ -208,6 +252,8 @@ namespace PenaltyShootout.MLAgents
             public bool saved;
             public float attempt_time;
             public float ball_flight_time;
+            public float sampled_shot_flight_time;
+            public float sampled_launch_delay;
             public bool goalkeeper_contact;
             public bool goal_frame_contact;
             public int goalkeeper_contact_count;
@@ -238,6 +284,64 @@ namespace PenaltyShootout.MLAgents
             public int[] accepted_action_counts;
             public int action_mask_violations;
             public int duplicate_terminal_events;
+            public string control_mode;
+            public ControlCommandPayload initial_control_command;
+            public ControlCommandPayload last_control_command;
+            public bool has_save_commitment;
+            public int first_commit_decision_index;
+            public float first_commit_attempt_time;
+            public float first_commit_ball_flight_time;
+            public Vector2Payload first_commit_aim;
+            public float goalkeeper_root_distance;
+            public float goalkeeper_peak_root_speed;
+            public float goalkeeper_peak_reach_extension;
+            public int control_command_clamp_count;
+            public int control_target_clamp_count;
+            public int accepted_control_decision_count;
+            public int control_move_command_count;
+            public int control_reach_command_count;
+            public float[] control_absolute_action_sums;
+            public int[] control_saturation_counts;
+            public float minimum_glove_ball_distance;
+        }
+
+        [Serializable]
+        private struct ControlCommandPayload
+        {
+            public float move_x;
+            public float aim_x;
+            public float aim_y;
+            public float reach;
+            public bool commit;
+
+            public static ControlCommandPayload From(
+                GoalkeeperControlCommand command)
+            {
+                return new ControlCommandPayload
+                {
+                    move_x = command.MoveX,
+                    aim_x = command.AimX,
+                    aim_y = command.AimY,
+                    reach = command.Reach,
+                    commit = command.Commit,
+                };
+            }
+        }
+
+        [Serializable]
+        private struct Vector2Payload
+        {
+            public float x;
+            public float y;
+
+            public static Vector2Payload From(Vector2 vector)
+            {
+                return new Vector2Payload
+                {
+                    x = vector.x,
+                    y = vector.y,
+                };
+            }
         }
 
         [Serializable]

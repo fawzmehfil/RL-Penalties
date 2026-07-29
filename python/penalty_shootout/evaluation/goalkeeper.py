@@ -27,9 +27,17 @@ from mlagents_envs.side_channel.stats_side_channel import StatsSideChannel
 
 BEHAVIOR_NAME = "GoalkeeperState-v0"
 ROBUST_BEHAVIOR_NAME = "GoalkeeperRobust-v0"
-SUPPORTED_BEHAVIOR_NAMES = {BEHAVIOR_NAME, ROBUST_BEHAVIOR_NAME}
+CONTROL_BEHAVIOR_NAME = "GoalkeeperControl-v1"
+SUPPORTED_BEHAVIOR_NAMES = {
+    BEHAVIOR_NAME,
+    ROBUST_BEHAVIOR_NAME,
+    CONTROL_BEHAVIOR_NAME,
+}
 OBSERVATION_SHAPES = [[24]]
 DISCRETE_BRANCHES = [9]
+CONTROL_OBSERVATION_SHAPES = [[32]]
+CONTROL_DISCRETE_BRANCHES = [2]
+CONTROL_CONTINUOUS_ACTIONS = 4
 STAGE3_TELEMETRY_CHANNEL_ID = uuid.UUID("b8d7b5b3-bfa6-4c46-9a3f-2e34d9fd7a31")
 STAGE3_TELEMETRY_FLAG = "--stage3-benchmark-telemetry"
 
@@ -74,6 +82,9 @@ class BenchmarkConfig:
     failure_outcomes: tuple[str, ...]
     observation_shapes: tuple[tuple[int, ...], ...] = ((24,),)
     discrete_branches: tuple[int, ...] = (9,)
+    continuous_actions: int = 0
+    stage5_lesson: int = 0
+    motor_profile_id: str | None = None
     environment_parameters: dict[str, float] = field(default_factory=dict)
 
 
@@ -94,6 +105,22 @@ class GoalkeeperPolicy:
 
     def reset_agents(self, agent_ids: np.ndarray) -> None:
         pass
+
+    def action_tuple(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None,
+        config: BenchmarkConfig,
+    ) -> ActionTuple:
+        if config.continuous_actions != 0:
+            raise RuntimeError(
+                f"{self.name} does not support {config.continuous_actions} "
+                "continuous actions"
+            )
+        return ActionTuple(
+            discrete=self.act_batch(observations, action_mask, agent_ids)
+        )
 
     @staticmethod
     def _legal_actions(action_mask: np.ndarray | None, row: int) -> np.ndarray:
@@ -216,6 +243,174 @@ class LinearInterceptPolicy(GoalkeeperPolicy):
         return self._sanitize(actions, action_mask)
 
 
+class HybridGoalkeeperPolicy(GoalkeeperPolicy):
+    def act_batch(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
+    ) -> np.ndarray:
+        raise RuntimeError(
+            f"{self.name} requires the Stage 5 hybrid action contract"
+        )
+
+    def hybrid_actions(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        raise NotImplementedError
+
+    def action_tuple(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None,
+        config: BenchmarkConfig,
+    ) -> ActionTuple:
+        if (
+            config.continuous_actions != CONTROL_CONTINUOUS_ACTIONS
+            or list(config.discrete_branches) != CONTROL_DISCRETE_BRANCHES
+        ):
+            raise RuntimeError(
+                f"{self.name} requires the goalkeeper-hybrid-v1 action spec"
+            )
+        continuous, discrete = self.hybrid_actions(
+            observations,
+            action_mask,
+            agent_ids,
+        )
+        return ActionTuple(continuous=continuous, discrete=discrete)
+
+    @staticmethod
+    def _sanitize_commit(
+        commit: np.ndarray,
+        action_mask: np.ndarray | None,
+    ) -> np.ndarray:
+        output = np.asarray(commit, dtype=np.int32).reshape(-1)
+        output[(output < 0) | (output >= 2)] = 0
+        if action_mask is not None:
+            disabled = np.asarray(action_mask, dtype=bool)
+            for row, action in enumerate(output):
+                if disabled[row, action]:
+                    output[row] = 0
+        return output.reshape(-1, 1)
+
+
+class StandCenterV1Policy(HybridGoalkeeperPolicy):
+    name = "stand_center_v1"
+
+    def hybrid_actions(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        continuous = np.zeros(
+            (len(observations), CONTROL_CONTINUOUS_ACTIONS),
+            dtype=np.float32,
+        )
+        continuous[:, 3] = -1.0
+        discrete = np.zeros((len(observations), 1), dtype=np.int32)
+        return continuous, discrete
+
+
+class RandomHybridV1Policy(HybridGoalkeeperPolicy):
+    name = "random_hybrid_v1"
+
+    def __init__(self, seed: int = 20260725) -> None:
+        self._rng = np.random.default_rng(seed)
+
+    def hybrid_actions(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        continuous = self._rng.uniform(
+            -1.0,
+            1.0,
+            size=(len(observations), CONTROL_CONTINUOUS_ACTIONS),
+        ).astype(np.float32)
+        commit = (self._rng.random(len(observations)) < 0.12).astype(np.int32)
+        return continuous, self._sanitize_commit(commit, action_mask)
+
+
+class ReactiveReachV1Policy(HybridGoalkeeperPolicy):
+    name = "reactive_reach_v1"
+
+    def __init__(self, commit_horizon: float = 0.62) -> None:
+        self.commit_horizon = commit_horizon
+
+    def hybrid_actions(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        continuous = np.zeros(
+            (len(observations), CONTROL_CONTINUOUS_ACTIONS),
+            dtype=np.float32,
+        )
+        commit = np.zeros(len(observations), dtype=np.int32)
+        for row, obs in enumerate(observations):
+            position = np.asarray(
+                [
+                    float(obs[0]) * 5.0,
+                    float(obs[1]) * 4.0,
+                    float(obs[2]) * 11.0,
+                ],
+                dtype=np.float32,
+            )
+            velocity = np.asarray(
+                [
+                    float(obs[3]) * 25.0,
+                    float(obs[4]) * 25.0,
+                    float(obs[5]) * 25.0,
+                ],
+                dtype=np.float32,
+            )
+            target_x = float(position[0])
+            target_y = float(position[1])
+            time_to_plane = -1.0
+            if velocity[2] < -0.1:
+                time_to_plane = float(
+                    np.clip(-position[2] / velocity[2], 0.0, 1.5)
+                )
+                target_x += float(velocity[0]) * time_to_plane
+                target_y += (
+                    float(velocity[1]) * time_to_plane
+                    + 0.5 * GRAVITY_Y * time_to_plane * time_to_plane
+                )
+
+            keeper_x = float(obs[9]) * 3.1
+            continuous[row, 0] = np.clip(
+                (target_x - keeper_x) / 1.25,
+                -1.0,
+                1.0,
+            )
+            continuous[row, 1] = np.clip(
+                target_x / TARGET_X_EXTENT,
+                -1.0,
+                1.0,
+            )
+            target_y_normalized_value = np.clip(
+                (target_y - TARGET_Y_MIN) /
+                (TARGET_Y_MAX - TARGET_Y_MIN),
+                0.0,
+                1.0,
+            )
+            continuous[row, 2] = (
+                float(target_y_normalized_value) * 2.0 - 1.0
+            )
+            continuous[row, 3] = 1.0
+            commit[row] = int(
+                0.0 <= time_to_plane <= self.commit_horizon
+            )
+        return continuous, self._sanitize_commit(commit, action_mask)
+
+
 class OnnxPolicy(GoalkeeperPolicy):
     policy_type = "onnx"
 
@@ -229,6 +424,7 @@ class OnnxPolicy(GoalkeeperPolicy):
             providers=["CPUExecutionProvider"],
         )
         self._output_name = "deterministic_discrete_actions"
+        self._continuous_output_name = "deterministic_continuous_actions"
         self._memory_input_name = "recurrent_in"
         self._memory_output_name = "recurrent_out"
         self._input_names = {input_spec.name for input_spec in self._session.get_inputs()}
@@ -239,6 +435,9 @@ class OnnxPolicy(GoalkeeperPolicy):
             raise RuntimeError(
                 f"ONNX model {model_path} does not expose {self._output_name}"
             )
+        self._has_continuous_output = (
+            self._continuous_output_name in output_names
+        )
 
     def act_batch(
         self,
@@ -246,12 +445,85 @@ class OnnxPolicy(GoalkeeperPolicy):
         action_mask: np.ndarray | None,
         agent_ids: np.ndarray | None = None,
     ) -> np.ndarray:
-        mask = self._onnx_enabled_action_mask(len(observations), action_mask)
+        discrete, _ = self._run_policy(
+            observations,
+            action_mask,
+            agent_ids,
+            include_continuous=False,
+        )
+        return self._sanitize(np.asarray(discrete).reshape(-1), action_mask)
+
+    def action_tuple(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None,
+        config: BenchmarkConfig,
+    ) -> ActionTuple:
+        if config.continuous_actions == 0:
+            return ActionTuple(
+                discrete=self.act_batch(
+                    observations,
+                    action_mask,
+                    agent_ids,
+                )
+            )
+        if (
+            config.continuous_actions != CONTROL_CONTINUOUS_ACTIONS
+            or not getattr(self, "_has_continuous_output", False)
+        ):
+            raise RuntimeError(
+                f"ONNX model {self.model_path} does not expose the required "
+                f"{config.continuous_actions} continuous actions"
+            )
+        discrete, continuous = self._run_policy(
+            observations,
+            action_mask,
+            agent_ids,
+            include_continuous=True,
+            discrete_action_count=sum(config.discrete_branches),
+        )
+        if continuous is None:
+            raise RuntimeError(
+                f"ONNX model {self.model_path} returned no continuous actions"
+            )
+        sanitized_continuous = np.clip(
+            np.asarray(continuous, dtype=np.float32),
+            -1.0,
+            1.0,
+        ).reshape(-1, config.continuous_actions)
+        sanitized_discrete = HybridGoalkeeperPolicy._sanitize_commit(
+            np.asarray(discrete).reshape(-1),
+            action_mask,
+        )
+        return ActionTuple(
+            continuous=sanitized_continuous,
+            discrete=sanitized_discrete,
+        )
+
+    def _run_policy(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None,
+        *,
+        include_continuous: bool,
+        discrete_action_count: int | None = None,
+    ) -> tuple[np.ndarray, np.ndarray | None]:
+        mask = self._onnx_enabled_action_mask(
+            len(observations),
+            action_mask,
+            discrete_action_count,
+        )
         feed = {
             "obs_0": np.asarray(observations, dtype=np.float32),
             "action_masks": mask,
         }
         output_names = [self._output_name]
+        continuous_index = None
+        if include_continuous:
+            continuous_index = len(output_names)
+            output_names.append(self._continuous_output_name)
         normalized_agent_ids = None
         if self.is_recurrent:
             normalized_agent_ids = self._normalize_agent_ids(agent_ids, len(observations))
@@ -262,8 +534,13 @@ class OnnxPolicy(GoalkeeperPolicy):
             feed,
         )
         if self.is_recurrent and normalized_agent_ids is not None:
-            self._store_memory_batch(normalized_agent_ids, result[1])
-        return self._sanitize(np.asarray(result[0]).reshape(-1), action_mask)
+            self._store_memory_batch(normalized_agent_ids, result[-1])
+        continuous = (
+            None
+            if continuous_index is None
+            else np.asarray(result[continuous_index])
+        )
+        return np.asarray(result[0]), continuous
 
     @property
     def is_recurrent(self) -> bool:
@@ -334,9 +611,15 @@ class OnnxPolicy(GoalkeeperPolicy):
     def _onnx_enabled_action_mask(
         batch_size: int,
         action_mask: np.ndarray | None,
+        discrete_action_count: int | None = None,
     ) -> np.ndarray:
         if action_mask is None:
-            return np.ones((batch_size, len(ACTION_NAMES)), dtype=np.float32)
+            count = (
+                len(ACTION_NAMES)
+                if discrete_action_count is None
+                else discrete_action_count
+            )
+            return np.ones((batch_size, count), dtype=np.float32)
 
         # ML-Agents Python DecisionSteps masks mark disabled actions as True.
         # Exported ML-Agents ONNX policies expect enabled actions as 1.0.
@@ -376,6 +659,13 @@ def load_benchmark_config(path: Path) -> BenchmarkConfig:
         discrete_branches=tuple(
             int(value) for value in raw.get("discrete_branches", DISCRETE_BRANCHES)
         ),
+        continuous_actions=int(raw.get("continuous_actions", 0)),
+        stage5_lesson=int(raw.get("stage5_lesson", 0)),
+        motor_profile_id=(
+            str(raw["motor_profile_id"])
+            if raw.get("motor_profile_id") is not None
+            else None
+        ),
         environment_parameters={
             str(key): float(value)
             for key, value in raw.get("environment_parameters", {}).items()
@@ -390,10 +680,31 @@ def validate_benchmark_config(config: BenchmarkConfig) -> None:
         raise ValueError(f"Unsupported benchmark schema: {config.schema_version}")
     if config.behavior_name not in SUPPORTED_BEHAVIOR_NAMES:
         raise ValueError(f"Unsupported behavior: {config.behavior_name}")
-    if [list(shape) for shape in config.observation_shapes] != OBSERVATION_SHAPES:
-        raise ValueError(f"Unsupported observation shapes: {config.observation_shapes}")
-    if list(config.discrete_branches) != DISCRETE_BRANCHES:
-        raise ValueError(f"Unsupported discrete branches: {config.discrete_branches}")
+    is_control = config.behavior_name == CONTROL_BEHAVIOR_NAME
+    expected_observation_shapes = (
+        CONTROL_OBSERVATION_SHAPES if is_control else OBSERVATION_SHAPES
+    )
+    expected_discrete_branches = (
+        CONTROL_DISCRETE_BRANCHES if is_control else DISCRETE_BRANCHES
+    )
+    expected_continuous_actions = (
+        CONTROL_CONTINUOUS_ACTIONS if is_control else 0
+    )
+    if (
+        [list(shape) for shape in config.observation_shapes]
+        != expected_observation_shapes
+    ):
+        raise ValueError(
+            f"Unsupported observation shapes: {config.observation_shapes}"
+        )
+    if list(config.discrete_branches) != expected_discrete_branches:
+        raise ValueError(
+            f"Unsupported discrete branches: {config.discrete_branches}"
+        )
+    if config.continuous_actions != expected_continuous_actions:
+        raise ValueError(
+            f"Unsupported continuous action count: {config.continuous_actions}"
+        )
     if (
         config.behavior_name == BEHAVIOR_NAME
         and config.observation_spec_id != "state-v0"
@@ -404,23 +715,60 @@ def validate_benchmark_config(config: BenchmarkConfig) -> None:
         and config.observation_spec_id != "state-po-v0"
     ):
         raise ValueError("GoalkeeperRobust-v0 requires state-po-v0 observations")
+    if (
+        config.behavior_name == CONTROL_BEHAVIOR_NAME
+        and config.observation_spec_id != "control-state-v1"
+    ):
+        raise ValueError(
+            "GoalkeeperControl-v1 requires control-state-v1 observations"
+        )
+    if (
+        config.behavior_name == CONTROL_BEHAVIOR_NAME
+        and config.action_spec_id != "goalkeeper-hybrid-v1"
+    ):
+        raise ValueError(
+            "GoalkeeperControl-v1 requires goalkeeper-hybrid-v1 actions"
+        )
+    if (
+        config.behavior_name == CONTROL_BEHAVIOR_NAME
+        and config.motor_profile_id != "keeper-control-v1"
+    ):
+        raise ValueError(
+            "GoalkeeperControl-v1 requires keeper-control-v1 motor"
+        )
     if config.arena_count <= 0 or config.attempts_per_arena <= 0:
         raise ValueError("arena_count and attempts_per_arena must be positive")
     if config.total_attempts != config.arena_count * config.attempts_per_arena:
         raise ValueError("total_attempts must equal arena_count * attempts_per_arena")
     if config.stage2_lesson != 3:
         raise ValueError("Stage 3 v0 benchmarks the full Stage 2 lesson 3 range")
+    if is_control and config.stage5_lesson != 4:
+        raise ValueError("Stage 5 benchmarks require full Stage 5 lesson 4")
 
 
-def make_policy(spec: str, seed: int) -> GoalkeeperPolicy:
+def make_policy(
+    spec: str,
+    seed: int,
+    config: BenchmarkConfig | None = None,
+) -> GoalkeeperPolicy:
+    is_control = (
+        config is not None
+        and config.behavior_name == CONTROL_BEHAVIOR_NAME
+    )
     if spec == "stand_center":
-        return StandCenterPolicy()
+        return StandCenterV1Policy() if is_control else StandCenterPolicy()
     if spec == "random_legal":
-        return RandomLegalPolicy(seed)
+        return RandomHybridV1Policy(seed) if is_control else RandomLegalPolicy(seed)
+    if spec == "stand_center_v1":
+        return StandCenterV1Policy()
+    if spec in {"random_hybrid", "random_hybrid_v1"}:
+        return RandomHybridV1Policy(seed)
+    if spec in {"reactive_reach", "reactive_reach_v1"}:
+        return ReactiveReachV1Policy()
     if spec == "reactive_side":
-        return ReactiveSidePolicy()
+        return ReactiveReachV1Policy() if is_control else ReactiveSidePolicy()
     if spec == "linear_intercept":
-        return LinearInterceptPolicy()
+        return ReactiveReachV1Policy() if is_control else LinearInterceptPolicy()
     if spec.startswith("onnx:"):
         model_path = Path(spec.split(":", maxsplit=1)[1]).expanduser().resolve()
         if not model_path.exists():
@@ -496,8 +844,18 @@ def run_policy(
                     decision_steps.obs[0],
                     mask,
                     decision_steps.agent_id,
+                ) if config.continuous_actions == 0 else None
+                action_tuple = (
+                    ActionTuple(discrete=actions)
+                    if actions is not None
+                    else policy.action_tuple(
+                        decision_steps.obs[0],
+                        mask,
+                        decision_steps.agent_id,
+                        config,
+                    )
                 )
-                env.set_actions(behavior_name, ActionTuple(discrete=actions))
+                env.set_actions(behavior_name, action_tuple)
             env.step()
         else:
             raise TimeoutError(
@@ -528,7 +886,7 @@ def require_behavior(env: UnityEnvironment, config: BenchmarkConfig) -> str:
     specification = env.behavior_specs[behavior_name]
     branches = list(specification.action_spec.discrete_branches)
     if (
-        specification.action_spec.continuous_size != 0
+        specification.action_spec.continuous_size != config.continuous_actions
         or branches != list(config.discrete_branches)
     ):
         raise RuntimeError(f"Unexpected action specification: {specification.action_spec}")
@@ -593,9 +951,17 @@ def aggregate_policy(
     contact_then_goal = sum(
         1 for item in episodes if item["outcome"] == "Goal" and item["goalkeeper_contact"]
     )
+    committed_episodes = [
+        item for item in episodes if item.get("has_save_commitment")
+    ]
+    minimum_glove_distances = [
+        float(item["minimum_glove_ball_distance"])
+        for item in episodes
+        if float(item.get("minimum_glove_ball_distance", -1.0)) >= 0.0
+    ]
 
     expected_total = config.arena_count * attempts_per_arena
-    return {
+    report = {
         "policy": policy.name,
         "policy_type": policy.policy_type,
         "attempts": total,
@@ -628,6 +994,72 @@ def aggregate_policy(
         "by_flight_time_band": aggregate_by(episodes, flight_time_band),
         "by_first_dive_action": aggregate_by(episodes, first_dive_action),
     }
+    if config.behavior_name == CONTROL_BEHAVIOR_NAME:
+        report.update(
+            {
+                "commit_rate": rate(len(committed_episodes), total),
+                "first_commit_ball_flight_time": numeric_summary(
+                    [
+                        float(item["first_commit_ball_flight_time"])
+                        for item in committed_episodes
+                    ]
+                ),
+                "first_commit_aim_error_m": numeric_summary(
+                    [
+                        first_commit_aim_error(item)
+                        for item in committed_episodes
+                    ]
+                ),
+                "goalkeeper_root_distance_m": numeric_summary(
+                    [
+                        float(item.get("goalkeeper_root_distance", 0.0))
+                        for item in episodes
+                    ]
+                ),
+                "goalkeeper_peak_root_speed_mps": numeric_summary(
+                    [
+                        float(item.get("goalkeeper_peak_root_speed", 0.0))
+                        for item in episodes
+                    ]
+                ),
+                "goalkeeper_peak_reach_extension": numeric_summary(
+                    [
+                        float(
+                            item.get(
+                                "goalkeeper_peak_reach_extension",
+                                0.0,
+                            )
+                        )
+                        for item in episodes
+                    ]
+                ),
+                "minimum_glove_ball_distance_m": numeric_summary(
+                    minimum_glove_distances
+                ),
+                "control_command_clamp_count": sum(
+                    int(item.get("control_command_clamp_count", 0))
+                    for item in episodes
+                ),
+                "control_target_clamp_count": sum(
+                    int(item.get("control_target_clamp_count", 0))
+                    for item in episodes
+                ),
+                "control_usage": control_usage(episodes),
+                "by_commit_status": aggregate_by(
+                    episodes,
+                    lambda item: (
+                        "committed"
+                        if item.get("has_save_commitment")
+                        else "no-commit"
+                    ),
+                ),
+                "by_first_commit_aim_region": aggregate_by(
+                    committed_episodes,
+                    first_commit_aim_region,
+                ),
+            }
+        )
+    return report
 
 
 def aggregate_by(
@@ -661,6 +1093,59 @@ def action_usage(action_counts: list[int]) -> dict[str, dict[str, float | int]]:
     }
 
 
+def control_usage(
+    episodes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    channels = ("move_x", "aim_x", "aim_y", "reach")
+    decisions = sum(
+        int(item.get("accepted_control_decision_count", 0))
+        for item in episodes
+    )
+    move_commands = sum(
+        int(item.get("control_move_command_count", 0))
+        for item in episodes
+    )
+    reach_commands = sum(
+        int(item.get("control_reach_command_count", 0))
+        for item in episodes
+    )
+    absolute_sums = np.zeros(4, dtype=np.float64)
+    saturation_counts = np.zeros(4, dtype=np.int64)
+    for item in episodes:
+        absolute = np.asarray(
+            item.get("control_absolute_action_sums", [0.0] * 4),
+            dtype=np.float64,
+        ).reshape(-1)
+        saturation = np.asarray(
+            item.get("control_saturation_counts", [0] * 4),
+            dtype=np.int64,
+        ).reshape(-1)
+        absolute_sums[: min(4, len(absolute))] += absolute[:4]
+        saturation_counts[: min(4, len(saturation))] += saturation[:4]
+    denominator = max(decisions, 1)
+    return {
+        "accepted_decisions": decisions,
+        "move_command_rate": (
+            0.0 if decisions == 0 else move_commands / decisions
+        ),
+        "reach_command_rate": (
+            0.0 if decisions == 0 else reach_commands / decisions
+        ),
+        "channels": {
+            channel: {
+                "mean_absolute_value": float(absolute_sums[index] / denominator),
+                "saturation_count": int(saturation_counts[index]),
+                "saturation_rate": (
+                    0.0
+                    if decisions == 0
+                    else float(saturation_counts[index] / decisions)
+                ),
+            }
+            for index, channel in enumerate(channels)
+        },
+    }
+
+
 def rate(successes: int, total: int) -> dict[str, float | int]:
     interval = wilson_interval(successes, total)
     return {
@@ -669,6 +1154,30 @@ def rate(successes: int, total: int) -> dict[str, float | int]:
         "value": 0.0 if total == 0 else successes / total,
         "ci95_low": interval[0],
         "ci95_high": interval[1],
+    }
+
+
+def numeric_summary(values: Iterable[float]) -> dict[str, float | int]:
+    finite = np.asarray(
+        [
+            float(value)
+            for value in values
+            if math.isfinite(float(value))
+        ],
+        dtype=np.float64,
+    )
+    if len(finite) == 0:
+        return {
+            "count": 0,
+            "mean": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0,
+        }
+    return {
+        "count": int(len(finite)),
+        "mean": float(np.mean(finite)),
+        "minimum": float(np.min(finite)),
+        "maximum": float(np.max(finite)),
     }
 
 
@@ -722,7 +1231,9 @@ def quadrant(item: dict[str, Any]) -> str:
 
 
 def flight_time_band(item: dict[str, Any]) -> str:
-    value = float(item["ball_flight_time"])
+    value = float(
+        item.get("sampled_shot_flight_time", item["ball_flight_time"])
+    )
     if value <= 0.55:
         return "fast"
     if value <= 0.70:
@@ -732,6 +1243,41 @@ def flight_time_band(item: dict[str, Any]) -> str:
 
 def first_dive_action(item: dict[str, Any]) -> str:
     return str(item["first_accepted_dive_action"] or "none")
+
+
+def first_commit_aim_region(item: dict[str, Any]) -> str:
+    aim = item.get("first_commit_aim") or {"x": 0.0, "y": 0.0}
+    side = "left" if float(aim["x"]) < 0.0 else "right"
+    aim_y = float(aim["y"])
+    vertical = (
+        "low"
+        if aim_y < -1.0 / 3.0
+        else "middle"
+        if aim_y < 1.0 / 3.0
+        else "high"
+    )
+    return f"{vertical}-{side}"
+
+
+def first_commit_aim_error(item: dict[str, Any]) -> float:
+    aim = item.get("first_commit_aim") or {"x": 0.0, "y": 0.0}
+    aim_x = float(aim["x"])
+    aim_y = float(aim["y"])
+    aimed_local = np.asarray(
+        [
+            np.clip(aim_x, -1.0, 1.0) * TARGET_X_EXTENT,
+            TARGET_Y_MIN
+            + np.clip((aim_y + 1.0) * 0.5, 0.0, 1.0)
+            * (TARGET_Y_MAX - TARGET_Y_MIN),
+        ],
+        dtype=np.float64,
+    )
+    target = target_vector(item)
+    target_local = np.asarray(
+        [float(target["x"]), float(target["y"])],
+        dtype=np.float64,
+    )
+    return float(np.linalg.norm(aimed_local - target_local))
 
 
 def is_wrong_side(item: dict[str, Any]) -> bool:
@@ -770,6 +1316,9 @@ def flatten_episode(item: dict[str, Any]) -> dict[str, Any]:
         elif key == "accepted_action_counts":
             for index, count in enumerate(value):
                 row[f"accepted_action_count_{index}"] = count
+        elif isinstance(value, list):
+            for index, count in enumerate(value):
+                row[f"{key}_{index}"] = count
         else:
             row[key] = value
     return row
@@ -855,7 +1404,9 @@ def build_report(
         "attempts_per_arena": attempts_per_arena,
         "total_attempts": config.arena_count * attempts_per_arena,
         "observation_shapes": [list(shape) for shape in config.observation_shapes],
+        "continuous_actions": config.continuous_actions,
         "discrete_branches": list(config.discrete_branches),
+        "motor_profile_id": config.motor_profile_id,
         "environment_parameters": dict(sorted(config.environment_parameters.items())),
         "full_benchmark": full,
         "primary_metric": config.primary_metric,
@@ -871,7 +1422,13 @@ def compare_trained_to_baselines(policy_reports: list[dict[str, Any]]) -> list[d
     baselines = {
         item["policy"]: item
         for item in policy_reports
-        if item["policy"] in {"stand_center", "random_legal"}
+        if item["policy"]
+        in {
+            "stand_center",
+            "random_legal",
+            "stand_center_v1",
+            "random_hybrid_v1",
+        }
     }
     trained = [item for item in policy_reports if item["policy_type"] == "onnx"]
     comparisons = []
@@ -904,7 +1461,11 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
     all_episodes: list[dict[str, Any]] = []
     policy_reports: list[dict[str, Any]] = []
     for index, policy_spec in enumerate(args.policy):
-        policy = make_policy(policy_spec, config.master_seed + index)
+        policy = make_policy(
+            policy_spec,
+            config.master_seed + index,
+            config,
+        )
         episodes = run_policy(
             build_path=build_path,
             config=config,
@@ -960,7 +1521,9 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
         "attempts_per_arena": report["attempts_per_arena"],
         "total_attempts": report["total_attempts"],
         "observation_shapes": report.get("observation_shapes", OBSERVATION_SHAPES),
+        "continuous_actions": report.get("continuous_actions", 0),
         "discrete_branches": report.get("discrete_branches", DISCRETE_BRANCHES),
+        "motor_profile_id": report.get("motor_profile_id"),
         "environment_parameters": report.get("environment_parameters", {}),
         "primary_metric": report["primary_metric"],
         "comparisons": report["comparisons"],
@@ -991,6 +1554,33 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                 "by_horizontal_band": policy["by_horizontal_band"],
                 "by_flight_time_band": policy["by_flight_time_band"],
                 "by_first_dive_action": policy["by_first_dive_action"],
+                **(
+                    {
+                        "commit_rate": policy["commit_rate"],
+                        "first_commit_ball_flight_time":
+                            policy["first_commit_ball_flight_time"],
+                        "first_commit_aim_error_m":
+                            policy["first_commit_aim_error_m"],
+                        "goalkeeper_root_distance_m":
+                            policy["goalkeeper_root_distance_m"],
+                        "goalkeeper_peak_root_speed_mps":
+                            policy["goalkeeper_peak_root_speed_mps"],
+                        "goalkeeper_peak_reach_extension":
+                            policy["goalkeeper_peak_reach_extension"],
+                        "minimum_glove_ball_distance_m":
+                            policy["minimum_glove_ball_distance_m"],
+                        "control_command_clamp_count":
+                            policy["control_command_clamp_count"],
+                        "control_target_clamp_count":
+                            policy["control_target_clamp_count"],
+                        "control_usage": policy["control_usage"],
+                        "by_commit_status": policy["by_commit_status"],
+                        "by_first_commit_aim_region":
+                            policy["by_first_commit_aim_region"],
+                    }
+                    if "commit_rate" in policy
+                    else {}
+                ),
             }
             for policy in report["policies"]
         ],
@@ -1013,7 +1603,11 @@ def parse_args() -> argparse.Namespace:
         "--policy",
         action="append",
         default=[],
-        help="Policy spec: stand_center, random_legal, reactive_side, linear_intercept, or onnx:path",
+        help=(
+            "Policy spec: stand_center, random_legal, reactive_side, "
+            "linear_intercept, stand_center_v1, random_hybrid_v1, "
+            "reactive_reach_v1, or onnx:path"
+        ),
     )
     parser.add_argument("--attempts-per-arena", type=int)
     parser.add_argument("--run-id")

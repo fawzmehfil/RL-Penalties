@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f746fae0b8c2475896f5f972e5cabfd0, type: 3}
+  m_Name: GoalkeeperControlMotorProfile
+  m_EditorClassIdentifier:
+  MotorProfileId: keeper-control-v1
+  StandingZ: 0.3
+  LateralLimit: 3.1
+  MaximumMoveSpeed: 4.25
+  MoveAcceleration: 20
+  MoveDeceleration: 24
+  MaximumGroundLeanDegrees: 9
+  PlantDuration: 0.12
+  MinimumDiveDuration: 0.48
+  MaximumDiveDuration: 0.78
+  RecoveryDuration: 0.42
+  MaximumDiveLateralDisplacement: 2.55
+  MaximumDiveRootHeight: 0.72
+  DiveArcHeight: 0.38
+  MaximumBodyRollDegrees: 82
+  CentralBlockThreshold: 0.28
+  ArmAllowanceForBodyTarget: 0.68
+  ReachStartNormalized: 0.05
+  FullReachNormalized: 0.42
+  MaximumAimCorrection: 0.35
+  MaximumGloveTargetSpeed: 8
+  GloveSeparation: 0.16
+  TrailingGloveDrop: 0.05
+  ShoulderLateral: 0.25
+  ShoulderHeight: 1.3
+  ShoulderForward: 0
+  UpperArmLength: 0.4
+  ForearmLength: 0.43
+  ArmRadius: 0.085
+  GloveRadius: 0.11
+  ReadyGloveLateral: 0.43
+  ReadyGloveHeight: 1.02
+  ReadyGloveForward: 0.28
+  ElbowPoleForward: 0.15
+  ElbowPoleDown: 0.04
+  ElbowPoleOutward: 0.35

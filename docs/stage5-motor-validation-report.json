@@ -1,0 +1,19 @@
+{
+    "schema_version": 1,
+    "stage": 5,
+    "status": "passed",
+    "behavior_name": "GoalkeeperControl-v1",
+    "observation_spec_id": "control-state-v1",
+    "action_spec_id": "goalkeeper-hybrid-v1",
+    "motor_profile_id": "keeper-control-v1",
+    "attempts_per_policy": 32,
+    "terminal_attempts": 128,
+    "invalid_outcomes": 0,
+    "timeout_outcomes": 0,
+    "action_mask_violations": 0,
+    "commitments": 91,
+    "goalkeeper_contacts": 59,
+    "glove_contacts": 48,
+    "maximum_peak_reach": 1.0,
+    "passed": true
+}

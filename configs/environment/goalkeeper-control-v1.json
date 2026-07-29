@@ -1,0 +1,97 @@
+{
+    "schema_version": 1,
+    "environment_id": "penalty-shootout-kernel-v1",
+    "behavior_name": "GoalkeeperControl-v1",
+    "observation_spec_id": "control-state-v1",
+    "reward_spec_id": "goalkeeper-sparse-v0",
+    "action_spec_id": "goalkeeper-hybrid-v1",
+    "motor_profile_id": "keeper-control-v1",
+    "scenario_suite_id": "on-target-v0",
+    "vector_observation_size": 32,
+    "continuous_actions": 4,
+    "discrete_branches": [
+        2
+    ],
+    "continuous_action_order": [
+        "move_x",
+        "aim_x",
+        "aim_y",
+        "reach"
+    ],
+    "discrete_action_order": [
+        "no_commit",
+        "commit_save"
+    ],
+    "observation_order": [
+        "ball_local_x",
+        "ball_local_y",
+        "ball_local_z",
+        "ball_local_vx",
+        "ball_local_vy",
+        "ball_local_vz",
+        "ball_angular_vx",
+        "ball_angular_vy",
+        "ball_angular_vz",
+        "goalkeeper_root_x",
+        "goalkeeper_root_y",
+        "goalkeeper_root_vx",
+        "goalkeeper_root_vy",
+        "goalkeeper_body_roll",
+        "motor_ready",
+        "motor_moving",
+        "motor_planting",
+        "motor_diving",
+        "motor_recovering",
+        "motor_state_progress",
+        "latched_aim_x",
+        "latched_aim_y",
+        "reach_aim_x",
+        "reach_aim_y",
+        "reach_extension",
+        "left_glove_x",
+        "left_glove_y",
+        "right_glove_x",
+        "right_glove_y",
+        "can_commit",
+        "attempt_time",
+        "ball_flight_time"
+    ],
+    "excluded_privileged_fields": [
+        "requested_target",
+        "future_goal_plane_intersection",
+        "launch_velocity",
+        "sampled_flight_time_parameter",
+        "terminal_outcome"
+    ],
+    "motor": {
+        "states": [
+            "Ready",
+            "Moving",
+            "Planting",
+            "Diving",
+            "Recovering"
+        ],
+        "lateral_limit_m": 3.0999999046325685,
+        "maximum_move_speed_m_s": 4.25,
+        "move_acceleration_m_s2": 20.0,
+        "move_deceleration_m_s2": 24.0,
+        "plant_duration_s": 0.11999999731779099,
+        "minimum_dive_duration_s": 0.47999998927116396,
+        "maximum_dive_duration_s": 0.7799999713897705,
+        "recovery_duration_s": 0.41999998688697817,
+        "maximum_dive_lateral_displacement_m": 2.549999952316284,
+        "maximum_dive_root_height_m": 0.7200000286102295,
+        "maximum_body_roll_degrees": 82.0,
+        "maximum_midair_aim_correction_m": 0.3499999940395355,
+        "arms": {
+            "solver": "deterministic-two-bone-ik",
+            "control": "shared-policy-target-with-leading-and-trailing-hands",
+      "upper_arm_length_m": 0.4000000059604645,
+      "forearm_length_m": 0.4300000071525574,
+            "arm_radius_m": 0.08500000089406967,
+      "glove_radius_m": 0.10999999940395355,
+            "maximum_glove_target_speed_m_s": 8.0,
+            "glove_separation_m": 0.1599999964237213
+        }
+    }
+}

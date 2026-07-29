@@ -24,7 +24,15 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 1 environment kernel complete
+## Current status: Stage 5 control prototype implemented
+
+Stages 0-4 established and evaluated the deterministic environment, the first
+trainable nine-action goalkeeper, fixed 20,000-shot benchmarks, and
+partial-observation robustness. Stage 5 now adds a separate richer goalkeeper
+control task and physically validated motor. Its PPO configuration and
+benchmark runner are ready, but no Stage 5 learned checkpoint has been trained
+or selected yet. The Stage 3 seed `001` model remains the main clean
+goalkeeper until that new training gate is passed.
 
 Stage 0 established the physics and tooling foundation before goalkeeper
 training:
@@ -433,13 +441,87 @@ feed-forward specialist and was not promoted to a full 20,000-shot benchmark.
 All reported runs had zero invalid outcomes, timeouts, and action-mask
 violations.
 
+## Stage 5 richer goalkeeper control
+
+Stage 5 introduces a new task rather than changing any trained v0 behavior:
+
+- Behavior: `GoalkeeperControl-v1`
+- Observation profile: `control-state-v1`, exactly 32 visible-state floats
+- Action profile: `goalkeeper-hybrid-v1`
+- Motor profile: `keeper-control-v1`
+- Reward: unchanged sparse `goalkeeper-sparse-v0`
+
+The hybrid action contains four continuous values:
+
+| Index | Control | Meaning |
+|---:|---|---|
+| 0 | `move_x` | Ground movement left/right |
+| 1 | `aim_x` | Horizontal save target |
+| 2 | `aim_y` | Vertical save target |
+| 3 | `reach` | Arm-extension demand |
+
+One discrete branch `[2]` selects `NoCommit` or `CommitSave`. Movement remains
+adjustable while standing. A commitment latches the save target and runs a
+deterministic `Planting -> Diving -> Recovering` motor sequence; another
+commitment is masked until recovery. Small bounded aim corrections and reach
+changes remain possible in flight.
+
+Both arms are now articulated upper-arm and forearm capsules solved by
+deterministic two-bone IK. Segment lengths stay fixed, glove targets are
+speed-limited, the leading and trailing hands remain coordinated, and all
+visible segments/gloves carry the authoritative compound colliders. Animation
+may later follow these poses, but it does not control collisions.
+
+Stage 5 adds:
+
+- `Stage5ControlArena.prefab`
+- `GoalkeeperControlLab.unity` for one-arena visual/manual validation
+- `ControlTraining.unity` with 16 lightweight arenas
+- `PenaltyShootoutStage5.app` headless build
+- scripted `stand_center_v1`, `random_hybrid_v1`, and
+  `reactive_reach_v1` evaluator policies
+- fixed ID, speed-OOD, and edge-OOD 20,000-shot contracts
+- PPO curriculum in `configs/training/goalkeeper-control-v1-ppo.yaml`
+
+Run the complete implementation verification with:
+
+```bash
+./scripts/verify_stage5.sh
+```
+
+To inspect the motor, open `GoalkeeperControlLab` in Unity and enter Play mode.
+Use `A`/`D` to move, arrow keys to aim, `Shift` or the left mouse button to
+request full reach, and `Space` to commit. This is a motor-validation tool, not
+a trained policy demo.
+
+The automated motor batch currently completes 128/128 attempts with zero
+invalid outcomes, timeouts, or mask violations. It records successful glove
+contacts, and the live Python smoke evaluator validates observation shape `[32]`,
+continuous size `4`, branch `[2]`, and terminal telemetry. These are
+implementation checks only; the 64-shot reactive result is not an official
+benchmark claim.
+
+After visual approval of the motor, start the first Stage 5 PPO seed with:
+
+```bash
+arch -x86_64 .venv/bin/mlagents-learn \
+  configs/training/goalkeeper-control-v1-ppo.yaml \
+  --env builds/macos/PenaltyShootoutStage5.app \
+  --run-id gk-control-v1_ppo_seed-001 \
+  --seed 1 \
+  --no-graphics
+```
+
+Train at least three seeds. Screen checkpoints on 400-2,000 fixed shots, then
+run the full 20,000-shot ID and OOD suites only for the strongest candidates.
+Promotion requires beating the v1 stand/random baselines by at least five
+percentage points with zero invalid, timeout, or mask-violation inflation.
+
 ## Later milestones
 
 Future stages extend the goalkeeper benchmark into a fuller football AI and
 playable demo:
 
-- Stage 5: richer goalkeeper controls, including more expressive movement,
-  reach, and dive timing.
 - Stage 6: broader shot variety, including curve, spin, deception, and harder
   procedural distributions.
 - Stage 7: replay and analysis UI for heatmaps, per-quadrant results,

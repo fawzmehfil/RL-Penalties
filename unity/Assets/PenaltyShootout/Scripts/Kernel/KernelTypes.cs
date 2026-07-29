@@ -102,6 +102,8 @@ namespace PenaltyShootout.Kernel
         public AttemptOutcome Outcome;
         public float AttemptTime;
         public float BallFlightTime;
+        public float SampledShotFlightTime;
+        public float SampledLaunchDelay;
         public bool GoalkeeperContact;
         public bool GoalFrameContact;
         public int GoalkeeperContactCount;
@@ -127,6 +129,25 @@ namespace PenaltyShootout.Kernel
         public int[] AcceptedActionCounts;
         public int ActionMaskViolations;
         public int DuplicateTerminalEvents;
+        public GoalkeeperControlMode ControlMode;
+        public GoalkeeperControlCommand InitialControlCommand;
+        public GoalkeeperControlCommand LastControlCommand;
+        public bool HasSaveCommitment;
+        public int FirstCommitDecisionIndex;
+        public float FirstCommitAttemptTime;
+        public float FirstCommitBallFlightTime;
+        public Vector2 FirstCommitAim;
+        public float GoalkeeperRootDistance;
+        public float GoalkeeperPeakRootSpeed;
+        public float GoalkeeperPeakReachExtension;
+        public int ControlCommandClampCount;
+        public int ControlTargetClampCount;
+        public int AcceptedControlDecisionCount;
+        public int ControlMoveCommandCount;
+        public int ControlReachCommandCount;
+        public float[] ControlAbsoluteActionSums;
+        public int[] ControlSaturationCounts;
+        public float MinimumGloveBallDistance;
     }
 
     public readonly struct GoalkeeperDecisionContext
