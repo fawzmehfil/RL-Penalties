@@ -22,6 +22,9 @@ namespace PenaltyShootout.MLAgents
         private float heuristicAimX;
         private float heuristicAimY;
         private int stage5Lesson;
+        private bool reachTrainingEnabled;
+        private bool attemptAutoCommitApplied;
+        private bool attemptReachFloorApplied;
 
         public PenaltyAreaController Controller
         {
@@ -80,6 +83,8 @@ namespace PenaltyShootout.MLAgents
             bufferedCommit = false;
             heuristicAimX = 0f;
             heuristicAimY = 0f;
+            attemptAutoCommitApplied = false;
+            attemptReachFloorApplied = false;
             RequestDecision();
         }
 
@@ -167,6 +172,16 @@ namespace PenaltyShootout.MLAgents
                 result.Commit = false;
             }
 
+            result = GoalkeeperControlTrainingContracts.ApplyScaffold(
+                result,
+                context,
+                currentMask,
+                reachTrainingEnabled,
+                stage5Lesson,
+                out var autoCommitApplied,
+                out var reachFloorApplied);
+            attemptAutoCommitApplied |= autoCommitApplied;
+            attemptReachFloorApplied |= reachFloorApplied;
             hasPendingCommand = false;
             RequestDecision();
             return result;
@@ -178,16 +193,23 @@ namespace PenaltyShootout.MLAgents
             currentMask = new GoalkeeperControlActionMask(false);
             hasPendingCommand = false;
             bufferedCommit = false;
+            attemptAutoCommitApplied = false;
+            attemptReachFloorApplied = false;
         }
 
         public void OnAttemptEnded(AttemptResult result)
         {
-            var reward = GoalkeeperTrainingContracts.SparseReward(result.Outcome);
-            SetReward(reward);
-            RecordStats(result, reward);
+            var sparseReward =
+                GoalkeeperTrainingContracts.SparseReward(result.Outcome);
+            var trainingReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    result,
+                    reachTrainingEnabled);
+            SetReward(trainingReward);
+            RecordStats(result, sparseReward, trainingReward);
             GoalkeeperBenchmarkTelemetry.Emit(
                 result,
-                reward,
+                sparseReward,
                 KernelConstants.GoalkeeperControlObservationSpecId);
             EndEpisode();
         }
@@ -205,8 +227,16 @@ namespace PenaltyShootout.MLAgents
                     parameters.GetWithDefault("stage5.lesson", 4f)),
                 0,
                 4);
+            reachTrainingEnabled =
+                parameters.GetWithDefault(
+                    "stage5.reach_training_enabled",
+                    0f) >= 0.5f;
             var shots = controller.ShotConfiguration;
             ApplyLessonDefaults(shots, stage5Lesson);
+            GoalkeeperControlTrainingContracts.ApplyReachFocusLesson(
+                shots,
+                reachTrainingEnabled,
+                stage5Lesson);
             shots.MinimumTargetXNormalized =
                 parameters.GetWithDefault(
                     "stage5.target_x_min",
@@ -300,15 +330,17 @@ namespace PenaltyShootout.MLAgents
             }
         }
 
-        private void RecordStats(AttemptResult result, float reward)
+        private void RecordStats(
+            AttemptResult result,
+            float sparseReward,
+            float trainingReward)
         {
             var stats = Academy.Instance.StatsRecorder;
+            var isSave =
+                GoalkeeperControlTrainingContracts.IsSave(result.Outcome);
             stats.Add(
                 "Stage5/SaveRate",
-                result.Outcome == AttemptOutcome.Saved ||
-                result.Outcome == AttemptOutcome.BlockedThenOut
-                    ? 1f
-                    : 0f);
+                isSave ? 1f : 0f);
             stats.Add(
                 "Stage5/GoalRate",
                 result.Outcome == AttemptOutcome.Goal ? 1f : 0f);
@@ -319,11 +351,41 @@ namespace PenaltyShootout.MLAgents
                 "Stage5/GloveContactRate",
                 result.GloveContact ? 1f : 0f);
             stats.Add(
+                "Stage5/GloveSaveRate",
+                isSave && result.GloveContact ? 1f : 0f);
+            stats.Add(
+                "Stage5/BodySaveRate",
+                isSave && !result.GloveContact ? 1f : 0f);
+            stats.Add(
+                "Stage5/ContactThenGoalRate",
+                result.GoalkeeperContact &&
+                result.Outcome == AttemptOutcome.Goal
+                    ? 1f
+                    : 0f);
+            stats.Add(
                 "Stage5/CommitRate",
                 result.HasSaveCommitment ? 1f : 0f);
-            stats.Add(
-                "Stage5/FirstCommitBallFlightTime",
-                result.FirstCommitBallFlightTime);
+            if (result.HasSaveCommitment)
+            {
+                stats.Add(
+                    "Stage5/FirstCommitBallFlightTime",
+                    result.FirstCommitBallFlightTime);
+                var committedTarget =
+                    GoalkeeperControlSpace.AimToLocal(
+                        result.FirstCommitAim.x,
+                        result.FirstCommitAim.y);
+                stats.Add(
+                    "Stage5/FirstCommitAimError",
+                    Vector2.Distance(
+                        committedTarget,
+                        new Vector2(
+                            result.RequestedTargetLocal.x,
+                            result.RequestedTargetLocal.y)));
+                stats.Add(
+                    "Stage5/CommitWithoutContactRate",
+                    result.GoalkeeperContact ? 0f : 1f);
+            }
+
             stats.Add(
                 "Stage5/PeakReachExtension",
                 result.GoalkeeperPeakReachExtension);
@@ -333,7 +395,35 @@ namespace PenaltyShootout.MLAgents
             stats.Add(
                 "Stage5/ActionMaskViolations",
                 result.ActionMaskViolations);
-            stats.Add("Stage5/SparseReward", reward);
+            var targetAim = GoalkeeperControlSpace.LocalToAim(
+                new Vector2(
+                    result.RequestedTargetLocal.x,
+                    result.RequestedTargetLocal.y));
+            var targetY01 = Mathf.Clamp01((targetAim.y + 1f) * 0.5f);
+            if (targetY01 >= 0.66f)
+            {
+                stats.Add("Stage5/HighShotSaveRate", isSave ? 1f : 0f);
+            }
+
+            if (Mathf.Abs(targetAim.x) >= 0.60f)
+            {
+                stats.Add("Stage5/EdgeShotSaveRate", isSave ? 1f : 0f);
+            }
+
+            stats.Add(
+                "Stage5/ReachFocusRate",
+                result.ReachFocusSample ? 1f : 0f);
+            stats.Add(
+                "Stage5/ReachScaffoldRate",
+                attemptReachFloorApplied ? 1f : 0f);
+            stats.Add(
+                "Stage5/AutoCommitRate",
+                attemptAutoCommitApplied ? 1f : 0f);
+            stats.Add(
+                "Stage5/ReachTrainingEnabled",
+                reachTrainingEnabled ? 1f : 0f);
+            stats.Add("Stage5/SparseReward", sparseReward);
+            stats.Add("Stage5/TrainingReward", trainingReward);
             stats.Add("Stage5/Lesson", stage5Lesson);
         }
     }

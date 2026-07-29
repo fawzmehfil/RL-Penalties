@@ -16,6 +16,16 @@ namespace PenaltyShootout.Kernel
         public float MaximumTargetXNormalized = 1f;
         public float MinimumTargetYNormalized = 0f;
         public float MaximumTargetYNormalized = 1f;
+        [Range(0f, 1f)]
+        public float ReachFocusProbability;
+        [Range(0f, 1f)]
+        public float ReachFocusMinimumAbsoluteXNormalized = 0.45f;
+        [Range(0f, 1f)]
+        public float ReachFocusMaximumAbsoluteXNormalized = 0.95f;
+        [Range(0f, 1f)]
+        public float ReachFocusMinimumYNormalized = 0.55f;
+        [Range(0f, 1f)]
+        public float ReachFocusMaximumYNormalized = 0.98f;
         public float AdditionalFrameClearance = 0.08f;
         public bool SpinEnabled;
         public bool CurveEnabled;
@@ -69,6 +79,26 @@ namespace PenaltyShootout.Kernel
                 KernelConstants.GoalHalfWidth - KernelConstants.BallRadius)
             {
                 error = "Frame clearance is invalid.";
+                return false;
+            }
+
+            if (!KernelMath.IsFinite(ReachFocusProbability) ||
+                !KernelMath.IsFinite(ReachFocusMinimumAbsoluteXNormalized) ||
+                !KernelMath.IsFinite(ReachFocusMaximumAbsoluteXNormalized) ||
+                !KernelMath.IsFinite(ReachFocusMinimumYNormalized) ||
+                !KernelMath.IsFinite(ReachFocusMaximumYNormalized) ||
+                ReachFocusProbability < 0f ||
+                ReachFocusProbability > 1f ||
+                ReachFocusMinimumAbsoluteXNormalized < 0f ||
+                ReachFocusMaximumAbsoluteXNormalized > 1f ||
+                ReachFocusMinimumAbsoluteXNormalized >
+                    ReachFocusMaximumAbsoluteXNormalized ||
+                ReachFocusMinimumYNormalized < 0f ||
+                ReachFocusMaximumYNormalized > 1f ||
+                ReachFocusMinimumYNormalized >
+                    ReachFocusMaximumYNormalized)
+            {
+                error = "Reach-focus target settings are invalid.";
                 return false;
             }
 

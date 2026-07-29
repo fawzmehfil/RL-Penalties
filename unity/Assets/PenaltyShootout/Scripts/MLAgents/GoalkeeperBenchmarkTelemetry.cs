@@ -152,6 +152,7 @@ namespace PenaltyShootout.MLAgents
                 ball_flight_time = result.BallFlightTime,
                 sampled_shot_flight_time = result.SampledShotFlightTime,
                 sampled_launch_delay = result.SampledLaunchDelay,
+                reach_focus_sample = result.ReachFocusSample,
                 goalkeeper_contact = result.GoalkeeperContact,
                 goal_frame_contact = result.GoalFrameContact,
                 goalkeeper_contact_count = result.GoalkeeperContactCount,
@@ -254,6 +255,7 @@ namespace PenaltyShootout.MLAgents
             public float ball_flight_time;
             public float sampled_shot_flight_time;
             public float sampled_launch_delay;
+            public bool reach_focus_sample;
             public bool goalkeeper_contact;
             public bool goal_frame_contact;
             public int goalkeeper_contact_count;

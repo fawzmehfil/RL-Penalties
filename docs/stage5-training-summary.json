@@ -1,12 +1,33 @@
 {
   "schema_version": 1,
   "stage": 5,
-  "status": "not-started",
+  "status": "reach-correction-diagnostic-pending",
   "behavior_name": "GoalkeeperControl-v1",
   "observation_spec_id": "control-state-v1",
   "action_spec_id": "goalkeeper-hybrid-v1",
   "motor_profile_id": "keeper-control-v1",
   "trainer_config": "configs/training/goalkeeper-control-v1-ppo.yaml",
-  "training_runs": [],
+  "training_runs": [
+    {
+      "run_id": "gk-control-v1_ppo_seed-001",
+      "seed": 1,
+      "steps": 8000000,
+      "evaluation_run_id": "stage5-seed-001-2k",
+      "evaluation_attempts": 2000,
+      "save_rate": 0.457,
+      "glove_contact_rate": 0.127,
+      "peak_reach_extension_mean": 0.2837,
+      "invalid_rate": 0.0,
+      "timeout_rate": 0.0,
+      "action_mask_violations": 0
+    }
+  ],
+  "reach_correction": {
+    "reward_spec_id": "goalkeeper-control-training-reach-v1",
+    "diagnostic_config": "configs/training/goalkeeper-control-v1-ppo-reach-diagnostic.yaml",
+    "full_config": "configs/training/goalkeeper-control-v1-ppo-reach.yaml",
+    "diagnostic_steps": 1000000,
+    "status": "implementation-ready"
+  },
   "selected_checkpoint": null
 }

@@ -24,15 +24,18 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 5 control prototype implemented
+## Current status: Stage 5 reach-learning correction ready
 
 Stages 0-4 established and evaluated the deterministic environment, the first
 trainable nine-action goalkeeper, fixed 20,000-shot benchmarks, and
 partial-observation robustness. Stage 5 now adds a separate richer goalkeeper
-control task and physically validated motor. Its PPO configuration and
-benchmark runner are ready, but no Stage 5 learned checkpoint has been trained
-or selected yet. The Stage 3 seed `001` model remains the main clean
-goalkeeper until that new training gate is passed.
+control task and physically validated motor. One 8-million-step Stage 5 seed
+reached a 45.7% save rate on a fixed 2,000-shot screen, but used glove contact
+on only 12.7% of attempts. A training-only Stage 5.1 correction is ready to
+test whether reach-focused shots, early action scaffolding, and a bounded
+preference for glove saves teach the policy to use its articulated arms. The
+Stage 3 seed `001` model remains the main clean goalkeeper until the richer
+control gate is passed.
 
 Stage 0 established the physics and tooling foundation before goalkeeper
 training:
@@ -521,6 +524,36 @@ Train at least three seeds. Screen checkpoints on 400-2,000 fixed shots, then
 run the full 20,000-shot ID and OOD suites only for the strongest candidates.
 Promotion requires beating the v1 stand/random baselines by at least five
 percentage points with zero invalid, timeout, or mask-violation inflation.
+
+### Stage 5.1 reach-learning diagnostic
+
+The original sparse Stage 5 seed learned a torso-first strategy. Across its
+retained 5M-8M checkpoints, glove-contact rate stayed between roughly 10% and
+16%, while `reactive_reach_v1` exceeded 70% glove contact with the same motor.
+This establishes a training credit-assignment problem rather than a reach or
+collision limitation.
+
+Stage 5.1 preserves `GoalkeeperControl-v1`, `control-state-v1`, all 32
+observations, `goalkeeper-hybrid-v1`, and `keeper-control-v1`. Its optional
+training overlay is enabled only by:
+
+```text
+stage5.reach_training_enabled = 1
+```
+
+The overlay uses deterministic reach-focused on-target samples, full-reach and
+automatic-commit scaffolding only in the first lesson, a temporary reach floor
+in the second lesson, and unassisted actions thereafter. Its bounded terminal
+training reward is `+1` for a glove save, `+0.8` for another save, `-1` for a
+goal, and `0` for abnormal outcomes. Canonical evaluation remains unchanged on
+`goalkeeper-sparse-v0`; target or future-impact data is never observed or
+rewarded.
+
+Use
+`configs/training/goalkeeper-control-v1-ppo-reach-diagnostic.yaml` for the
+1-million-step gate. If glove usage, aim error, high-shot coverage, and overall
+save rate improve together, use
+`configs/training/goalkeeper-control-v1-ppo-reach.yaml` for the full run.
 
 ## Later milestones
 

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "stage": "5.1",
+  "status": "diagnostic-pending",
+  "behavior_name": "GoalkeeperControl-v1",
+  "observation_spec_id": "control-state-v1",
+  "action_spec_id": "goalkeeper-hybrid-v1",
+  "motor_profile_id": "keeper-control-v1",
+  "canonical_reward_spec_id": "goalkeeper-sparse-v0",
+  "training_reward_spec_id": "goalkeeper-control-training-reach-v1",
+  "trigger_evidence": {
+    "run_id": "stage5-seed-001-2k",
+    "attempts": 2000,
+    "trained_save_rate": 0.457,
+    "trained_glove_contact_rate": 0.127,
+    "trained_peak_reach_extension_mean": 0.2837,
+    "reactive_save_rate": 0.5335,
+    "reactive_glove_contact_rate": 0.737,
+    "reactive_peak_reach_extension_mean": 0.9827
+  },
+  "diagnostic_gate": {
+    "steps": 1000000,
+    "attempts": 400,
+    "minimum_save_rate": 0.2,
+    "minimum_glove_contact_rate": 0.25,
+    "minimum_peak_reach_extension_mean": 0.6,
+    "minimum_high_shot_save_rate": 0.15,
+    "maximum_first_commit_aim_error_m": 1.0,
+    "maximum_invalids": 0,
+    "maximum_timeouts": 0,
+    "maximum_action_mask_violations": 0
+  }
+}

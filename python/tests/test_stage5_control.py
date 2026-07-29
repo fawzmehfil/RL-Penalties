@@ -117,6 +117,39 @@ def test_stage5_ppo_yaml_matches_pinned_mlagents_schema() -> None:
     assert len(options.environment_parameters["stage5.lesson"].curriculum) == 5
 
 
+@pytest.mark.parametrize(
+    ("name", "max_steps", "checkpoint_interval"),
+    [
+        ("goalkeeper-control-v1-ppo-reach.yaml", 8_000_000, 500_000),
+        (
+            "goalkeeper-control-v1-ppo-reach-diagnostic.yaml",
+            1_000_000,
+            250_000,
+        ),
+    ],
+)
+def test_stage5_reach_training_yaml_matches_pinned_mlagents_schema(
+    name: str,
+    max_steps: int,
+    checkpoint_interval: int,
+) -> None:
+    register_trainer_plugins()
+    raw = yaml.safe_load(
+        (ROOT / "configs" / "training" / name).read_text()
+    )
+    options = RunOptions.from_dict(json.loads(json.dumps(raw)))
+
+    behavior = options.behaviors["GoalkeeperControl-v1"]
+    assert behavior.max_steps == max_steps
+    assert behavior.checkpoint_interval == checkpoint_interval
+    assert len(options.environment_parameters["stage5.lesson"].curriculum) == 5
+    reach_training = options.environment_parameters[
+        "stage5.reach_training_enabled"
+    ]
+    assert len(reach_training.curriculum) == 1
+    assert reach_training.curriculum[0].value.value == 1.0
+
+
 def test_stage5_scripted_policies_emit_bounded_masked_hybrid_actions() -> None:
     observations = np.zeros((2, 32), dtype=np.float32)
     mask = np.zeros((2, 2), dtype=bool)

@@ -1056,6 +1056,7 @@ namespace PenaltyShootout.Kernel
                 BallFlightTime = ballFlightTime,
                 SampledShotFlightTime = scenario.FlightTime,
                 SampledLaunchDelay = scenario.LaunchDelay,
+                ReachFocusSample = scenario.ReachFocusSample,
                 GoalkeeperContact = contactHistory.GoalkeeperTouched,
                 GoalFrameContact = contactHistory.GoalFrameTouched,
                 GoalkeeperContactCount = contactHistory.GoalkeeperContactCount,

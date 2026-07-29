@@ -142,12 +142,32 @@ namespace PenaltyShootout.Kernel
             }
 
             var random = new Pcg32(seed);
-            var targetXNormalized = random.Range(
-                configuration.MinimumTargetXNormalized,
-                configuration.MaximumTargetXNormalized);
-            var targetYNormalized = random.Range(
-                configuration.MinimumTargetYNormalized,
-                configuration.MaximumTargetYNormalized);
+            float targetXNormalized;
+            float targetYNormalized;
+            var reachFocusSample =
+                configuration.ReachFocusProbability > 0f &&
+                random.NextFloat() < configuration.ReachFocusProbability;
+            if (reachFocusSample)
+            {
+                var side = random.NextFloat() < 0.5f ? -1f : 1f;
+                targetXNormalized =
+                    side *
+                    random.Range(
+                        configuration.ReachFocusMinimumAbsoluteXNormalized,
+                        configuration.ReachFocusMaximumAbsoluteXNormalized);
+                targetYNormalized = random.Range(
+                    configuration.ReachFocusMinimumYNormalized,
+                    configuration.ReachFocusMaximumYNormalized);
+            }
+            else
+            {
+                targetXNormalized = random.Range(
+                    configuration.MinimumTargetXNormalized,
+                    configuration.MaximumTargetXNormalized);
+                targetYNormalized = random.Range(
+                    configuration.MinimumTargetYNormalized,
+                    configuration.MaximumTargetYNormalized);
+            }
             var horizontalExtent =
                 KernelConstants.GoalHalfWidth -
                 KernelConstants.BallRadius -
@@ -175,6 +195,7 @@ namespace PenaltyShootout.Kernel
                 Seed = seed,
                 TargetXNormalized = targetXNormalized,
                 TargetYNormalized = targetYNormalized,
+                ReachFocusSample = reachFocusSample,
                 TargetLocal = target,
                 FlightTime = flightTime,
                 LaunchDelay = launchDelay,
@@ -222,14 +243,25 @@ namespace PenaltyShootout.Kernel
                 return false;
             }
 
-            if (scenario.TargetXNormalized <
-                    configuration.MinimumTargetXNormalized - 1e-5f ||
-                scenario.TargetXNormalized >
-                    configuration.MaximumTargetXNormalized + 1e-5f ||
-                scenario.TargetYNormalized <
-                    configuration.MinimumTargetYNormalized - 1e-5f ||
-                scenario.TargetYNormalized >
-                    configuration.MaximumTargetYNormalized + 1e-5f)
+            var inConfiguredRange =
+                scenario.ReachFocusSample
+                    ? Mathf.Abs(scenario.TargetXNormalized) >=
+                        configuration.ReachFocusMinimumAbsoluteXNormalized - 1e-5f &&
+                      Mathf.Abs(scenario.TargetXNormalized) <=
+                        configuration.ReachFocusMaximumAbsoluteXNormalized + 1e-5f &&
+                      scenario.TargetYNormalized >=
+                        configuration.ReachFocusMinimumYNormalized - 1e-5f &&
+                      scenario.TargetYNormalized <=
+                        configuration.ReachFocusMaximumYNormalized + 1e-5f
+                    : scenario.TargetXNormalized >=
+                        configuration.MinimumTargetXNormalized - 1e-5f &&
+                      scenario.TargetXNormalized <=
+                        configuration.MaximumTargetXNormalized + 1e-5f &&
+                      scenario.TargetYNormalized >=
+                        configuration.MinimumTargetYNormalized - 1e-5f &&
+                      scenario.TargetYNormalized <=
+                        configuration.MaximumTargetYNormalized + 1e-5f;
+            if (!inConfiguredRange)
             {
                 error = "Scenario target is outside the configured curriculum range.";
                 return false;

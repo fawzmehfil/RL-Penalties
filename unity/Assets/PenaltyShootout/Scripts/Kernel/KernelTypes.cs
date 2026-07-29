@@ -84,6 +84,7 @@ namespace PenaltyShootout.Kernel
         public ulong Seed;
         public float TargetXNormalized;
         public float TargetYNormalized;
+        public bool ReachFocusSample;
         public Vector3 TargetLocal;
         public float FlightTime;
         public float LaunchDelay;
@@ -104,6 +105,7 @@ namespace PenaltyShootout.Kernel
         public float BallFlightTime;
         public float SampledShotFlightTime;
         public float SampledLaunchDelay;
+        public bool ReachFocusSample;
         public bool GoalkeeperContact;
         public bool GoalFrameContact;
         public int GoalkeeperContactCount;

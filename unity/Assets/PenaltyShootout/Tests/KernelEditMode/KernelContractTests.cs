@@ -521,6 +521,186 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void ReachFocusSamplingIsOptionalDeterministicAndInRange()
+        {
+            var baseline =
+                ProceduralShotGenerator.Sample(
+                    shots,
+                    20260729UL,
+                    Physics.gravity,
+                    environment.FixedTimestep);
+            shots.ReachFocusMinimumAbsoluteXNormalized = 0.8f;
+            shots.ReachFocusMaximumAbsoluteXNormalized = 0.9f;
+            shots.ReachFocusMinimumYNormalized = 0.7f;
+            shots.ReachFocusMaximumYNormalized = 0.8f;
+            var focusDisabled =
+                ProceduralShotGenerator.Sample(
+                    shots,
+                    20260729UL,
+                    Physics.gravity,
+                    environment.FixedTimestep);
+            Assert.That(focusDisabled.ReachFocusSample, Is.False);
+            Assert.That(
+                focusDisabled.TargetXNormalized,
+                Is.EqualTo(baseline.TargetXNormalized));
+            Assert.That(
+                focusDisabled.TargetYNormalized,
+                Is.EqualTo(baseline.TargetYNormalized));
+            Assert.That(focusDisabled.FlightTime, Is.EqualTo(baseline.FlightTime));
+            Assert.That(focusDisabled.LaunchDelay, Is.EqualTo(baseline.LaunchDelay));
+
+            shots.ReachFocusProbability = 1f;
+            var sawLeft = false;
+            var sawRight = false;
+            for (ulong seed = 1; seed <= 256; seed++)
+            {
+                var scenario =
+                    ProceduralShotGenerator.Sample(
+                        shots,
+                        seed,
+                        Physics.gravity,
+                        environment.FixedTimestep);
+                var repeated =
+                    ProceduralShotGenerator.Sample(
+                        shots,
+                        seed,
+                        Physics.gravity,
+                        environment.FixedTimestep);
+                Assert.That(scenario.ReachFocusSample, Is.True);
+                Assert.That(
+                    Mathf.Abs(scenario.TargetXNormalized),
+                    Is.InRange(0.8f, 0.9f));
+                Assert.That(
+                    scenario.TargetYNormalized,
+                    Is.InRange(0.7f, 0.8f));
+                Assert.That(
+                    repeated.TargetXNormalized,
+                    Is.EqualTo(scenario.TargetXNormalized));
+                Assert.That(
+                    ProceduralShotGenerator.ValidateOnTarget(
+                        scenario,
+                        shots,
+                        out var error),
+                    Is.True,
+                    error);
+                sawLeft |= scenario.TargetXNormalized < 0f;
+                sawRight |= scenario.TargetXNormalized > 0f;
+            }
+
+            Assert.That(sawLeft, Is.True);
+            Assert.That(sawRight, Is.True);
+        }
+
+        [Test]
+        public void Stage5ReachTrainingRewardPrefersSuccessfulGloveContactOnly()
+        {
+            var gloveSave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                GloveContact = true,
+            };
+            var bodySave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.BlockedThenOut,
+                GloveContact = false,
+            };
+            var gloveThenGoal = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Goal,
+                GloveContact = true,
+            };
+            var invalid = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Invalid,
+                GloveContact = true,
+            };
+
+            Assert.That(
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    gloveSave,
+                    true),
+                Is.EqualTo(1f));
+            Assert.That(
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    bodySave,
+                    true),
+                Is.EqualTo(0.8f));
+            Assert.That(
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    gloveThenGoal,
+                    true),
+                Is.EqualTo(-1f));
+            Assert.That(
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    invalid,
+                    true),
+                Is.Zero);
+            Assert.That(
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    bodySave,
+                    false),
+                Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void Stage5ReachScaffoldingEndsBeforeIndependentReachLesson()
+        {
+            var command = GoalkeeperControlCommand.Neutral;
+            command.AimX = 0.4f;
+            command.AimY = 0.7f;
+            var context = new GoalkeeperControlDecisionContext(
+                1,
+                2,
+                3,
+                0.12f);
+            var mask = new GoalkeeperControlActionMask(true);
+
+            var lessonZero =
+                GoalkeeperControlTrainingContracts.ApplyScaffold(
+                    command,
+                    context,
+                    mask,
+                    true,
+                    0,
+                    out var autoCommit,
+                    out var reachFloor);
+            Assert.That(lessonZero.Commit, Is.True);
+            Assert.That(lessonZero.Reach, Is.EqualTo(1f));
+            Assert.That(lessonZero.AimX, Is.EqualTo(command.AimX));
+            Assert.That(lessonZero.AimY, Is.EqualTo(command.AimY));
+            Assert.That(autoCommit, Is.True);
+            Assert.That(reachFloor, Is.True);
+
+            var lessonTwo =
+                GoalkeeperControlTrainingContracts.ApplyScaffold(
+                    command,
+                    context,
+                    mask,
+                    true,
+                    2,
+                    out autoCommit,
+                    out reachFloor);
+            Assert.That(lessonTwo.Commit, Is.False);
+            Assert.That(lessonTwo.Reach, Is.EqualTo(-1f));
+            Assert.That(autoCommit, Is.False);
+            Assert.That(reachFloor, Is.False);
+
+            var disabled =
+                GoalkeeperControlTrainingContracts.ApplyScaffold(
+                    command,
+                    context,
+                    mask,
+                    false,
+                    0,
+                    out autoCommit,
+                    out reachFloor);
+            Assert.That(disabled.Commit, Is.False);
+            Assert.That(disabled.Reach, Is.EqualTo(-1f));
+            Assert.That(autoCommit, Is.False);
+            Assert.That(reachFloor, Is.False);
+        }
+
+        [Test]
         public void Pcg32MatchesPublishedGoldenSequence()
         {
             var random = new Pcg32(42UL);
