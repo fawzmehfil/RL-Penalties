@@ -57,7 +57,6 @@ arch -x86_64 .venv/bin/python -m penalty_shootout.evaluation.goalkeeper \
   --policy onnx:results/gk-state-v0_ppo_seed-001/GoalkeeperState-v0/GoalkeeperState-v0-5000019.onnx \
   --attempts-per-arena 4 \
   --run-id stage4-robust-smoke \
-  --canonical-report docs/stage4-robustness-report.json \
   > "$PROJECT_ROOT/docs/stage4-smoke.log" \
   2>&1
 

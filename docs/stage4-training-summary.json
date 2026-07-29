@@ -4,12 +4,69 @@
   "behavior_name": "GoalkeeperRobust-v0",
   "observation_spec_id": "state-po-v0",
   "reward_spec_id": "goalkeeper-sparse-v0",
+  "training_budget_steps_per_seed": 5000000,
   "feed_forward_trainer_config": "configs/training/goalkeeper-robust-v0-ppo.yaml",
   "recurrent_trainer_config": "configs/training/goalkeeper-robust-v0-ppo-recurrent.yaml",
-  "required_feed_forward_seeds": 3,
-  "required_recurrent_seeds": 3,
-  "trained_feed_forward_seeds": [],
-  "trained_recurrent_seeds": [],
-  "passed": false,
-  "status": "pending; Stage 4 robust PPO training has not been run"
+  "feed_forward_runs": [
+    {
+      "seed": "001",
+      "run_id": "gk-robust-v0_ppo_seed-001",
+      "final_tensorboard_step": 5000000,
+      "final_cumulative_reward": -0.3499999940395355,
+      "final_checkpoint": "results/gk-robust-v0_ppo_seed-001/GoalkeeperRobust-v0/GoalkeeperRobust-v0-5000036.onnx",
+      "final_onnx": "results/gk-robust-v0_ppo_seed-001/GoalkeeperRobust-v0.onnx"
+    },
+    {
+      "seed": "002",
+      "run_id": "gk-robust-v0_ppo_seed-002",
+      "final_tensorboard_step": 5000000,
+      "final_cumulative_reward": -0.6402116417884827,
+      "final_checkpoint": "results/gk-robust-v0_ppo_seed-002/GoalkeeperRobust-v0/GoalkeeperRobust-v0-5000071.onnx",
+      "final_onnx": "results/gk-robust-v0_ppo_seed-002/GoalkeeperRobust-v0.onnx"
+    },
+    {
+      "seed": "003",
+      "run_id": "gk-robust-v0_ppo_seed-003",
+      "final_tensorboard_step": 5000000,
+      "final_cumulative_reward": -0.4000000059604645,
+      "final_checkpoint": "results/gk-robust-v0_ppo_seed-003/GoalkeeperRobust-v0/GoalkeeperRobust-v0-5000058.onnx",
+      "final_onnx": "results/gk-robust-v0_ppo_seed-003/GoalkeeperRobust-v0.onnx",
+      "selection": "selected delayed/noise specialist by fixed benchmark performance"
+    }
+  ],
+  "recurrent_runs": [
+    {
+      "seed": "001",
+      "run_id": "gk-robust-v0_ppo-recurrent_seed-001",
+      "final_tensorboard_step": 5000000,
+      "final_cumulative_reward": -0.8341463208198547,
+      "final_checkpoint": "results/gk-robust-v0_ppo-recurrent_seed-001/GoalkeeperRobust-v0/GoalkeeperRobust-v0-5000014.onnx",
+      "final_onnx": "results/gk-robust-v0_ppo-recurrent_seed-001/GoalkeeperRobust-v0.onnx"
+    },
+    {
+      "seed": "002",
+      "run_id": "gk-robust-v0_ppo-recurrent_seed-002",
+      "final_tensorboard_step": 5000000,
+      "final_cumulative_reward": -0.3966480493545532,
+      "final_checkpoint": "results/gk-robust-v0_ppo-recurrent_seed-002/GoalkeeperRobust-v0/GoalkeeperRobust-v0-5000003.onnx",
+      "final_onnx": "results/gk-robust-v0_ppo-recurrent_seed-002/GoalkeeperRobust-v0.onnx",
+      "selection": "best recurrent 2,000-shot screen; not promoted"
+    },
+    {
+      "seed": "003",
+      "run_id": "gk-robust-v0_ppo-recurrent_seed-003",
+      "final_tensorboard_step": 5000000,
+      "final_cumulative_reward": -0.6512820720672607,
+      "final_checkpoint": "results/gk-robust-v0_ppo-recurrent_seed-003/GoalkeeperRobust-v0/GoalkeeperRobust-v0-5000063.onnx",
+      "final_onnx": "results/gk-robust-v0_ppo-recurrent_seed-003/GoalkeeperRobust-v0.onnx"
+    }
+  ],
+  "selection_policy": "Checkpoint selection uses fixed benchmark save rate, not final training reward.",
+  "selected_models": {
+    "main_clean_goalkeeper": "stage3-seed-001",
+    "specialized_delay_noise_goalkeeper": "stage4-feed-forward-seed-003",
+    "recurrent_goalkeeper": null
+  },
+  "training_complete": true,
+  "status": "all three feed-forward and all three recurrent Stage 4 seeds completed the configured 5,000,000-step budget"
 }

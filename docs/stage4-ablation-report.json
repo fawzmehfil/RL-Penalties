@@ -2,14 +2,94 @@
   "schema_version": 1,
   "stage": 4,
   "report_id": "stage4-ablation-report",
-  "planned_ablations": [
-    "clean state-v0 reference checkpoint",
-    "state-po-v0 without perturbation",
-    "state-po-v0 delayed/noisy feed-forward PPO",
-    "state-po-v0 delayed/noisy recurrent PPO",
-    "speed OOD benchmark",
-    "edge OOD benchmark"
+  "screening_contract": {
+    "arena_count": 16,
+    "attempts_per_arena": 125,
+    "attempts_per_policy": 2000,
+    "master_seed": 20260723
+  },
+  "models": {
+    "stage3-seed-001": {
+      "architecture": "feed-forward",
+      "training_observation": "state-v0",
+      "role": "canonical clean reference"
+    },
+    "stage4-feed-forward-seed-003": {
+      "architecture": "feed-forward",
+      "training_observation": "delayed/noisy state-po-v0",
+      "role": "selected delayed/noise specialist"
+    },
+    "stage4-recurrent-seed-001": {
+      "architecture": "recurrent",
+      "training_observation": "delayed/noisy state-po-v0"
+    },
+    "stage4-recurrent-seed-002": {
+      "architecture": "recurrent",
+      "training_observation": "delayed/noisy state-po-v0",
+      "role": "best recurrent screen"
+    },
+    "stage4-recurrent-seed-003": {
+      "architecture": "recurrent",
+      "training_observation": "delayed/noisy state-po-v0"
+    }
+  },
+  "two_thousand_shot_save_rates": [
+    {
+      "suite_id": "goalkeeper-robust-v0-id-20k",
+      "run_id": "stage4-recurrent-clean-2k",
+      "stage3-seed-001": 0.47,
+      "stage4-feed-forward-seed-003": 0.2855,
+      "stage4-recurrent-seed-001": 0.059,
+      "stage4-recurrent-seed-002": 0.1845,
+      "stage4-recurrent-seed-003": 0.122
+    },
+    {
+      "suite_id": "goalkeeper-robust-v0-delay-noise-20k",
+      "run_id": "stage4-recurrent-delay-noise-2k",
+      "stage3-seed-001": 0.1705,
+      "stage4-feed-forward-seed-003": 0.3085,
+      "stage4-recurrent-seed-001": 0.0595,
+      "stage4-recurrent-seed-002": 0.301,
+      "stage4-recurrent-seed-003": 0.184
+    },
+    {
+      "suite_id": "goalkeeper-robust-v0-speed-ood-20k",
+      "run_id": "stage4-recurrent-speed-ood-2k",
+      "stage3-seed-001": 0.364,
+      "stage4-feed-forward-seed-003": 0.212,
+      "stage4-recurrent-seed-001": 0.049,
+      "stage4-recurrent-seed-002": 0.1505,
+      "stage4-recurrent-seed-003": 0.084
+    },
+    {
+      "suite_id": "goalkeeper-robust-v0-edge-ood-20k",
+      "run_id": "stage4-recurrent-edge-ood-2k",
+      "stage3-seed-001": 0.011,
+      "stage4-feed-forward-seed-003": 0.003,
+      "stage4-recurrent-seed-001": 0.011,
+      "stage4-recurrent-seed-002": 0.001,
+      "stage4-recurrent-seed-003": 0.001
+    }
   ],
-  "passed": false,
-  "status": "pending; robust feed-forward and recurrent PPO seeds are not trained yet"
+  "safety": {
+    "invalids": 0,
+    "timeouts": 0,
+    "action_mask_violations": 0,
+    "applies_to_all_screened_policies_and_suites": true
+  },
+  "recurrent_selection": {
+    "best_seed": "002",
+    "delay_noise_save_rate": 0.301,
+    "feed_forward_seed_003_delay_noise_save_rate": 0.3085,
+    "promoted_to_full_20k": false,
+    "reason": "The best recurrent model was 0.75 percentage points below feed-forward seed 003 under delay/noise and materially worse on clean and speed-OOD shots."
+  },
+  "conclusions": [
+    "Recurrence did not improve the selected feed-forward robustness result.",
+    "Feed-forward seed 003 and recurrent seed 002 were close under delay/noise, but the recurrent model generalized less well to clean and fast shots.",
+    "All learned models remained weak on the edge-OOD suite.",
+    "No recurrent checkpoint was selected and no recurrent 20,000-shot promotion was warranted."
+  ],
+  "ablation_complete": true,
+  "status": "completed; feed-forward seed 003 remains the delayed/noise specialist and Stage 3 seed 001 remains the clean reference"
 }

@@ -414,10 +414,41 @@ Stage 4 reports are intentionally separate from Stage 3 evidence:
 `docs/stage4-ablation-report.json`, and
 `docs/stage4-training-summary.json`.
 
+Stage 4 completed three feed-forward and three recurrent 5-million-step runs.
+The final fixed-batch evidence does not support a universal Stage 4
+replacement:
+
+| 20k suite | Stage 3 seed 001 | Robust feed-forward seed 003 |
+|---|---:|---:|
+| clean `state-po-v0` | 46.745% | 28.050% |
+| delay/noise | 16.675% | 31.395% |
+| speed OOD | 35.215% | 20.095% |
+| edge OOD | 0.830% | 0.030% |
+
+Stage 3 seed `001` therefore remains the main clean goalkeeper. Stage 4
+feed-forward seed `003` is retained as a delayed/noisy-observation specialist,
+not as a general replacement. Recurrent seed `002` was the strongest recurrent
+screen at 30.1% on the 2,000-shot delay/noise batch, but it did not beat the
+feed-forward specialist and was not promoted to a full 20,000-shot benchmark.
+All reported runs had zero invalid outcomes, timeouts, and action-mask
+violations.
+
 ## Later milestones
 
-Full replay tooling, Gymnasium APIs, shooter training, self-play, richer
-goalkeeper controls, and visual polish remain later milestones.
+Future stages extend the goalkeeper benchmark into a fuller football AI and
+playable demo:
+
+- Stage 5: richer goalkeeper controls, including more expressive movement,
+  reach, and dive timing.
+- Stage 6: broader shot variety, including curve, spin, deception, and harder
+  procedural distributions.
+- Stage 7: replay and analysis UI for heatmaps, per-quadrant results,
+  trajectory review, and dive-choice inspection.
+- Stage 8: final model packaging, Unity inference import, model cards, and
+  reproducible release artifacts.
+- Stage 9: a human-playable penalty mode where the user shoots against the
+  trained goalkeeper with polished laptop controls, cameras, feedback, replay,
+  and game feel closer to a compact football game than a lab scene.
 
 ## Open-source and third-party notices
 

@@ -49,6 +49,7 @@ checkpoints/
 tensorboard/
 builds/
 artifacts/
+/Logs/
 
 # Local verification logs (portable JSON summaries are committed)
 docs/*.log
