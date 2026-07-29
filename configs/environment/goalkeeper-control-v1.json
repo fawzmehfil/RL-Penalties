@@ -83,13 +83,37 @@
         "maximum_dive_root_height_m": 0.7200000286102295,
         "maximum_body_roll_degrees": 82.0,
         "maximum_midair_aim_correction_m": 0.3499999940395355,
+        "plant_reach_fraction": 0.12,
+        "body": {
+            "torso_center_height_m": 0.96,
+            "torso_forward_m": 0.04,
+            "torso_scale": [
+                0.48,
+                0.62,
+                0.34
+            ],
+            "torso_forward_lean_degrees": 7.0,
+            "head_center_height_m": 1.64,
+            "head_forward_m": 0.08,
+            "head_diameter_m": 0.3,
+            "leg_lateral_m": 0.24,
+            "leg_center_height_m": 0.37,
+            "leg_forward_m": 0.01,
+            "leg_scale": [
+                0.2,
+                0.36,
+                0.2
+            ],
+            "leg_splay_degrees": 11.0,
+            "leg_forward_lean_degrees": 5.0
+        },
         "arms": {
             "solver": "deterministic-two-bone-ik",
             "control": "shared-policy-target-with-leading-and-trailing-hands",
-      "upper_arm_length_m": 0.4000000059604645,
-      "forearm_length_m": 0.4300000071525574,
+            "upper_arm_length_m": 0.4000000059604645,
+            "forearm_length_m": 0.4300000071525574,
             "arm_radius_m": 0.08500000089406967,
-      "glove_radius_m": 0.10999999940395355,
+            "glove_radius_m": 0.10999999940395355,
             "maximum_glove_target_speed_m_s": 8.0,
             "glove_separation_m": 0.1599999964237213
         }

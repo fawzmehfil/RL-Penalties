@@ -134,7 +134,27 @@ namespace PenaltyShootout.Kernel
         public float maximum_dive_root_height_m;
         public float maximum_body_roll_degrees;
         public float maximum_midair_aim_correction_m;
+        public float plant_reach_fraction;
+        public ManifestControlBody body;
         public ManifestControlArms arms;
+    }
+
+    [Serializable]
+    internal sealed class ManifestControlBody
+    {
+        public float torso_center_height_m;
+        public float torso_forward_m;
+        public float[] torso_scale;
+        public float torso_forward_lean_degrees;
+        public float head_center_height_m;
+        public float head_forward_m;
+        public float head_diameter_m;
+        public float leg_lateral_m;
+        public float leg_center_height_m;
+        public float leg_forward_m;
+        public float[] leg_scale;
+        public float leg_splay_degrees;
+        public float leg_forward_lean_degrees;
     }
 
     [Serializable]
@@ -531,6 +551,39 @@ namespace PenaltyShootout.Kernel
                         motor.MaximumBodyRollDegrees,
                     maximum_midair_aim_correction_m =
                         motor.MaximumAimCorrection,
+                    plant_reach_fraction =
+                        motor.PlantReachFraction,
+                    body = new ManifestControlBody
+                    {
+                        torso_center_height_m =
+                            motor.TorsoCenterHeight,
+                        torso_forward_m = motor.TorsoForward,
+                        torso_scale = new[]
+                        {
+                            motor.TorsoScale.x,
+                            motor.TorsoScale.y,
+                            motor.TorsoScale.z,
+                        },
+                        torso_forward_lean_degrees =
+                            motor.TorsoForwardLeanDegrees,
+                        head_center_height_m =
+                            motor.HeadCenterHeight,
+                        head_forward_m = motor.HeadForward,
+                        head_diameter_m = motor.HeadDiameter,
+                        leg_lateral_m = motor.LegLateral,
+                        leg_center_height_m =
+                            motor.LegCenterHeight,
+                        leg_forward_m = motor.LegForward,
+                        leg_scale = new[]
+                        {
+                            motor.LegScale.x,
+                            motor.LegScale.y,
+                            motor.LegScale.z,
+                        },
+                        leg_splay_degrees = motor.LegSplayDegrees,
+                        leg_forward_lean_degrees =
+                            motor.LegForwardLeanDegrees,
+                    },
                     arms = new ManifestControlArms
                     {
                         solver = "deterministic-two-bone-ik",

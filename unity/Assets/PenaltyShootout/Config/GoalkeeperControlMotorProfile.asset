@@ -19,6 +19,19 @@ MonoBehaviour:
   MoveAcceleration: 20
   MoveDeceleration: 24
   MaximumGroundLeanDegrees: 9
+  TorsoCenterHeight: 0.96
+  TorsoForward: 0.04
+  TorsoScale: {x: 0.48, y: 0.62, z: 0.34}
+  TorsoForwardLeanDegrees: 7
+  HeadCenterHeight: 1.64
+  HeadForward: 0.08
+  HeadDiameter: 0.3
+  LegLateral: 0.24
+  LegCenterHeight: 0.37
+  LegForward: 0.01
+  LegScale: {x: 0.2, y: 0.36, z: 0.2}
+  LegSplayDegrees: 11
+  LegForwardLeanDegrees: 5
   PlantDuration: 0.12
   MinimumDiveDuration: 0.48
   MaximumDiveDuration: 0.78
@@ -29,6 +42,7 @@ MonoBehaviour:
   MaximumBodyRollDegrees: 82
   CentralBlockThreshold: 0.28
   ArmAllowanceForBodyTarget: 0.68
+  PlantReachFraction: 0.12
   ReachStartNormalized: 0.05
   FullReachNormalized: 0.42
   MaximumAimCorrection: 0.35
@@ -45,6 +59,6 @@ MonoBehaviour:
   ReadyGloveLateral: 0.43
   ReadyGloveHeight: 1.02
   ReadyGloveForward: 0.28
-  ElbowPoleForward: 0.15
-  ElbowPoleDown: 0.04
-  ElbowPoleOutward: 0.35
+  ElbowPoleForward: 0.2
+  ElbowPoleDown: 0.25
+  ElbowPoleOutward: 0.18

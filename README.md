@@ -472,6 +472,11 @@ speed-limited, the leading and trailing hands remain coordinated, and all
 visible segments/gloves carry the authoritative compound colliders. Animation
 may later follow these poses, but it does not control collisions.
 
+The ready body uses versioned torso, head, and leg collider geometry with a
+slight forward crouch and symmetric leg splay. Reach begins during planting,
+continues monotonically through the dive, and retracts only during recovery,
+preventing learned or manual action jitter from producing arm-flapping saves.
+
 Stage 5 adds:
 
 - `Stage5ControlArena.prefab`

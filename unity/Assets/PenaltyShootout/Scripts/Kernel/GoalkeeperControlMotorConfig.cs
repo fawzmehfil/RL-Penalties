@@ -17,6 +17,21 @@ namespace PenaltyShootout.Kernel
         public float MoveDeceleration = 24f;
         public float MaximumGroundLeanDegrees = 9f;
 
+        [Header("Ready body geometry")]
+        public float TorsoCenterHeight = 0.96f;
+        public float TorsoForward = 0.04f;
+        public Vector3 TorsoScale = new Vector3(0.48f, 0.62f, 0.34f);
+        public float TorsoForwardLeanDegrees = 7f;
+        public float HeadCenterHeight = 1.64f;
+        public float HeadForward = 0.08f;
+        public float HeadDiameter = 0.30f;
+        public float LegLateral = 0.24f;
+        public float LegCenterHeight = 0.37f;
+        public float LegForward = 0.01f;
+        public Vector3 LegScale = new Vector3(0.20f, 0.36f, 0.20f);
+        public float LegSplayDegrees = 11f;
+        public float LegForwardLeanDegrees = 5f;
+
         [Header("Save commitment")]
         public float PlantDuration = 0.12f;
         public float MinimumDiveDuration = 0.48f;
@@ -30,6 +45,9 @@ namespace PenaltyShootout.Kernel
         public float ArmAllowanceForBodyTarget = 0.68f;
 
         [Header("Mid-air reach")]
+        [Range(0f, 1f)]
+        public float PlantReachFraction = 0.12f;
+
         [Range(0f, 1f)]
         public float ReachStartNormalized = 0.05f;
 
@@ -52,9 +70,9 @@ namespace PenaltyShootout.Kernel
         public float ReadyGloveLateral = 0.43f;
         public float ReadyGloveHeight = 1.02f;
         public float ReadyGloveForward = 0.28f;
-        public float ElbowPoleForward = 0.15f;
-        public float ElbowPoleDown = 0.04f;
-        public float ElbowPoleOutward = 0.35f;
+        public float ElbowPoleForward = 0.20f;
+        public float ElbowPoleDown = 0.25f;
+        public float ElbowPoleOutward = 0.18f;
 
         public bool Validate(out string error)
         {
@@ -78,6 +96,26 @@ namespace PenaltyShootout.Kernel
                 return false;
             }
 
+            if (TorsoCenterHeight <= 0f ||
+                TorsoScale.x <= 0f ||
+                TorsoScale.y <= 0f ||
+                TorsoScale.z <= 0f ||
+                Mathf.Abs(TorsoForwardLeanDegrees) > 20f ||
+                HeadCenterHeight <= TorsoCenterHeight ||
+                HeadDiameter <= 0f ||
+                LegLateral <= 0f ||
+                LegCenterHeight <= 0f ||
+                LegScale.x <= 0f ||
+                LegScale.y <= 0f ||
+                LegScale.z <= 0f ||
+                LegSplayDegrees < 0f ||
+                LegSplayDegrees > 30f ||
+                Mathf.Abs(LegForwardLeanDegrees) > 20f)
+            {
+                error = "Stage 5 ready body geometry is invalid.";
+                return false;
+            }
+
             if (MaximumDiveLateralDisplacement <= 0f ||
                 MaximumDiveRootHeight < 0f ||
                 DiveArcHeight < 0f ||
@@ -90,7 +128,9 @@ namespace PenaltyShootout.Kernel
                 return false;
             }
 
-            if (ReachStartNormalized < 0f ||
+            if (PlantReachFraction < 0f ||
+                PlantReachFraction > 0.4f ||
+                ReachStartNormalized < 0f ||
                 FullReachNormalized <= ReachStartNormalized ||
                 FullReachNormalized > 1f ||
                 MaximumAimCorrection < 0f ||

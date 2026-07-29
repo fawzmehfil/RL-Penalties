@@ -15,6 +15,18 @@ namespace PenaltyShootout.Kernel
         [SerializeField]
         private GoalkeeperArmRigV1 armRig;
 
+        [SerializeField]
+        private Transform torso;
+
+        [SerializeField]
+        private Transform head;
+
+        [SerializeField]
+        private Transform leftLeg;
+
+        [SerializeField]
+        private Transform rightLeg;
+
         private Rigidbody body;
         private GoalkeeperControlMotorState state;
         private GoalkeeperControlCommand activeCommand;
@@ -106,6 +118,8 @@ namespace PenaltyShootout.Kernel
             {
                 armRig = GetComponent<GoalkeeperArmRigV1>();
             }
+
+            ResolveBodyParts();
         }
 
         public GoalkeeperControlActionMask GetActionMask()
@@ -124,8 +138,18 @@ namespace PenaltyShootout.Kernel
             if (sanitized.Commit && !CanCommit)
             {
                 sanitized.Commit = false;
+                sanitized.Reach = Mathf.Max(
+                    activeCommand.Reach,
+                    sanitized.Reach);
                 activeCommand = sanitized;
                 return false;
+            }
+
+            if (!CanCommit)
+            {
+                sanitized.Reach = Mathf.Max(
+                    activeCommand.Reach,
+                    sanitized.Reach);
             }
 
             activeCommand = sanitized;
@@ -205,6 +229,7 @@ namespace PenaltyShootout.Kernel
             body.position = world;
             body.rotation = rotation;
             transform.SetPositionAndRotation(world, rotation);
+            ApplyReadyBodyGeometry();
             armRig?.ResetForAttempt(nextAttemptId, seed);
             Physics.SyncTransforms();
         }
@@ -225,6 +250,165 @@ namespace PenaltyShootout.Kernel
 
             if (armRig != null && !armRig.ValidateReset(out error))
             {
+                return false;
+            }
+
+            if (!ValidateReadyBodyGeometry(out error))
+            {
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        private void ResolveBodyParts()
+        {
+            if (torso == null)
+            {
+                torso = transform.Find("Torso");
+            }
+
+            if (head == null)
+            {
+                head = transform.Find("Head");
+            }
+
+            if (leftLeg == null)
+            {
+                leftLeg = transform.Find("LeftLeg");
+            }
+
+            if (rightLeg == null)
+            {
+                rightLeg = transform.Find("RightLeg");
+            }
+        }
+
+        private void ApplyReadyBodyGeometry()
+        {
+            if (configuration == null)
+            {
+                return;
+            }
+
+            ResolveBodyParts();
+            if (torso != null)
+            {
+                torso.localPosition = new Vector3(
+                    0f,
+                    configuration.TorsoCenterHeight,
+                    configuration.TorsoForward);
+                torso.localRotation = Quaternion.Euler(
+                    configuration.TorsoForwardLeanDegrees,
+                    0f,
+                    0f);
+                torso.localScale = configuration.TorsoScale;
+            }
+
+            if (head != null)
+            {
+                head.localPosition = new Vector3(
+                    0f,
+                    configuration.HeadCenterHeight,
+                    configuration.HeadForward);
+                head.localRotation = Quaternion.identity;
+                head.localScale =
+                    Vector3.one * configuration.HeadDiameter;
+            }
+
+            ApplyLegGeometry(leftLeg, -1f);
+            ApplyLegGeometry(rightLeg, 1f);
+        }
+
+        private void ApplyLegGeometry(Transform leg, float side)
+        {
+            if (leg == null)
+            {
+                return;
+            }
+
+            leg.localPosition = new Vector3(
+                side * configuration.LegLateral,
+                configuration.LegCenterHeight,
+                configuration.LegForward);
+            leg.localRotation = Quaternion.Euler(
+                configuration.LegForwardLeanDegrees,
+                0f,
+                side * configuration.LegSplayDegrees);
+            leg.localScale = configuration.LegScale;
+        }
+
+        private bool ValidateReadyBodyGeometry(out string error)
+        {
+            ResolveBodyParts();
+            if (configuration == null ||
+                torso == null ||
+                head == null ||
+                leftLeg == null ||
+                rightLeg == null)
+            {
+                error = "Stage 5 ready body geometry is incomplete.";
+                return false;
+            }
+
+            var tolerance = 1e-4f;
+            if (Vector3.Distance(
+                    torso.localPosition,
+                    new Vector3(
+                        0f,
+                        configuration.TorsoCenterHeight,
+                        configuration.TorsoForward)) > tolerance ||
+                Vector3.Distance(
+                    head.localPosition,
+                    new Vector3(
+                        0f,
+                        configuration.HeadCenterHeight,
+                        configuration.HeadForward)) > tolerance ||
+                Vector3.Distance(
+                    leftLeg.localPosition,
+                    new Vector3(
+                        -configuration.LegLateral,
+                        configuration.LegCenterHeight,
+                        configuration.LegForward)) > tolerance ||
+                Vector3.Distance(
+                    rightLeg.localPosition,
+                    new Vector3(
+                        configuration.LegLateral,
+                        configuration.LegCenterHeight,
+                        configuration.LegForward)) > tolerance ||
+                Vector3.Distance(
+                    torso.localScale,
+                    configuration.TorsoScale) > tolerance ||
+                Vector3.Distance(
+                    head.localScale,
+                    Vector3.one * configuration.HeadDiameter) > tolerance ||
+                Vector3.Distance(
+                    leftLeg.localScale,
+                    configuration.LegScale) > tolerance ||
+                Vector3.Distance(
+                    rightLeg.localScale,
+                    configuration.LegScale) > tolerance ||
+                Quaternion.Angle(
+                    torso.localRotation,
+                    Quaternion.Euler(
+                        configuration.TorsoForwardLeanDegrees,
+                        0f,
+                        0f)) > tolerance ||
+                Quaternion.Angle(
+                    leftLeg.localRotation,
+                    Quaternion.Euler(
+                        configuration.LegForwardLeanDegrees,
+                        0f,
+                        -configuration.LegSplayDegrees)) > tolerance ||
+                Quaternion.Angle(
+                    rightLeg.localRotation,
+                    Quaternion.Euler(
+                        configuration.LegForwardLeanDegrees,
+                        0f,
+                        configuration.LegSplayDegrees)) > tolerance)
+            {
+                error = "Stage 5 ready body pose leaked between attempts.";
                 return false;
             }
 
@@ -360,7 +544,10 @@ namespace PenaltyShootout.Kernel
             var rotation = ArenaRotation * Quaternion.Euler(0f, 0f, plantRoll);
             bodyRollDegrees = plantRoll;
             MoveBody(commitStartLocal, rotation, deltaTime);
-            var extension = activeCommand.Reach01 * 0.25f * SmoothStep(normalized);
+            var extension =
+                activeCommand.Reach01 *
+                configuration.PlantReachFraction *
+                SmoothStep(normalized);
             ApplyReach(extension, rotation, deltaTime, false);
             if (normalized >= 1f)
             {
@@ -506,7 +693,7 @@ namespace PenaltyShootout.Kernel
         {
             if (normalizedDivePhase <= configuration.ReachStartNormalized)
             {
-                return 0f;
+                return configuration.PlantReachFraction;
             }
 
             if (normalizedDivePhase >= configuration.FullReachNormalized)
@@ -514,11 +701,15 @@ namespace PenaltyShootout.Kernel
                 return 1f;
             }
 
-            return SmoothStep(
+            var progress = SmoothStep(
                 Mathf.InverseLerp(
                     configuration.ReachStartNormalized,
                     configuration.FullReachNormalized,
                     normalizedDivePhase));
+            return Mathf.Lerp(
+                configuration.PlantReachFraction,
+                1f,
+                progress);
         }
 
         private float SignedArenaRoll(Quaternion worldRotation)

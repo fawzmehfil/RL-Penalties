@@ -303,6 +303,100 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void Stage5ReadyBodyGeometryIsCrouchedAndSymmetric()
+        {
+            var root = CreateControlMotor(out var goalkeeper);
+            goalkeeper.ResetForAttempt(1, 1UL);
+            var keeper = goalkeeper.transform;
+            var torso = keeper.Find("Torso");
+            var head = keeper.Find("Head");
+            var leftLeg = keeper.Find("LeftLeg");
+            var rightLeg = keeper.Find("RightLeg");
+
+            Assert.That(torso.localScale, Is.EqualTo(controlMotor.TorsoScale));
+            Assert.That(
+                torso.localPosition.y,
+                Is.EqualTo(controlMotor.TorsoCenterHeight));
+            Assert.That(
+                head.localPosition.y,
+                Is.EqualTo(controlMotor.HeadCenterHeight));
+            Assert.That(
+                leftLeg.localPosition.x,
+                Is.EqualTo(-controlMotor.LegLateral));
+            Assert.That(
+                rightLeg.localPosition.x,
+                Is.EqualTo(controlMotor.LegLateral));
+            Assert.That(
+                leftLeg.localPosition.y,
+                Is.EqualTo(rightLeg.localPosition.y));
+            Assert.That(
+                torso.localPosition.z,
+                Is.GreaterThanOrEqualTo(0f));
+            Assert.That(
+                Mathf.Abs(leftLeg.localRotation.eulerAngles.z),
+                Is.GreaterThan(0f));
+            Object.DestroyImmediate(root);
+        }
+
+        [Test]
+        public void Stage5ReachDoesNotRetractBetweenPlantAndDive()
+        {
+            var root = CreateControlMotor(out var goalkeeper);
+            goalkeeper.ResetForAttempt(1, 1UL);
+            Assert.That(
+                goalkeeper.TryApplyCommand(
+                    new GoalkeeperControlCommand
+                    {
+                        AimX = 0.85f,
+                        AimY = 0.65f,
+                        Reach = 1f,
+                        Commit = true,
+                    }),
+                Is.True);
+
+            var previousExtension = goalkeeper.CurrentReachExtension;
+            var sawDive = false;
+            var attemptedRetraction = false;
+            for (var index = 0; index < 100; index++)
+            {
+                goalkeeper.Tick(0.02f);
+                if (goalkeeper.State == GoalkeeperControlMotorState.Diving)
+                {
+                    sawDive = true;
+                    if (!attemptedRetraction)
+                    {
+                        attemptedRetraction = true;
+                        Assert.That(
+                            goalkeeper.TryApplyCommand(
+                                new GoalkeeperControlCommand
+                                {
+                                    AimX = 0.85f,
+                                    AimY = 0.65f,
+                                    Reach = -1f,
+                                }),
+                            Is.True);
+                    }
+                }
+
+                if (goalkeeper.State == GoalkeeperControlMotorState.Recovering)
+                {
+                    break;
+                }
+
+                Assert.That(
+                    goalkeeper.CurrentReachExtension,
+                    Is.GreaterThanOrEqualTo(previousExtension - 1e-5f),
+                    $"Reach retracted at motor step {index}.");
+                previousExtension = goalkeeper.CurrentReachExtension;
+            }
+
+            Assert.That(sawDive, Is.True);
+            Assert.That(attemptedRetraction, Is.True);
+            Assert.That(previousExtension, Is.GreaterThan(0.9f));
+            Object.DestroyImmediate(root);
+        }
+
+        [Test]
         public void Stage4ObservationDelayBufferReturnsDeterministicDelayedSnapshots()
         {
             var buffer = new GoalkeeperObservationDelayBuffer(4);
@@ -993,6 +1087,22 @@ namespace PenaltyShootout.Kernel.Tests
             var keeper = new GameObject("ControlKeeper");
             keeper.transform.SetParent(root.transform, false);
             keeper.AddComponent<Rigidbody>();
+            CreatePrimitiveChild(
+                keeper.transform,
+                PrimitiveType.Capsule,
+                "Torso");
+            CreatePrimitiveChild(
+                keeper.transform,
+                PrimitiveType.Sphere,
+                "Head");
+            CreatePrimitiveChild(
+                keeper.transform,
+                PrimitiveType.Capsule,
+                "LeftLeg");
+            CreatePrimitiveChild(
+                keeper.transform,
+                PrimitiveType.Capsule,
+                "RightLeg");
             goalkeeper = keeper.AddComponent<GoalkeeperMotorV1>();
             goalkeeper.Configuration = controlMotor;
             goalkeeper.ArenaOrigin = root.transform;

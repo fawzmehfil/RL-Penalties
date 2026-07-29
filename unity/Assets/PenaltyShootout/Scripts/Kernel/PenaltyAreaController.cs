@@ -1019,8 +1019,12 @@ namespace PenaltyShootout.Kernel
 
             if (ball != null)
             {
-                ball.linearVelocity = Vector3.zero;
-                ball.angularVelocity = Vector3.zero;
+                if (!ball.isKinematic)
+                {
+                    ball.linearVelocity = Vector3.zero;
+                    ball.angularVelocity = Vector3.zero;
+                }
+
                 ball.isKinematic = true;
             }
 
