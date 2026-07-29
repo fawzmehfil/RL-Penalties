@@ -158,6 +158,61 @@ def test_onnx_mask_converts_disabled_python_mask_to_enabled_float_mask() -> None
     ]
 
 
+def test_onnx_policy_label_distinguishes_final_model_paths() -> None:
+    assert (
+        OnnxPolicy._policy_label(
+            Path("results/gk-robust-v0_ppo-recurrent_seed-002/GoalkeeperRobust-v0.onnx")
+        )
+        == "gk-robust-v0_ppo-recurrent_seed-002"
+    )
+    assert (
+        OnnxPolicy._policy_label(
+            Path("results/gk-state-v0_ppo_seed-001/GoalkeeperState-v0/GoalkeeperState-v0-5000019.onnx")
+        )
+        == "GoalkeeperState-v0-5000019"
+    )
+
+
+def test_recurrent_onnx_policy_feeds_and_resets_agent_memory() -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.last_feed: dict[str, np.ndarray] = {}
+
+        def run(self, output_names: list[str], feed: dict[str, np.ndarray]) -> list[np.ndarray]:
+            self.last_feed = feed
+            return [
+                np.asarray([[3], [4]], dtype=np.int64),
+                np.ones((2, 1, 128), dtype=np.float32),
+            ]
+
+    session = FakeSession()
+    policy = OnnxPolicy.__new__(OnnxPolicy)
+    policy.model_path = Path("recurrent.onnx")
+    policy.name = "onnx:recurrent"
+    policy._session = session
+    policy._output_name = "deterministic_discrete_actions"
+    policy._memory_input_name = "recurrent_in"
+    policy._memory_output_name = "recurrent_out"
+    policy._input_names = {"obs_0", "action_masks", "recurrent_in"}
+    policy._memory_by_agent_id = {}
+    policy._memory_shape = (1, 128)
+
+    actions = policy.act_batch(
+        np.zeros((2, 24), dtype=np.float32),
+        None,
+        np.asarray([101, 102], dtype=np.int64),
+    )
+
+    assert actions.tolist() == [[3], [4]]
+    assert session.last_feed["recurrent_in"].shape == (2, 1, 128)
+    assert np.all(session.last_feed["recurrent_in"] == 0.0)
+    assert set(policy._memory_by_agent_id) == {101, 102}
+
+    policy.reset_agents(np.asarray([101], dtype=np.int64))
+
+    assert set(policy._memory_by_agent_id) == {102}
+
+
 def test_compact_report_keeps_benchmark_evidence_small() -> None:
     report = {
         "schema_version": 1,

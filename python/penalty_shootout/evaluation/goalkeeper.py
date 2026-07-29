@@ -85,8 +85,15 @@ class GoalkeeperPolicy:
         self,
         observations: np.ndarray,
         action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
     ) -> np.ndarray:
         raise NotImplementedError
+
+    def reset(self) -> None:
+        pass
+
+    def reset_agents(self, agent_ids: np.ndarray) -> None:
+        pass
 
     @staticmethod
     def _legal_actions(action_mask: np.ndarray | None, row: int) -> np.ndarray:
@@ -124,6 +131,7 @@ class StandCenterPolicy(GoalkeeperPolicy):
         self,
         observations: np.ndarray,
         action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
     ) -> np.ndarray:
         return np.zeros((len(observations), 1), dtype=np.int32)
 
@@ -138,6 +146,7 @@ class RandomLegalPolicy(GoalkeeperPolicy):
         self,
         observations: np.ndarray,
         action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
     ) -> np.ndarray:
         actions = []
         for row in range(len(observations)):
@@ -153,6 +162,7 @@ class ReactiveSidePolicy(GoalkeeperPolicy):
         self,
         observations: np.ndarray,
         action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
     ) -> np.ndarray:
         actions = []
         for row, obs in enumerate(observations):
@@ -179,6 +189,7 @@ class LinearInterceptPolicy(GoalkeeperPolicy):
         self,
         observations: np.ndarray,
         action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
     ) -> np.ndarray:
         actions = []
         for obs in observations:
@@ -212,12 +223,17 @@ class OnnxPolicy(GoalkeeperPolicy):
         import onnxruntime as ort
 
         self.model_path = model_path
-        self.name = f"onnx:{model_path.stem}"
+        self.name = f"onnx:{self._policy_label(model_path)}"
         self._session = ort.InferenceSession(
             str(model_path),
             providers=["CPUExecutionProvider"],
         )
         self._output_name = "deterministic_discrete_actions"
+        self._memory_input_name = "recurrent_in"
+        self._memory_output_name = "recurrent_out"
+        self._input_names = {input_spec.name for input_spec in self._session.get_inputs()}
+        self._memory_by_agent_id: dict[int, np.ndarray] = {}
+        self._memory_shape = self._read_memory_shape()
         output_names = {output.name for output in self._session.get_outputs()}
         if self._output_name not in output_names:
             raise RuntimeError(
@@ -228,16 +244,91 @@ class OnnxPolicy(GoalkeeperPolicy):
         self,
         observations: np.ndarray,
         action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
     ) -> np.ndarray:
         mask = self._onnx_enabled_action_mask(len(observations), action_mask)
+        feed = {
+            "obs_0": np.asarray(observations, dtype=np.float32),
+            "action_masks": mask,
+        }
+        output_names = [self._output_name]
+        normalized_agent_ids = None
+        if self.is_recurrent:
+            normalized_agent_ids = self._normalize_agent_ids(agent_ids, len(observations))
+            feed[self._memory_input_name] = self._memory_batch(normalized_agent_ids)
+            output_names.append(self._memory_output_name)
         result = self._session.run(
-            [self._output_name],
-            {
-                "obs_0": np.asarray(observations, dtype=np.float32),
-                "action_masks": mask,
-            },
-        )[0]
-        return self._sanitize(np.asarray(result).reshape(-1), action_mask)
+            output_names,
+            feed,
+        )
+        if self.is_recurrent and normalized_agent_ids is not None:
+            self._store_memory_batch(normalized_agent_ids, result[1])
+        return self._sanitize(np.asarray(result[0]).reshape(-1), action_mask)
+
+    @property
+    def is_recurrent(self) -> bool:
+        return self._memory_input_name in self._input_names
+
+    @staticmethod
+    def _policy_label(model_path: Path) -> str:
+        if model_path.stem in SUPPORTED_BEHAVIOR_NAMES:
+            return model_path.parent.name
+        return model_path.stem
+
+    def reset(self) -> None:
+        self._memory_by_agent_id.clear()
+
+    def reset_agents(self, agent_ids: np.ndarray) -> None:
+        for agent_id in np.asarray(agent_ids, dtype=np.int64).reshape(-1):
+            self._memory_by_agent_id.pop(int(agent_id), None)
+
+    def _read_memory_shape(self) -> tuple[int, int] | None:
+        if self._memory_input_name not in self._input_names:
+            return None
+        for input_spec in self._session.get_inputs():
+            if input_spec.name != self._memory_input_name:
+                continue
+            shape = list(input_spec.shape)
+            if len(shape) != 3:
+                raise RuntimeError(
+                    f"Unsupported recurrent input shape for {self.model_path}: {shape}"
+                )
+            sequence_dim = 1 if not isinstance(shape[1], int) else int(shape[1])
+            memory_size = 128 if not isinstance(shape[2], int) else int(shape[2])
+            return sequence_dim, memory_size
+        return None
+
+    @staticmethod
+    def _normalize_agent_ids(
+        agent_ids: np.ndarray | None,
+        batch_size: int,
+    ) -> np.ndarray:
+        if agent_ids is None:
+            return np.arange(batch_size, dtype=np.int64)
+        normalized = np.asarray(agent_ids, dtype=np.int64).reshape(-1)
+        if len(normalized) != batch_size:
+            raise ValueError(
+                f"Expected {batch_size} agent ids for recurrent ONNX batch, got {len(normalized)}"
+            )
+        return normalized
+
+    def _memory_batch(self, agent_ids: np.ndarray) -> np.ndarray:
+        if self._memory_shape is None:
+            raise RuntimeError(f"ONNX model {self.model_path} is not recurrent")
+        sequence_dim, memory_size = self._memory_shape
+        rows = [
+            self._memory_by_agent_id.get(
+                int(agent_id),
+                np.zeros((sequence_dim, memory_size), dtype=np.float32),
+            )
+            for agent_id in agent_ids
+        ]
+        return np.stack(rows).astype(np.float32, copy=False)
+
+    def _store_memory_batch(self, agent_ids: np.ndarray, recurrent_out: np.ndarray) -> None:
+        memory = np.asarray(recurrent_out, dtype=np.float32)
+        for row, agent_id in enumerate(agent_ids):
+            self._memory_by_agent_id[int(agent_id)] = memory[row].copy()
 
     @staticmethod
     def _onnx_enabled_action_mask(
@@ -382,6 +473,7 @@ def run_policy(
 
     try:
         env.reset()
+        policy.reset()
         behavior_name = require_behavior(env, config)
         for _ in range(max_environment_steps):
             drain_telemetry(
@@ -395,10 +487,16 @@ def run_policy(
             if quotas_met(per_arena, config.arena_count, attempts_per_arena):
                 break
 
-            decision_steps, _ = env.get_steps(behavior_name)
+            decision_steps, terminal_steps = env.get_steps(behavior_name)
+            if len(terminal_steps):
+                policy.reset_agents(terminal_steps.agent_id)
             if len(decision_steps):
                 mask = decision_steps.action_mask[0] if decision_steps.action_mask else None
-                actions = policy.act_batch(decision_steps.obs[0], mask)
+                actions = policy.act_batch(
+                    decision_steps.obs[0],
+                    mask,
+                    decision_steps.agent_id,
+                )
                 env.set_actions(behavior_name, ActionTuple(discrete=actions))
             env.step()
         else:
