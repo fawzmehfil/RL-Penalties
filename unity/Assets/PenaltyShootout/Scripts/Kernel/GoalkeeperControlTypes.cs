@@ -81,6 +81,8 @@ namespace PenaltyShootout.Kernel
         public readonly int PhysicsTick;
         public readonly float BallFlightTime;
         public readonly float VisibleTimeToGoalPlane;
+        public readonly bool HasVisibleGoalPlanePrediction;
+        public readonly Vector2 VisiblePredictedAim;
 
         public GoalkeeperControlDecisionContext(
             long attemptId,
@@ -92,7 +94,9 @@ namespace PenaltyShootout.Kernel
                 decisionIndex,
                 physicsTick,
                 ballFlightTime,
-                -1f)
+                -1f,
+                false,
+                Vector2.zero)
         {
         }
 
@@ -102,12 +106,33 @@ namespace PenaltyShootout.Kernel
             int physicsTick,
             float ballFlightTime,
             float visibleTimeToGoalPlane)
+            : this(
+                attemptId,
+                decisionIndex,
+                physicsTick,
+                ballFlightTime,
+                visibleTimeToGoalPlane,
+                false,
+                Vector2.zero)
+        {
+        }
+
+        public GoalkeeperControlDecisionContext(
+            long attemptId,
+            int decisionIndex,
+            int physicsTick,
+            float ballFlightTime,
+            float visibleTimeToGoalPlane,
+            bool hasVisibleGoalPlanePrediction,
+            Vector2 visiblePredictedAim)
         {
             AttemptId = attemptId;
             DecisionIndex = decisionIndex;
             PhysicsTick = physicsTick;
             BallFlightTime = ballFlightTime;
             VisibleTimeToGoalPlane = visibleTimeToGoalPlane;
+            HasVisibleGoalPlanePrediction = hasVisibleGoalPlanePrediction;
+            VisiblePredictedAim = visiblePredictedAim;
         }
     }
 

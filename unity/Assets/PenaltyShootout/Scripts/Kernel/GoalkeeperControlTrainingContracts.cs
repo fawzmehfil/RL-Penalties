@@ -8,6 +8,8 @@ namespace PenaltyShootout.Kernel
             "goalkeeper-control-training-reach-v1";
         public const string RewardSpecV2Id =
             "goalkeeper-control-training-reach-v2";
+        public const string RewardSpecV3Id =
+            "goalkeeper-control-training-reach-v3";
         public const float GloveSaveReward = 1f;
         public const float OtherSaveReward = 0.8f;
         public const float GoalReward = -1f;
@@ -20,6 +22,17 @@ namespace PenaltyShootout.Kernel
         public const float V2CommitGuardTimeToPlane = 0.72f;
         public const float V2CommitWindowMinimum = 0.35f;
         public const float V2ImmediateCommitBallFlightTime = 0.06f;
+        public const float V3MinimumObservedBallFlightTime = 0.08f;
+        public const float V3PreferredMaximumTimeToPlane = 0.68f;
+        public const float V3GloveFirstSaveReward = 1f;
+        public const float V3GloveSaveReward = 0.85f;
+        public const float V3ArmSaveReward = 0.55f;
+        public const float V3BodySaveReward = 0.25f;
+        public const float V3MaximumGoalProximityCredit = 0.05f;
+        public const float V3ImmediateCommitPenalty = 0.15f;
+        public const float V3EarlyCommitPenalty = 0.10f;
+        public const float V3MaximumAimErrorPenalty = 0.15f;
+        public const float V3AimErrorPenaltyDistance = 2f;
         public const float MaximumVisibleTimeToGoalPlane = 1.5f;
 
         public static float TrainingReward(
@@ -39,7 +52,12 @@ namespace PenaltyShootout.Kernel
                 return GoalkeeperTrainingContracts.SparseReward(result.Outcome);
             }
 
-            if (reachTrainingVersion >= 2)
+            if (reachTrainingVersion >= 3)
+            {
+                return TrainingRewardV3(result);
+            }
+
+            if (reachTrainingVersion == 2)
             {
                 return TrainingRewardV2(result);
             }
@@ -76,6 +94,71 @@ namespace PenaltyShootout.Kernel
                 : -1f;
         }
 
+        public static bool TryEstimateVisibleGoalPlaneAim(
+            Vector3 ballLocalPosition,
+            Vector3 ballLocalVelocity,
+            Vector3 gravity,
+            out float timeToPlane,
+            out Vector2 aim)
+        {
+            timeToPlane = EstimateVisibleTimeToGoalPlane(
+                ballLocalPosition,
+                ballLocalVelocity);
+            if (timeToPlane < 0f || !KernelMath.IsFinite(gravity))
+            {
+                aim = Vector2.zero;
+                return false;
+            }
+
+            var predicted = new Vector2(
+                ballLocalPosition.x +
+                    ballLocalVelocity.x * timeToPlane +
+                    0.5f * gravity.x * timeToPlane * timeToPlane,
+                ballLocalPosition.y +
+                    ballLocalVelocity.y * timeToPlane +
+                    0.5f * gravity.y * timeToPlane * timeToPlane);
+            if (!KernelMath.IsFinite(predicted.x) ||
+                !KernelMath.IsFinite(predicted.y))
+            {
+                aim = Vector2.zero;
+                return false;
+            }
+
+            aim = GoalkeeperControlSpace.LocalToAim(predicted);
+            return true;
+        }
+
+        public static float VisibleAimErrorMeters(
+            Vector2 policyAim,
+            Vector2 visiblePredictedAim)
+        {
+            return Vector2.Distance(
+                GoalkeeperControlSpace.AimToLocal(policyAim.x, policyAim.y),
+                GoalkeeperControlSpace.AimToLocal(
+                    visiblePredictedAim.x,
+                    visiblePredictedAim.y));
+        }
+
+        public static bool IsV3PreferredCommitOpportunity(
+            GoalkeeperControlDecisionContext context)
+        {
+            return context.BallFlightTime >=
+                    V3MinimumObservedBallFlightTime &&
+                context.VisibleTimeToGoalPlane >= 0f &&
+                context.VisibleTimeToGoalPlane <=
+                    V3PreferredMaximumTimeToPlane;
+        }
+
+        public static bool IsV3PrematureCommit(
+            GoalkeeperControlDecisionContext context)
+        {
+            return context.BallFlightTime <
+                    V3MinimumObservedBallFlightTime ||
+                context.VisibleTimeToGoalPlane < 0f ||
+                context.VisibleTimeToGoalPlane >
+                    V3PreferredMaximumTimeToPlane;
+        }
+
         public static GoalkeeperControlActionMask ApplyCommitGuard(
             GoalkeeperControlActionMask actionMask,
             GoalkeeperControlDecisionContext context,
@@ -83,14 +166,36 @@ namespace PenaltyShootout.Kernel
             int reachTrainingVersion,
             int lesson)
         {
-            if (!actionMask.CanCommit ||
-                !reachTrainingEnabled ||
-                reachTrainingVersion < 2)
+            if (!actionMask.CanCommit || !reachTrainingEnabled)
             {
                 return actionMask;
             }
 
             var clampedLesson = Mathf.Clamp(lesson, 0, 4);
+            if (reachTrainingVersion >= 3)
+            {
+                if (clampedLesson >= 4)
+                {
+                    return actionMask;
+                }
+
+                var v3MaximumTimeToPlane =
+                    V3MaximumTimeToPlaneForLesson(clampedLesson);
+                var minimumBallFlightTime =
+                    clampedLesson <= 2
+                        ? V3MinimumObservedBallFlightTime
+                        : V2ImmediateCommitBallFlightTime;
+                return new GoalkeeperControlActionMask(
+                    context.BallFlightTime >= minimumBallFlightTime &&
+                    context.VisibleTimeToGoalPlane >= 0f &&
+                    context.VisibleTimeToGoalPlane <= v3MaximumTimeToPlane);
+            }
+
+            if (reachTrainingVersion < 2)
+            {
+                return actionMask;
+            }
+
             if (clampedLesson >= 3)
             {
                 return actionMask;
@@ -142,7 +247,18 @@ namespace PenaltyShootout.Kernel
             }
 
             var clampedLesson = Mathf.Clamp(lesson, 0, 4);
-            if (reachTrainingVersion >= 2)
+            if (reachTrainingVersion >= 3)
+            {
+                return ApplyScaffoldV3(
+                    command,
+                    context,
+                    actionMask,
+                    clampedLesson,
+                    out autoCommitApplied,
+                    out reachFloorApplied);
+            }
+
+            if (reachTrainingVersion == 2)
             {
                 return ApplyScaffoldV2(
                     command,
@@ -202,7 +318,13 @@ namespace PenaltyShootout.Kernel
                 return;
             }
 
-            if (reachTrainingVersion >= 2)
+            if (reachTrainingVersion >= 3)
+            {
+                ApplyReachFocusLessonV3(shots, lesson);
+                return;
+            }
+
+            if (reachTrainingVersion == 2)
             {
                 ApplyReachFocusLessonV2(shots, lesson);
                 return;
@@ -262,6 +384,71 @@ namespace PenaltyShootout.Kernel
                 : V2OtherSaveReward;
         }
 
+        private static float TrainingRewardV3(AttemptResult result)
+        {
+            if (!IsSave(result.Outcome) &&
+                result.Outcome != AttemptOutcome.Goal)
+            {
+                return 0f;
+            }
+
+            float reward;
+            if (result.Outcome == AttemptOutcome.Goal)
+            {
+                var distance = result.MinimumGloveBallDistance;
+                var proximity = distance < 0f
+                    ? 0f
+                    : 1f - Mathf.Clamp01(
+                        distance / V2GoalProximityDistance);
+                reward =
+                    GoalReward +
+                    V3MaximumGoalProximityCredit * proximity;
+            }
+            else
+            {
+                switch (result.FirstGoalkeeperContactPart)
+                {
+                    case GoalkeeperContactPart.LeftGlove:
+                    case GoalkeeperContactPart.RightGlove:
+                        reward = V3GloveFirstSaveReward;
+                        break;
+                    case GoalkeeperContactPart.Arm:
+                        reward = V3ArmSaveReward;
+                        break;
+                    default:
+                        reward = result.GloveContact
+                            ? V3GloveSaveReward
+                            : V3BodySaveReward;
+                        break;
+                }
+            }
+
+            if (result.HasSaveCommitment)
+            {
+                if (result.FirstCommitWasImmediate)
+                {
+                    reward -= V3ImmediateCommitPenalty;
+                }
+
+                if (result.FirstCommitVisibleTimeToGoalPlane >
+                    V3PreferredMaximumTimeToPlane)
+                {
+                    reward -= V3EarlyCommitPenalty;
+                }
+
+                if (result.FirstCommitVisibleAimError >= 0f)
+                {
+                    reward -=
+                        V3MaximumAimErrorPenalty *
+                        Mathf.Clamp01(
+                            result.FirstCommitVisibleAimError /
+                            V3AimErrorPenaltyDistance);
+                }
+            }
+
+            return reward;
+        }
+
         private static GoalkeeperControlCommand ApplyScaffoldV2(
             GoalkeeperControlCommand command,
             GoalkeeperControlDecisionContext context,
@@ -298,6 +485,87 @@ namespace PenaltyShootout.Kernel
             return command;
         }
 
+        private static GoalkeeperControlCommand ApplyScaffoldV3(
+            GoalkeeperControlCommand command,
+            GoalkeeperControlDecisionContext context,
+            GoalkeeperControlActionMask actionMask,
+            int lesson,
+            out bool autoCommitApplied,
+            out bool reachFloorApplied)
+        {
+            autoCommitApplied = false;
+            reachFloorApplied = false;
+            var minimumReach01 =
+                lesson == 0
+                    ? 1f
+                    : lesson == 1
+                        ? 0.75f
+                        : lesson == 2
+                            ? 0.35f
+                            : 0f;
+            var minimumReachAction = minimumReach01 * 2f - 1f;
+            if (command.Reach < minimumReachAction)
+            {
+                command.Reach = minimumReachAction;
+                reachFloorApplied = true;
+            }
+
+            var guidanceWeight = V3AimGuidanceWeight(lesson);
+            if (guidanceWeight > 0f &&
+                context.HasVisibleGoalPlanePrediction)
+            {
+                command.AimX = Mathf.Lerp(
+                    command.AimX,
+                    context.VisiblePredictedAim.x,
+                    guidanceWeight);
+                command.AimY = Mathf.Lerp(
+                    command.AimY,
+                    context.VisiblePredictedAim.y,
+                    guidanceWeight);
+            }
+
+            if (lesson == 0 &&
+                actionMask.CanCommit &&
+                IsV3PreferredCommitOpportunity(context) &&
+                !command.Commit)
+            {
+                command.Commit = true;
+                autoCommitApplied = true;
+            }
+
+            return command;
+        }
+
+        public static float V3AimGuidanceWeight(int lesson)
+        {
+            switch (Mathf.Clamp(lesson, 0, 4))
+            {
+                case 0:
+                    return 1f;
+                case 1:
+                    return 0.65f;
+                case 2:
+                    return 0.25f;
+                default:
+                    return 0f;
+            }
+        }
+
+        public static float V3MaximumTimeToPlaneForLesson(int lesson)
+        {
+            switch (Mathf.Clamp(lesson, 0, 4))
+            {
+                case 0:
+                    return 0.56f;
+                case 1:
+                    return 0.60f;
+                case 2:
+                    return 0.64f;
+                default:
+                    return V3PreferredMaximumTimeToPlane;
+            }
+        }
+
         private static void ApplyReachFocusLessonV2(
             ShotDistributionConfig shots,
             int lesson)
@@ -319,6 +587,31 @@ namespace PenaltyShootout.Kernel
                     break;
                 default:
                     SetFocus(shots, 0.20f, 0.45f, 0.95f, 0.02f, 0.98f);
+                    break;
+            }
+        }
+
+        private static void ApplyReachFocusLessonV3(
+            ShotDistributionConfig shots,
+            int lesson)
+        {
+            shots.ReachFocusBalancedHeightBands = true;
+            switch (Mathf.Clamp(lesson, 0, 4))
+            {
+                case 0:
+                    SetFocus(shots, 1f, 0.25f, 0.60f, 0.02f, 0.98f);
+                    break;
+                case 1:
+                    SetFocus(shots, 0.90f, 0.30f, 0.75f, 0.02f, 0.98f);
+                    break;
+                case 2:
+                    SetFocus(shots, 0.75f, 0.35f, 0.90f, 0.02f, 0.98f);
+                    break;
+                case 3:
+                    SetFocus(shots, 0.60f, 0.40f, 0.95f, 0.02f, 0.98f);
+                    break;
+                default:
+                    SetFocus(shots, 0.45f, 0.45f, 0.95f, 0.02f, 0.98f);
                     break;
             }
         }

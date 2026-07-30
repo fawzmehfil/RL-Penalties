@@ -51,6 +51,7 @@ namespace PenaltyShootout.Kernel
         private float peakReachExtension;
         private int commandClampCount;
         private int targetClampCount;
+        private float maximumRootTargetSaturationDistance;
         private long attemptId;
 
         public GoalkeeperControlMotorConfig Configuration
@@ -97,6 +98,8 @@ namespace PenaltyShootout.Kernel
         public float PeakReachExtension => peakReachExtension;
         public int CommandClampCount => commandClampCount;
         public int TargetClampCount => targetClampCount;
+        public float MaximumRootTargetSaturationDistance =>
+            maximumRootTargetSaturationDistance;
         public Vector3 LeftGloveArenaLocal =>
             armRig == null ? Vector3.zero : armRig.LeftGloveArenaLocal;
         public Vector3 RightGloveArenaLocal =>
@@ -219,6 +222,7 @@ namespace PenaltyShootout.Kernel
             peakReachExtension = 0f;
             commandClampCount = 0;
             targetClampCount = 0;
+            maximumRootTargetSaturationDistance = 0f;
             if (body == null)
             {
                 body = GetComponent<Rigidbody>();
@@ -500,6 +504,9 @@ namespace PenaltyShootout.Kernel
             if (!Mathf.Approximately(unclampedRootX, desiredRootX))
             {
                 targetClampCount++;
+                maximumRootTargetSaturationDistance = Mathf.Max(
+                    maximumRootTargetSaturationDistance,
+                    Mathf.Abs(unclampedRootX - desiredRootX));
             }
 
             diveTargetLocal = new Vector3(

@@ -60,6 +60,20 @@ TARGET_X_EXTENT = GOAL_HALF_WIDTH - BALL_RADIUS
 TARGET_Y_MIN = BALL_RADIUS
 TARGET_Y_MAX = CROSSBAR_LOWER_EDGE - BALL_RADIUS
 GRAVITY_Y = -9.81
+STAGE5_DIAGNOSTIC_THRESHOLDS = {
+    "minimum_save_rate": 0.20,
+    "minimum_glove_contact_rate": 0.25,
+    "minimum_glove_save_rate": 0.12,
+    "minimum_peak_reach_extension_mean": 0.65,
+    "minimum_high_shot_save_rate": 0.15,
+    "maximum_first_commit_aim_error_m": 1.0,
+    "maximum_immediate_commit_rate": 0.10,
+    "maximum_premature_commit_rate": 0.15,
+    "maximum_command_clamp_count": 0,
+    "maximum_invalids": 0,
+    "maximum_timeouts": 0,
+    "maximum_action_mask_violations": 0,
+}
 
 
 @dataclass(frozen=True)
@@ -969,10 +983,39 @@ def aggregate_policy(
         first_commit_was_immediate(item)
         for item in committed_episodes
     )
-    target_clamp_attempts = sum(
-        int(item.get("control_target_clamp_count", 0)) > 0
+    premature_commits = sum(
+        bool(item.get("first_commit_was_premature", False))
+        for item in committed_episodes
+    )
+    root_saturation_attempts = sum(
+        int(
+            item.get(
+                "root_target_saturation_count",
+                item.get("control_target_clamp_count", 0),
+            )
+        )
+        > 0
         for item in episodes
     )
+    command_clamp_attempts = sum(
+        int(item.get("control_command_clamp_count", 0)) > 0
+        for item in episodes
+    )
+    glove_saves = sum(
+        item["outcome"] in config.save_outcomes and item.get("glove_contact")
+        for item in episodes
+    )
+    glove_first_saves = sum(
+        item["outcome"] in config.save_outcomes
+        and first_contact_category(item) == "glove"
+        for item in episodes
+    )
+    arm_saves = sum(
+        item["outcome"] in config.save_outcomes
+        and first_contact_part(item) == "Arm"
+        for item in episodes
+    )
+    body_saves = saves - glove_first_saves - arm_saves
     minimum_glove_distances = [
         float(item["minimum_glove_ball_distance"])
         for item in episodes
@@ -1065,6 +1108,62 @@ def aggregate_policy(
                     ]
                 ),
                 "immediate_commit_rate": rate(immediate_commits, total),
+                "premature_commit_rate": rate(
+                    premature_commits,
+                    total,
+                ),
+                "first_commit_visible_aim_error_m": numeric_summary(
+                    [
+                        float(item["first_commit_visible_aim_error"])
+                        for item in committed_episodes
+                        if float(
+                            item.get(
+                                "first_commit_visible_aim_error",
+                                -1.0,
+                            )
+                        )
+                        >= 0.0
+                    ]
+                ),
+                "first_eligible_commit_decision_index": numeric_summary(
+                    [
+                        float(item["first_eligible_commit_decision_index"])
+                        for item in episodes
+                        if int(
+                            item.get(
+                                "first_eligible_commit_decision_index",
+                                -1,
+                            )
+                        )
+                        >= 0
+                    ]
+                ),
+                "first_eligible_commit_ball_flight_time": numeric_summary(
+                    [
+                        float(
+                            item["first_eligible_commit_ball_flight_time"]
+                        )
+                        for item in episodes
+                        if float(
+                            item.get(
+                                "first_eligible_commit_ball_flight_time",
+                                -1.0,
+                            )
+                        )
+                        >= 0.0
+                    ]
+                ),
+                "eligible_commit_decisions_before_commit": numeric_summary(
+                    [
+                        float(
+                            item.get(
+                                "eligible_commit_decisions_before_commit",
+                                0,
+                            )
+                        )
+                        for item in episodes
+                    ]
+                ),
                 "goalkeeper_root_distance_m": numeric_summary(
                     [
                         float(item.get("goalkeeper_root_distance", 0.0))
@@ -1095,14 +1194,73 @@ def aggregate_policy(
                     int(item.get("control_command_clamp_count", 0))
                     for item in episodes
                 ),
+                "control_command_clamp_attempt_rate": rate(
+                    command_clamp_attempts,
+                    total,
+                ),
                 "control_target_clamp_count": sum(
                     int(item.get("control_target_clamp_count", 0))
                     for item in episodes
                 ),
                 "control_target_clamp_attempt_rate": rate(
-                    target_clamp_attempts,
+                    root_saturation_attempts,
                     total,
                 ),
+                "root_target_saturation_count": sum(
+                    int(
+                        item.get(
+                            "root_target_saturation_count",
+                            item.get("control_target_clamp_count", 0),
+                        )
+                    )
+                    for item in episodes
+                ),
+                "root_target_saturation_attempt_rate": rate(
+                    root_saturation_attempts,
+                    total,
+                ),
+                "root_target_saturation_distance_m": numeric_summary(
+                    [
+                        float(
+                            item.get(
+                                "root_target_saturation_distance",
+                                0.0,
+                            )
+                        )
+                        for item in episodes
+                        if float(
+                            item.get(
+                                "root_target_saturation_distance",
+                                0.0,
+                            )
+                        )
+                        > 0.0
+                    ]
+                ),
+                "saturated_shot_save_rate": rate(
+                    sum(
+                        item["outcome"] in config.save_outcomes
+                        and int(
+                            item.get(
+                                "root_target_saturation_count",
+                                item.get(
+                                    "control_target_clamp_count",
+                                    0,
+                                ),
+                            )
+                        )
+                        > 0
+                        for item in episodes
+                    ),
+                    root_saturation_attempts,
+                ),
+                "glove_save_rate": rate(glove_saves, total),
+                "glove_first_save_rate": rate(
+                    glove_first_saves,
+                    total,
+                ),
+                "arm_save_rate": rate(arm_saves, total),
+                "body_save_rate": rate(body_saves, total),
                 "glove_first_contact_rate": rate(
                     glove_first_contacts,
                     len(contacted_episodes),
@@ -1134,6 +1292,7 @@ def aggregate_policy(
                 ),
             }
         )
+        report["stage5_diagnostic_gate"] = stage5_diagnostic_gate(report)
     return report
 
 
@@ -1154,6 +1313,89 @@ def aggregate_by(
             "goal_rate": rate(sum(item["outcome"] == "Goal" for item in items), len(items)),
         }
         for key, items in sorted(grouped.items())
+    }
+
+
+def stage5_diagnostic_gate(policy: dict[str, Any]) -> dict[str, Any]:
+    high_save_rate = (
+        policy.get("by_height_band", {})
+        .get("high", {})
+        .get("save_rate", {})
+        .get("value", 0.0)
+    )
+    checks = {
+        "save_rate": (
+            policy["save_rate"]["value"]
+            >= STAGE5_DIAGNOSTIC_THRESHOLDS["minimum_save_rate"]
+        ),
+        "glove_contact_rate": (
+            policy["glove_contact_rate"]["value"]
+            >= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "minimum_glove_contact_rate"
+            ]
+        ),
+        "glove_save_rate": (
+            policy["glove_save_rate"]["value"]
+            >= STAGE5_DIAGNOSTIC_THRESHOLDS["minimum_glove_save_rate"]
+        ),
+        "peak_reach_extension": (
+            policy["goalkeeper_peak_reach_extension"]["mean"]
+            >= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "minimum_peak_reach_extension_mean"
+            ]
+        ),
+        "high_shot_save_rate": (
+            high_save_rate
+            >= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "minimum_high_shot_save_rate"
+            ]
+        ),
+        "first_commit_aim_error": (
+            policy["first_commit_aim_error_m"]["mean"]
+            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "maximum_first_commit_aim_error_m"
+            ]
+        ),
+        "immediate_commit_rate": (
+            policy["immediate_commit_rate"]["value"]
+            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "maximum_immediate_commit_rate"
+            ]
+        ),
+        "premature_commit_rate": (
+            policy["premature_commit_rate"]["value"]
+            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "maximum_premature_commit_rate"
+            ]
+        ),
+        "command_clamps": (
+            policy["control_command_clamp_count"]
+            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "maximum_command_clamp_count"
+            ]
+        ),
+        "invalids": (
+            policy["invalid_rate"]["successes"]
+            <= STAGE5_DIAGNOSTIC_THRESHOLDS["maximum_invalids"]
+        ),
+        "timeouts": (
+            policy["timeout_rate"]["successes"]
+            <= STAGE5_DIAGNOSTIC_THRESHOLDS["maximum_timeouts"]
+        ),
+        "action_mask_violations": (
+            policy["action_mask_violations"]
+            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "maximum_action_mask_violations"
+            ]
+        ),
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    return {
+        "passed": not failed,
+        "checks_passed": sum(checks.values()),
+        "checks_total": len(checks),
+        "failed_checks": failed,
+        "thresholds": dict(STAGE5_DIAGNOSTIC_THRESHOLDS),
     }
 
 
@@ -1465,6 +1707,54 @@ def write_summary(path: Path, report: dict[str, Any]) -> None:
                 timeout=policy["timeout_rate"]["value"],
             )
         )
+    if report["behavior_name"] == CONTROL_BEHAVIOR_NAME:
+        lines.extend(
+            [
+                "",
+                "## Stage 5 diagnostic",
+                "",
+                "| Policy | Gate | Glove Contact | Glove Save | High Save | Immediate | Premature | Aim Error (m) | Peak Reach | Command Clamps | Root Saturation |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for policy in report["policies"]:
+            gate = policy["stage5_diagnostic_gate"]
+            high_save = (
+                policy["by_height_band"]
+                .get("high", {})
+                .get("save_rate", {})
+                .get("value", 0.0)
+            )
+            lines.append(
+                "| {policy} | {passed}/{total} | {glove:.3f} | {glove_save:.3f} | {high:.3f} | {immediate:.3f} | {premature:.3f} | {aim:.3f} | {reach:.3f} | {clamps} | {saturation:.3f} |".format(
+                    policy=policy["policy"],
+                    passed=gate["checks_passed"],
+                    total=gate["checks_total"],
+                    glove=policy["glove_contact_rate"]["value"],
+                    glove_save=policy["glove_save_rate"]["value"],
+                    high=high_save,
+                    immediate=policy["immediate_commit_rate"]["value"],
+                    premature=policy["premature_commit_rate"]["value"],
+                    aim=policy["first_commit_aim_error_m"]["mean"],
+                    reach=policy[
+                        "goalkeeper_peak_reach_extension"
+                    ]["mean"],
+                    clamps=policy["control_command_clamp_count"],
+                    saturation=policy[
+                        "root_target_saturation_attempt_rate"
+                    ]["value"],
+                )
+            )
+        selection = report.get("stage5_diagnostic_selection")
+        if selection:
+            lines.extend(
+                [
+                    "",
+                    "Selected diagnostic checkpoint: "
+                    f"`{selection['selected_policy']}` "
+                    f"({selection['reason']}).",
+                ]
+            )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -1492,7 +1782,7 @@ def build_report(
         if not comparisons
         else "failed"
     )
-    return {
+    report = {
         "schema_version": 1,
         "benchmark_id": config.benchmark_id,
         "environment_id": config.environment_id,
@@ -1522,6 +1812,58 @@ def build_report(
         "passed": passed and full,
         "status": status,
         "policies": policy_reports,
+    }
+    if config.behavior_name == CONTROL_BEHAVIOR_NAME:
+        report["stage5_diagnostic_selection"] = (
+            select_stage5_diagnostic_checkpoint(policy_reports)
+        )
+    return report
+
+
+def select_stage5_diagnostic_checkpoint(
+    policy_reports: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    candidates = [
+        policy
+        for policy in policy_reports
+        if policy.get("policy_type") == "onnx"
+        and "stage5_diagnostic_gate" in policy
+    ]
+    if not candidates:
+        return None
+
+    passing = [
+        policy
+        for policy in candidates
+        if policy["stage5_diagnostic_gate"]["passed"]
+    ]
+    pool = passing or candidates
+    selected = max(
+        pool,
+        key=lambda policy: (
+            policy["stage5_diagnostic_gate"]["checks_passed"],
+            policy["save_rate"]["value"],
+            policy["glove_save_rate"]["value"],
+            policy["glove_contact_rate"]["value"],
+        ),
+    )
+    return {
+        "selected_policy": selected["policy"],
+        "passed": selected["stage5_diagnostic_gate"]["passed"],
+        "reason": (
+            "passed every Stage 5 diagnostic check"
+            if passing
+            else "best available checkpoint; diagnostic gate not passed"
+        ),
+        "checks_passed": selected["stage5_diagnostic_gate"][
+            "checks_passed"
+        ],
+        "checks_total": selected["stage5_diagnostic_gate"][
+            "checks_total"
+        ],
+        "failed_checks": selected["stage5_diagnostic_gate"][
+            "failed_checks"
+        ],
     }
 
 
@@ -1634,6 +1976,9 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
         "environment_parameters": report.get("environment_parameters", {}),
         "primary_metric": report["primary_metric"],
         "comparisons": report["comparisons"],
+        "stage5_diagnostic_selection": report.get(
+            "stage5_diagnostic_selection"
+        ),
         "passed": report["passed"],
         "status": report["status"],
         "policies": [
@@ -1678,6 +2023,22 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                             policy["first_commit_reach_extension"],
                         "immediate_commit_rate":
                             policy["immediate_commit_rate"],
+                        "premature_commit_rate":
+                            policy["premature_commit_rate"],
+                        "first_commit_visible_aim_error_m":
+                            policy["first_commit_visible_aim_error_m"],
+                        "first_eligible_commit_decision_index":
+                            policy[
+                                "first_eligible_commit_decision_index"
+                            ],
+                        "first_eligible_commit_ball_flight_time":
+                            policy[
+                                "first_eligible_commit_ball_flight_time"
+                            ],
+                        "eligible_commit_decisions_before_commit":
+                            policy[
+                                "eligible_commit_decisions_before_commit"
+                            ],
                         "goalkeeper_root_distance_m":
                             policy["goalkeeper_root_distance_m"],
                         "goalkeeper_peak_root_speed_mps":
@@ -1688,10 +2049,34 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                             policy["minimum_glove_ball_distance_m"],
                         "control_command_clamp_count":
                             policy["control_command_clamp_count"],
+                        "control_command_clamp_attempt_rate":
+                            policy[
+                                "control_command_clamp_attempt_rate"
+                            ],
                         "control_target_clamp_count":
                             policy["control_target_clamp_count"],
                         "control_target_clamp_attempt_rate":
                             policy["control_target_clamp_attempt_rate"],
+                        "root_target_saturation_count":
+                            policy["root_target_saturation_count"],
+                        "root_target_saturation_attempt_rate":
+                            policy[
+                                "root_target_saturation_attempt_rate"
+                            ],
+                        "root_target_saturation_distance_m":
+                            policy[
+                                "root_target_saturation_distance_m"
+                            ],
+                        "saturated_shot_save_rate":
+                            policy["saturated_shot_save_rate"],
+                        "glove_save_rate":
+                            policy["glove_save_rate"],
+                        "glove_first_save_rate":
+                            policy["glove_first_save_rate"],
+                        "arm_save_rate":
+                            policy["arm_save_rate"],
+                        "body_save_rate":
+                            policy["body_save_rate"],
                         "glove_first_contact_rate":
                             policy["glove_first_contact_rate"],
                         "body_first_contact_rate":
@@ -1704,6 +2089,8 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                             policy["by_first_commit_timing_band"],
                         "by_first_contact_part":
                             policy["by_first_contact_part"],
+                        "stage5_diagnostic_gate":
+                            policy["stage5_diagnostic_gate"],
                     }
                     if "commit_rate" in policy
                     else {}

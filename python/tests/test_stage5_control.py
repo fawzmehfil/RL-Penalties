@@ -15,6 +15,7 @@ from penalty_shootout.evaluation.goalkeeper import (
     StandCenterV1Policy,
     aggregate_policy,
     load_benchmark_config,
+    select_stage5_diagnostic_checkpoint,
     validate_benchmark_config,
 )
 
@@ -136,6 +137,16 @@ def test_stage5_ppo_yaml_matches_pinned_mlagents_schema() -> None:
             1_000_000,
             250_000,
         ),
+        (
+            "goalkeeper-control-v1-ppo-reach-v3.yaml",
+            8_000_000,
+            500_000,
+        ),
+        (
+            "goalkeeper-control-v1-ppo-reach-v3-diagnostic.yaml",
+            1_000_000,
+            250_000,
+        ),
     ],
 )
 def test_stage5_reach_training_yaml_matches_pinned_mlagents_schema(
@@ -164,6 +175,12 @@ def test_stage5_reach_training_yaml_matches_pinned_mlagents_schema(
         ]
         assert len(reach_version.curriculum) == 1
         assert reach_version.curriculum[0].value.value == 2.0
+    if "-v3" in name:
+        reach_version = options.environment_parameters[
+            "stage5.reach_training_version"
+        ]
+        assert len(reach_version.curriculum) == 1
+        assert reach_version.curriculum[0].value.value == 3.0
 
 
 def test_stage5_scripted_policies_emit_bounded_masked_hybrid_actions() -> None:
@@ -291,7 +308,12 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
             "first_commit_reach_demand": 1.0,
             "first_commit_reach_extension": 0.72,
             "first_commit_was_immediate": False,
+            "first_commit_was_premature": False,
             "first_commit_aim": {"x": 0.55, "y": 0.5},
+            "first_commit_visible_aim_error": 0.15,
+            "first_eligible_commit_decision_index": 2,
+            "first_eligible_commit_ball_flight_time": 0.08,
+            "eligible_commit_decisions_before_commit": 1,
             "first_goalkeeper_contact_part": "LeftGlove",
             "goalkeeper_root_distance": 2.2,
             "goalkeeper_peak_root_speed": 5.1,
@@ -299,6 +321,8 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
             "minimum_glove_ball_distance": 0.03,
             "control_command_clamp_count": 0,
             "control_target_clamp_count": 1,
+            "root_target_saturation_count": 1,
+            "root_target_saturation_distance": 0.25,
             "accepted_control_decision_count": 5,
             "control_move_command_count": 4,
             "control_reach_command_count": 3,
@@ -324,6 +348,8 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
             "minimum_glove_ball_distance": 1.2,
             "control_command_clamp_count": 0,
             "control_target_clamp_count": 0,
+            "root_target_saturation_count": 0,
+            "root_target_saturation_distance": 0.0,
             "accepted_control_decision_count": 5,
             "control_move_command_count": 1,
             "control_reach_command_count": 0,
@@ -347,10 +373,25 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
     assert report["first_commit_reach_demand"]["mean"] == 1.0
     assert report["first_commit_reach_extension"]["mean"] == 0.72
     assert report["immediate_commit_rate"]["value"] == 0.0
+    assert report["premature_commit_rate"]["value"] == 0.0
+    assert report["first_commit_visible_aim_error_m"]["mean"] == 0.15
+    assert report["first_eligible_commit_decision_index"]["mean"] == 2.0
+    assert (
+        report["first_eligible_commit_ball_flight_time"]["mean"] == 0.08
+    )
+    assert (
+        report["eligible_commit_decisions_before_commit"]["mean"] == 0.5
+    )
     assert report["goalkeeper_root_distance_m"]["mean"] == 1.3
     assert report["goalkeeper_peak_reach_extension"]["maximum"] == 1.0
     assert report["control_target_clamp_count"] == 1
     assert report["control_target_clamp_attempt_rate"]["value"] == 0.5
+    assert report["root_target_saturation_count"] == 1
+    assert report["root_target_saturation_attempt_rate"]["value"] == 0.5
+    assert report["root_target_saturation_distance_m"]["mean"] == 0.25
+    assert report["saturated_shot_save_rate"]["value"] == 1.0
+    assert report["glove_save_rate"]["value"] == 0.5
+    assert report["glove_first_save_rate"]["value"] == 0.5
     assert report["glove_first_contact_rate"]["value"] == 1.0
     assert report["body_first_contact_rate"]["value"] == 0.0
     assert report["control_usage"]["accepted_decisions"] == 10
@@ -359,3 +400,41 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
     assert "high-right" in report["by_first_commit_aim_region"]
     assert "in-window" in report["by_first_commit_timing_band"]
     assert "LeftGlove" in report["by_first_contact_part"]
+    assert report["stage5_diagnostic_gate"]["passed"] is False
+
+
+def test_stage5_diagnostic_selection_uses_behavioral_gate_before_save_rate() -> None:
+    passing = {
+        "policy": "onnx:passing",
+        "policy_type": "onnx",
+        "save_rate": {"value": 0.30},
+        "glove_save_rate": {"value": 0.15},
+        "glove_contact_rate": {"value": 0.30},
+        "stage5_diagnostic_gate": {
+            "passed": True,
+            "checks_passed": 12,
+            "checks_total": 12,
+            "failed_checks": [],
+        },
+    }
+    higher_save_failing = {
+        "policy": "onnx:torso-only",
+        "policy_type": "onnx",
+        "save_rate": {"value": 0.50},
+        "glove_save_rate": {"value": 0.02},
+        "glove_contact_rate": {"value": 0.05},
+        "stage5_diagnostic_gate": {
+            "passed": False,
+            "checks_passed": 8,
+            "checks_total": 12,
+            "failed_checks": ["glove_contact_rate"],
+        },
+    }
+
+    selected = select_stage5_diagnostic_checkpoint(
+        [higher_save_failing, passing]
+    )
+
+    assert selected is not None
+    assert selected["selected_policy"] == "onnx:passing"
+    assert selected["passed"] is True

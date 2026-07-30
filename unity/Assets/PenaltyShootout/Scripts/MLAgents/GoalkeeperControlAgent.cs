@@ -26,6 +26,17 @@ namespace PenaltyShootout.MLAgents
         private int reachTrainingVersion;
         private bool attemptAutoCommitApplied;
         private bool attemptReachFloorApplied;
+        private bool attemptAimGuidanceApplied;
+        private int firstEligibleCommitDecisionIndex = -1;
+        private float firstEligibleCommitBallFlightTime = -1f;
+        private float firstEligibleCommitVisibleTimeToGoalPlane = -1f;
+        private int eligibleCommitDecisionsBeforeCommit;
+        private bool hasRecordedCommitMetadata;
+        private bool firstCommitWasPremature;
+        private Vector2 firstCommitRawPolicyAim;
+        private bool hasFirstCommitVisiblePrediction;
+        private Vector2 firstCommitVisiblePredictedAim;
+        private float firstCommitVisibleAimError = -1f;
 
         public PenaltyAreaController Controller
         {
@@ -84,8 +95,7 @@ namespace PenaltyShootout.MLAgents
             bufferedCommit = false;
             heuristicAimX = 0f;
             heuristicAimY = 0f;
-            attemptAutoCommitApplied = false;
-            attemptReachFloorApplied = false;
+            ResetAttemptTrainingTelemetry();
             RequestDecision();
         }
 
@@ -174,9 +184,23 @@ namespace PenaltyShootout.MLAgents
             var result = hasPendingCommand
                 ? pendingCommand
                 : GoalkeeperControlCommand.Neutral;
+            var rawPolicyAim = new Vector2(result.AimX, result.AimY);
             if (!currentMask.CanCommit)
             {
                 result.Commit = false;
+            }
+
+            var preferredOpportunity =
+                currentMask.CanCommit &&
+                GoalkeeperControlTrainingContracts
+                    .IsV3PreferredCommitOpportunity(context);
+            if (preferredOpportunity &&
+                firstEligibleCommitDecisionIndex < 0)
+            {
+                firstEligibleCommitDecisionIndex = context.DecisionIndex;
+                firstEligibleCommitBallFlightTime = context.BallFlightTime;
+                firstEligibleCommitVisibleTimeToGoalPlane =
+                    context.VisibleTimeToGoalPlane;
             }
 
             result = GoalkeeperControlTrainingContracts.ApplyScaffold(
@@ -190,6 +214,34 @@ namespace PenaltyShootout.MLAgents
                 out var reachFloorApplied);
             attemptAutoCommitApplied |= autoCommitApplied;
             attemptReachFloorApplied |= reachFloorApplied;
+            attemptAimGuidanceApplied |=
+                !Mathf.Approximately(result.AimX, rawPolicyAim.x) ||
+                !Mathf.Approximately(result.AimY, rawPolicyAim.y);
+            var acceptedCommit = result.Commit && currentMask.CanCommit;
+            if (!hasRecordedCommitMetadata && acceptedCommit)
+            {
+                hasRecordedCommitMetadata = true;
+                firstCommitRawPolicyAim = rawPolicyAim;
+                firstCommitWasPremature =
+                    GoalkeeperControlTrainingContracts
+                        .IsV3PrematureCommit(context);
+                hasFirstCommitVisiblePrediction =
+                    context.HasVisibleGoalPlanePrediction;
+                firstCommitVisiblePredictedAim =
+                    context.VisiblePredictedAim;
+                firstCommitVisibleAimError =
+                    context.HasVisibleGoalPlanePrediction
+                        ? GoalkeeperControlTrainingContracts
+                            .VisibleAimErrorMeters(
+                                rawPolicyAim,
+                                context.VisiblePredictedAim)
+                        : -1f;
+            }
+            else if (!hasRecordedCommitMetadata && preferredOpportunity)
+            {
+                eligibleCommitDecisionsBeforeCommit++;
+            }
+
             hasPendingCommand = false;
             RequestDecision();
             return result;
@@ -201,12 +253,33 @@ namespace PenaltyShootout.MLAgents
             currentMask = new GoalkeeperControlActionMask(false);
             hasPendingCommand = false;
             bufferedCommit = false;
-            attemptAutoCommitApplied = false;
-            attemptReachFloorApplied = false;
+            ResetAttemptTrainingTelemetry();
         }
 
         public void OnAttemptEnded(AttemptResult result)
         {
+            result.FirstCommitWasPremature =
+                hasRecordedCommitMetadata &&
+                firstCommitWasPremature;
+            result.FirstCommitRawPolicyAim =
+                firstCommitRawPolicyAim;
+            result.HasFirstCommitVisiblePrediction =
+                hasRecordedCommitMetadata &&
+                hasFirstCommitVisiblePrediction;
+            result.FirstCommitVisiblePredictedAim =
+                firstCommitVisiblePredictedAim;
+            result.FirstCommitVisibleAimError =
+                hasRecordedCommitMetadata
+                    ? firstCommitVisibleAimError
+                    : -1f;
+            result.FirstEligibleCommitDecisionIndex =
+                firstEligibleCommitDecisionIndex;
+            result.FirstEligibleCommitBallFlightTime =
+                firstEligibleCommitBallFlightTime;
+            result.FirstEligibleCommitVisibleTimeToGoalPlane =
+                firstEligibleCommitVisibleTimeToGoalPlane;
+            result.EligibleCommitDecisionsBeforeCommit =
+                eligibleCommitDecisionsBeforeCommit;
             var sparseReward =
                 GoalkeeperTrainingContracts.SparseReward(result.Outcome);
             var trainingReward =
@@ -247,7 +320,7 @@ namespace PenaltyShootout.MLAgents
                             "stage5.reach_training_version",
                             1f)),
                     1,
-                    2)
+                    3)
                 : 0;
             var shots = controller.ShotConfiguration;
             ApplyLessonDefaults(shots, stage5Lesson);
@@ -453,8 +526,36 @@ namespace PenaltyShootout.MLAgents
                     ? 1f
                     : 0f);
             stats.Add(
+                "Stage5/GloveFirstSaveRate",
+                isSave &&
+                (result.FirstGoalkeeperContactPart ==
+                    GoalkeeperContactPart.LeftGlove ||
+                 result.FirstGoalkeeperContactPart ==
+                    GoalkeeperContactPart.RightGlove)
+                    ? 1f
+                    : 0f);
+            stats.Add(
+                "Stage5/ArmSaveRate",
+                isSave &&
+                result.FirstGoalkeeperContactPart ==
+                    GoalkeeperContactPart.Arm
+                    ? 1f
+                    : 0f);
+            stats.Add(
                 "Stage5/TargetClampAttemptRate",
                 result.ControlTargetClampCount > 0 ? 1f : 0f);
+            stats.Add(
+                "Stage5/RootTargetSaturationRate",
+                result.ControlTargetClampCount > 0 ? 1f : 0f);
+            stats.Add(
+                "Stage5/RootTargetSaturationDistance",
+                result.RootTargetSaturationDistance);
+            stats.Add(
+                "Stage5/CommandClampAttemptRate",
+                result.ControlCommandClampCount > 0 ? 1f : 0f);
+            stats.Add(
+                "Stage5/AimGuidanceRate",
+                attemptAimGuidanceApplied ? 1f : 0f);
             if (result.HasSaveCommitment)
             {
                 stats.Add(
@@ -469,10 +570,36 @@ namespace PenaltyShootout.MLAgents
                 stats.Add(
                     "Stage5/ImmediateCommitRate",
                     result.FirstCommitWasImmediate ? 1f : 0f);
+                stats.Add(
+                    "Stage5/PrematureCommitRate",
+                    result.FirstCommitWasPremature ? 1f : 0f);
+                if (result.FirstCommitVisibleAimError >= 0f)
+                {
+                    stats.Add(
+                        "Stage5/FirstCommitVisibleAimError",
+                        result.FirstCommitVisibleAimError);
+                }
             }
             stats.Add("Stage5/SparseReward", sparseReward);
             stats.Add("Stage5/TrainingReward", trainingReward);
             stats.Add("Stage5/Lesson", stage5Lesson);
+        }
+
+        private void ResetAttemptTrainingTelemetry()
+        {
+            attemptAutoCommitApplied = false;
+            attemptReachFloorApplied = false;
+            attemptAimGuidanceApplied = false;
+            firstEligibleCommitDecisionIndex = -1;
+            firstEligibleCommitBallFlightTime = -1f;
+            firstEligibleCommitVisibleTimeToGoalPlane = -1f;
+            eligibleCommitDecisionsBeforeCommit = 0;
+            hasRecordedCommitMetadata = false;
+            firstCommitWasPremature = false;
+            firstCommitRawPolicyAim = Vector2.zero;
+            hasFirstCommitVisiblePrediction = false;
+            firstCommitVisiblePredictedAim = Vector2.zero;
+            firstCommitVisibleAimError = -1f;
         }
     }
 }

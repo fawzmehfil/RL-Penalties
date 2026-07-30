@@ -877,14 +877,22 @@ namespace PenaltyShootout.Kernel
 
         private void RequestControlAction()
         {
+            var hasVisiblePrediction =
+                GoalkeeperControlTrainingContracts
+                    .TryEstimateVisibleGoalPlaneAim(
+                        BallLocalPosition,
+                        BallLocalVelocity,
+                        ToLocalDirection(Physics.gravity),
+                        out var visibleTimeToGoalPlane,
+                        out var visiblePredictedAim);
             var context = new GoalkeeperControlDecisionContext(
                 attemptId,
                 decisionIndex,
                 physicsTick,
                 ballFlightTime,
-                GoalkeeperControlTrainingContracts.EstimateVisibleTimeToGoalPlane(
-                    BallLocalPosition,
-                    BallLocalVelocity));
+                visibleTimeToGoalPlane,
+                hasVisiblePrediction,
+                visiblePredictedAim);
             var mask = goalkeeperControlMotor.GetActionMask();
             var requested = resolvedControlSource == null
                 ? GoalkeeperControlCommand.Neutral
@@ -1141,6 +1149,11 @@ namespace PenaltyShootout.Kernel
                     goalkeeperControlMotor == null
                         ? 0
                         : goalkeeperControlMotor.TargetClampCount,
+                RootTargetSaturationDistance =
+                    goalkeeperControlMotor == null
+                        ? 0f
+                        : goalkeeperControlMotor
+                            .MaximumRootTargetSaturationDistance,
                 AcceptedControlDecisionCount =
                     acceptedControlDecisionCount,
                 ControlMoveCommandCount =

@@ -215,7 +215,26 @@ namespace PenaltyShootout.MLAgents
                     result.FirstCommitReachExtension,
                 first_commit_was_immediate =
                     result.FirstCommitWasImmediate,
+                first_commit_was_premature =
+                    result.FirstCommitWasPremature,
                 first_commit_aim = Vector2Payload.From(result.FirstCommitAim),
+                first_commit_raw_policy_aim =
+                    Vector2Payload.From(result.FirstCommitRawPolicyAim),
+                has_first_commit_visible_prediction =
+                    result.HasFirstCommitVisiblePrediction,
+                first_commit_visible_predicted_aim =
+                    Vector2Payload.From(
+                        result.FirstCommitVisiblePredictedAim),
+                first_commit_visible_aim_error =
+                    result.FirstCommitVisibleAimError,
+                first_eligible_commit_decision_index =
+                    result.FirstEligibleCommitDecisionIndex,
+                first_eligible_commit_ball_flight_time =
+                    result.FirstEligibleCommitBallFlightTime,
+                first_eligible_commit_visible_time_to_goal_plane =
+                    result.FirstEligibleCommitVisibleTimeToGoalPlane,
+                eligible_commit_decisions_before_commit =
+                    result.EligibleCommitDecisionsBeforeCommit,
                 goalkeeper_root_distance =
                     result.GoalkeeperRootDistance,
                 goalkeeper_peak_root_speed =
@@ -226,6 +245,10 @@ namespace PenaltyShootout.MLAgents
                     result.ControlCommandClampCount,
                 control_target_clamp_count =
                     result.ControlTargetClampCount,
+                root_target_saturation_count =
+                    result.ControlTargetClampCount,
+                root_target_saturation_distance =
+                    result.RootTargetSaturationDistance,
                 accepted_control_decision_count =
                     result.AcceptedControlDecisionCount,
                 control_move_command_count =
@@ -314,12 +337,23 @@ namespace PenaltyShootout.MLAgents
             public float first_commit_reach_demand;
             public float first_commit_reach_extension;
             public bool first_commit_was_immediate;
+            public bool first_commit_was_premature;
             public Vector2Payload first_commit_aim;
+            public Vector2Payload first_commit_raw_policy_aim;
+            public bool has_first_commit_visible_prediction;
+            public Vector2Payload first_commit_visible_predicted_aim;
+            public float first_commit_visible_aim_error;
+            public int first_eligible_commit_decision_index;
+            public float first_eligible_commit_ball_flight_time;
+            public float first_eligible_commit_visible_time_to_goal_plane;
+            public int eligible_commit_decisions_before_commit;
             public float goalkeeper_root_distance;
             public float goalkeeper_peak_root_speed;
             public float goalkeeper_peak_reach_extension;
             public int control_command_clamp_count;
             public int control_target_clamp_count;
+            public int root_target_saturation_count;
+            public float root_target_saturation_distance;
             public int accepted_control_decision_count;
             public int control_move_command_count;
             public int control_reach_command_count;

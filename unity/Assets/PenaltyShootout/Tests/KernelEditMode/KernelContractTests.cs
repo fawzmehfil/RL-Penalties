@@ -844,6 +844,226 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void Stage5ReachV3VisiblePredictionUsesOnlyCurrentBallState()
+        {
+            Assert.That(
+                GoalkeeperControlTrainingContracts
+                    .TryEstimateVisibleGoalPlaneAim(
+                        new Vector3(0.5f, 1.2f, 10f),
+                        new Vector3(2f, 3f, -20f),
+                        new Vector3(0f, -10f, 0f),
+                        out var timeToPlane,
+                        out var aim),
+                Is.True);
+            Assert.That(timeToPlane, Is.EqualTo(0.5f).Within(1e-5f));
+            var expected = GoalkeeperControlSpace.LocalToAim(
+                new Vector2(1.5f, 1.45f));
+            Assert.That(aim.x, Is.EqualTo(expected.x).Within(1e-5f));
+            Assert.That(aim.y, Is.EqualTo(expected.y).Within(1e-5f));
+            Assert.That(
+                GoalkeeperControlTrainingContracts
+                    .TryEstimateVisibleGoalPlaneAim(
+                        Vector3.zero,
+                        Vector3.zero,
+                        Physics.gravity,
+                        out _,
+                        out _),
+                Is.False);
+        }
+
+        [Test]
+        public void Stage5ReachV3CommitGuardDelaysThenReleasesCommit()
+        {
+            var mask = new GoalkeeperControlActionMask(true);
+            var immediate = new GoalkeeperControlDecisionContext(
+                1,
+                1,
+                1,
+                0.04f,
+                0.50f);
+            var guidedWindow = new GoalkeeperControlDecisionContext(
+                1,
+                2,
+                2,
+                0.12f,
+                0.55f);
+            var tooEarly = new GoalkeeperControlDecisionContext(
+                1,
+                3,
+                3,
+                0.12f,
+                0.70f);
+            Assert.That(
+                GoalkeeperControlTrainingContracts.ApplyCommitGuard(
+                    mask,
+                    immediate,
+                    true,
+                    3,
+                    0).CanCommit,
+                Is.False);
+            Assert.That(
+                GoalkeeperControlTrainingContracts.ApplyCommitGuard(
+                    mask,
+                    guidedWindow,
+                    true,
+                    3,
+                    0).CanCommit,
+                Is.True);
+            Assert.That(
+                GoalkeeperControlTrainingContracts.ApplyCommitGuard(
+                    mask,
+                    tooEarly,
+                    true,
+                    3,
+                    3).CanCommit,
+                Is.False);
+            Assert.That(
+                GoalkeeperControlTrainingContracts.ApplyCommitGuard(
+                    mask,
+                    immediate,
+                    true,
+                    3,
+                    4).CanCommit,
+                Is.True);
+        }
+
+        [Test]
+        public void Stage5ReachV3AimAndReachGuidanceFadeByFinalLesson()
+        {
+            var command = GoalkeeperControlCommand.Neutral;
+            command.AimX = -0.5f;
+            command.AimY = -0.25f;
+            var prediction = new Vector2(0.75f, 0.60f);
+            var context = new GoalkeeperControlDecisionContext(
+                1,
+                2,
+                2,
+                0.12f,
+                0.55f,
+                true,
+                prediction);
+            var mask = new GoalkeeperControlActionMask(true);
+            var guided =
+                GoalkeeperControlTrainingContracts.ApplyScaffold(
+                    command,
+                    context,
+                    mask,
+                    true,
+                    3,
+                    0,
+                    out var autoCommit,
+                    out var reachFloor);
+            Assert.That(guided.AimX, Is.EqualTo(prediction.x));
+            Assert.That(guided.AimY, Is.EqualTo(prediction.y));
+            Assert.That(guided.Reach01, Is.EqualTo(1f));
+            Assert.That(guided.Commit, Is.True);
+            Assert.That(autoCommit, Is.True);
+            Assert.That(reachFloor, Is.True);
+
+            var independent =
+                GoalkeeperControlTrainingContracts.ApplyScaffold(
+                    command,
+                    context,
+                    mask,
+                    true,
+                    3,
+                    4,
+                    out autoCommit,
+                    out reachFloor);
+            Assert.That(independent.AimX, Is.EqualTo(command.AimX));
+            Assert.That(independent.AimY, Is.EqualTo(command.AimY));
+            Assert.That(independent.Reach, Is.EqualTo(command.Reach));
+            Assert.That(independent.Commit, Is.False);
+            Assert.That(autoCommit, Is.False);
+            Assert.That(reachFloor, Is.False);
+        }
+
+        [Test]
+        public void Stage5ReachV3RewardRanksContactsAndKeepsGoalsNegative()
+        {
+            var gloveFirstSave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                FirstGoalkeeperContactPart =
+                    GoalkeeperContactPart.LeftGlove,
+            };
+            var gloveLaterSave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                FirstGoalkeeperContactPart =
+                    GoalkeeperContactPart.TorsoOrHead,
+                GloveContact = true,
+            };
+            var armSave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.BlockedThenOut,
+                FirstGoalkeeperContactPart = GoalkeeperContactPart.Arm,
+            };
+            var bodySave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                FirstGoalkeeperContactPart =
+                    GoalkeeperContactPart.TorsoOrHead,
+            };
+            var closeImmediateGoal = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Goal,
+                HasSaveCommitment = true,
+                FirstCommitWasImmediate = true,
+                FirstCommitVisibleTimeToGoalPlane = 0.9f,
+                FirstCommitVisibleAimError = 0f,
+                MinimumGloveBallDistance = 0f,
+            };
+            var gloveReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    gloveFirstSave,
+                    true,
+                    3);
+            var gloveLaterReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    gloveLaterSave,
+                    true,
+                    3);
+            var armReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    armSave,
+                    true,
+                    3);
+            var bodyReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    bodySave,
+                    true,
+                    3);
+            var goalReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    closeImmediateGoal,
+                    true,
+                    3);
+            Assert.That(gloveReward, Is.GreaterThan(gloveLaterReward));
+            Assert.That(gloveLaterReward, Is.GreaterThan(armReward));
+            Assert.That(armReward, Is.GreaterThan(bodyReward));
+            Assert.That(goalReward, Is.LessThan(0f));
+        }
+
+        [Test]
+        public void Stage5ReachV3FinalLessonRetainsBalancedReachShots()
+        {
+            GoalkeeperControlTrainingContracts.ApplyReachFocusLesson(
+                shots,
+                true,
+                3,
+                4);
+            Assert.That(shots.ReachFocusProbability, Is.EqualTo(0.45f));
+            Assert.That(shots.ReachFocusBalancedHeightBands, Is.True);
+            Assert.That(
+                shots.ReachFocusMinimumYNormalized,
+                Is.LessThan(0.05f));
+            Assert.That(
+                shots.ReachFocusMaximumYNormalized,
+                Is.GreaterThan(0.95f));
+        }
+
+        [Test]
         public void Stage5ReachScaffoldingEndsBeforeIndependentReachLesson()
         {
             var command = GoalkeeperControlCommand.Neutral;
