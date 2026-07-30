@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using NUnit.Framework;
 using PenaltyShootout.MLAgents;
+using Unity.MLAgents.Demonstrations;
 using Unity.MLAgents.Policies;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -297,6 +298,134 @@ namespace PenaltyShootout.Kernel.Tests
 
             Assert.That(report.passed, Is.True);
             yield return null;
+        }
+
+        [UnityTest]
+        [Category("Stage5Acceptance")]
+        public IEnumerator Stage5ReactiveDemonstrationsCloseAtTerminalQuotas()
+        {
+            var load = SceneManager.LoadSceneAsync(
+                "ControlDemonstration",
+                LoadSceneMode.Single);
+            while (!load.isDone)
+            {
+                yield return null;
+            }
+
+            var coordinator =
+                UnityEngine.Object.FindFirstObjectByType<
+                    Stage5ReactiveDemonstrationCoordinator>();
+            var controllers =
+                UnityEngine.Object.FindObjectsByType<PenaltyAreaController>(
+                    FindObjectsSortMode.None);
+            Assert.That(coordinator, Is.Not.Null);
+            Assert.That(controllers, Has.Length.EqualTo(16));
+            Assert.That(coordinator.Completed, Is.False);
+
+            foreach (var controller in controllers)
+            {
+                var agent =
+                    controller.GetComponentInChildren<
+                        GoalkeeperControlAgent>(true);
+                var behavior =
+                    agent == null
+                        ? null
+                        : agent.GetComponent<BehaviorParameters>();
+                var recorder =
+                    agent == null
+                        ? null
+                        : agent.GetComponent<DemonstrationRecorder>();
+                Assert.That(agent, Is.Not.Null);
+                Assert.That(behavior, Is.Not.Null);
+                Assert.That(recorder, Is.Not.Null);
+                Assert.That(
+                    behavior.BehaviorName,
+                    Is.EqualTo(
+                        KernelConstants
+                            .GoalkeeperControlV2BehaviorName));
+                Assert.That(
+                    behavior.BrainParameters.VectorObservationSize,
+                    Is.EqualTo(
+                        KernelConstants
+                            .GoalkeeperControlV2ObservationSize));
+                Assert.That(
+                    behavior.BrainParameters.ActionSpec
+                        .NumContinuousActions,
+                    Is.EqualTo(4));
+                Assert.That(
+                    behavior.BrainParameters.ActionSpec.BranchSizes,
+                    Is.EqualTo(new[] { 2 }));
+                Assert.That(
+                    behavior.BehaviorType,
+                    Is.EqualTo(BehaviorType.HeuristicOnly));
+                Assert.That(
+                    agent.HeuristicMode,
+                    Is.EqualTo(
+                        GoalkeeperControlHeuristicMode
+                            .ReactiveTeacher));
+                Assert.That(recorder.Record, Is.False);
+            }
+
+            var output = Path.Combine(
+                Path.GetTempPath(),
+                "penalty-shootout-stage5-demo-" +
+                Guid.NewGuid().ToString("N"));
+            try
+            {
+                coordinator.AttemptsPerArena = 4;
+                coordinator.MasterSeed = 20260723UL;
+                coordinator.DemonstrationDirectory = output;
+                coordinator.QuitWhenComplete = false;
+                coordinator.BeginRecording();
+
+                var waitFrames = 0;
+                while (!coordinator.Completed && waitFrames < 2500)
+                {
+                    waitFrames++;
+                    yield return new WaitForFixedUpdate();
+                }
+
+                Assert.That(coordinator.Completed, Is.True);
+                Assert.That(coordinator.ClosedArenaCount, Is.EqualTo(16));
+                Assert.That(
+                    Directory.GetFiles(output, "*.demo"),
+                    Has.Length.EqualTo(16));
+                Assert.That(
+                    File.Exists(
+                        Path.Combine(output, "teacher-report.json")),
+                    Is.True);
+                foreach (var controller in controllers)
+                {
+                    Assert.That(controller.LastResult, Is.Not.Null);
+                    Assert.That(
+                        controller.LastResult.AttemptId,
+                        Is.EqualTo(4));
+                    Assert.That(
+                        controller.LastResult.Outcome,
+                        Is.Not.EqualTo(AttemptOutcome.Invalid));
+                    Assert.That(
+                        controller.LastResult.Outcome,
+                        Is.Not.EqualTo(AttemptOutcome.Timeout));
+                    Assert.That(
+                        controller.LastResult.ActionMaskViolations,
+                        Is.Zero);
+                    Assert.That(
+                        controller.LastResult
+                            .PolicyDecisionDuplicateRequestCount,
+                        Is.Zero);
+                    Assert.That(
+                        controller.LastResult
+                            .PolicyDecisionMissingActionCount,
+                        Is.Zero);
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(output))
+                {
+                    Directory.Delete(output, true);
+                }
+            }
         }
 
         private static int RunPolicy(

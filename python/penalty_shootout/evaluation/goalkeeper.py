@@ -84,6 +84,15 @@ STAGE5_DIAGNOSTIC_THRESHOLDS = {
     "maximum_timeouts": 0,
     "maximum_action_mask_violations": 0,
 }
+STAGE5_IMITATION_THRESHOLDS = {
+    **STAGE5_DIAGNOSTIC_THRESHOLDS,
+    "minimum_save_rate": 0.35,
+    "minimum_commit_rate": 0.85,
+    "minimum_glove_contact_rate": 0.40,
+    "minimum_glove_save_rate": 0.20,
+    "minimum_high_shot_save_rate": 0.30,
+    "maximum_first_commit_aim_error_m": 0.75,
+}
 
 
 @dataclass(frozen=True)
@@ -109,6 +118,7 @@ class BenchmarkConfig:
     continuous_actions: int = 0
     stage5_lesson: int = 0
     motor_profile_id: str | None = None
+    stage5_gate_profile: str = "control-v2"
     environment_parameters: dict[str, float] = field(default_factory=dict)
 
 
@@ -379,60 +389,102 @@ class ReactiveReachV1Policy(HybridGoalkeeperPolicy):
         )
         commit = np.zeros(len(observations), dtype=np.int32)
         for row, obs in enumerate(observations):
-            position = np.asarray(
-                [
-                    float(obs[0]) * 5.0,
-                    float(obs[1]) * 4.0,
-                    float(obs[2]) * 11.0,
-                ],
-                dtype=np.float32,
+            command, should_commit = reactive_reach_command_v1(
+                obs,
+                commit_horizon=self.commit_horizon,
             )
-            velocity = np.asarray(
-                [
-                    float(obs[3]) * 25.0,
-                    float(obs[4]) * 25.0,
-                    float(obs[5]) * 25.0,
-                ],
-                dtype=np.float32,
-            )
-            target_x = float(position[0])
-            target_y = float(position[1])
-            time_to_plane = -1.0
-            if velocity[2] < -0.1:
-                time_to_plane = float(
-                    np.clip(-position[2] / velocity[2], 0.0, 1.5)
-                )
-                target_x += float(velocity[0]) * time_to_plane
-                target_y += (
-                    float(velocity[1]) * time_to_plane
-                    + 0.5 * GRAVITY_Y * time_to_plane * time_to_plane
-                )
+            continuous[row] = command
+            commit[row] = int(should_commit)
+        return continuous, self._sanitize_commit(commit, action_mask)
 
-            keeper_x = float(obs[9]) * 3.1
-            continuous[row, 0] = np.clip(
+
+def reactive_reach_command_v1(
+    observation: np.ndarray,
+    *,
+    commit_horizon: float = 0.62,
+) -> tuple[np.ndarray, bool]:
+    return reactive_reach_command_from_visible_state_v1(
+        ball_position=(
+            float(observation[0]) * 5.0,
+            float(observation[1]) * 4.0,
+            float(observation[2]) * 11.0,
+        ),
+        ball_velocity=(
+            float(observation[3]) * 25.0,
+            float(observation[4]) * 25.0,
+            float(observation[5]) * 25.0,
+        ),
+        gravity=(0.0, GRAVITY_Y, 0.0),
+        keeper_x=float(observation[9]) * 3.1,
+        commit_horizon=commit_horizon,
+    )
+
+
+def reactive_reach_command_from_visible_state_v1(
+    *,
+    ball_position: tuple[float, float, float],
+    ball_velocity: tuple[float, float, float],
+    gravity: tuple[float, float, float],
+    keeper_x: float,
+    commit_horizon: float = 0.62,
+) -> tuple[np.ndarray, bool]:
+    values = (
+        *ball_position,
+        *ball_velocity,
+        *gravity,
+        keeper_x,
+        commit_horizon,
+    )
+    if not all(math.isfinite(value) for value in values):
+        return np.asarray(
+            [0.0, 0.0, 0.0, -1.0],
+            dtype=np.float32,
+        ), False
+
+    target_x = float(ball_position[0])
+    target_y = float(ball_position[1])
+    time_to_plane = -1.0
+    if ball_velocity[2] < -0.1:
+        time_to_plane = float(
+            np.clip(
+                -ball_position[2] / ball_velocity[2],
+                0.0,
+                1.5,
+            )
+        )
+        target_x += (
+            float(ball_velocity[0]) * time_to_plane
+            + 0.5 * float(gravity[0]) * time_to_plane * time_to_plane
+        )
+        target_y += (
+            float(ball_velocity[1]) * time_to_plane
+            + 0.5 * float(gravity[1]) * time_to_plane * time_to_plane
+        )
+
+    target_y_normalized_value = np.clip(
+        (target_y - TARGET_Y_MIN) /
+        (TARGET_Y_MAX - TARGET_Y_MIN),
+        0.0,
+        1.0,
+    )
+    command = np.asarray(
+        [
+            np.clip(
                 (target_x - keeper_x) / 1.25,
                 -1.0,
                 1.0,
-            )
-            continuous[row, 1] = np.clip(
+            ),
+            np.clip(
                 target_x / TARGET_X_EXTENT,
                 -1.0,
                 1.0,
-            )
-            target_y_normalized_value = np.clip(
-                (target_y - TARGET_Y_MIN) /
-                (TARGET_Y_MAX - TARGET_Y_MIN),
-                0.0,
-                1.0,
-            )
-            continuous[row, 2] = (
-                float(target_y_normalized_value) * 2.0 - 1.0
-            )
-            continuous[row, 3] = 1.0
-            commit[row] = int(
-                0.0 <= time_to_plane <= self.commit_horizon
-            )
-        return continuous, self._sanitize_commit(commit, action_mask)
+            ),
+            float(target_y_normalized_value) * 2.0 - 1.0,
+            1.0,
+        ],
+        dtype=np.float32,
+    )
+    return command, 0.0 <= time_to_plane <= commit_horizon
 
 
 class OnnxPolicy(GoalkeeperPolicy):
@@ -690,6 +742,9 @@ def load_benchmark_config(path: Path) -> BenchmarkConfig:
             if raw.get("motor_profile_id") is not None
             else None
         ),
+        stage5_gate_profile=str(
+            raw.get("stage5_gate_profile", "control-v2")
+        ),
         environment_parameters={
             str(key): float(value)
             for key, value in raw.get("environment_parameters", {}).items()
@@ -704,6 +759,14 @@ def validate_benchmark_config(config: BenchmarkConfig) -> None:
         raise ValueError(f"Unsupported benchmark schema: {config.schema_version}")
     if config.behavior_name not in SUPPORTED_BEHAVIOR_NAMES:
         raise ValueError(f"Unsupported behavior: {config.behavior_name}")
+    if config.stage5_gate_profile not in {
+        "control-v2",
+        "imitation-v1",
+    }:
+        raise ValueError(
+            "Unsupported Stage 5 gate profile: "
+            f"{config.stage5_gate_profile}"
+        )
     is_control = config.behavior_name in CONTROL_BEHAVIOR_NAMES
     expected_observation_shapes = (
         (
@@ -1398,6 +1461,7 @@ def aggregate_policy(
                 if config.behavior_name == CONTROL_V2_BEHAVIOR_NAME
                 else 1
             ),
+            profile=config.stage5_gate_profile,
         )
     return report
 
@@ -1426,7 +1490,13 @@ def stage5_diagnostic_gate(
     policy: dict[str, Any],
     *,
     control_version: int = 1,
+    profile: str = "control-v2",
 ) -> dict[str, Any]:
+    thresholds = (
+        STAGE5_IMITATION_THRESHOLDS
+        if profile == "imitation-v1"
+        else STAGE5_DIAGNOSTIC_THRESHOLDS
+    )
     high_save_rate = (
         policy.get("by_height_band", {})
         .get("high", {})
@@ -1436,89 +1506,89 @@ def stage5_diagnostic_gate(
     checks = {
         "save_rate": (
             policy["save_rate"]["value"]
-            >= STAGE5_DIAGNOSTIC_THRESHOLDS["minimum_save_rate"]
+            >= thresholds["minimum_save_rate"]
         ),
         "glove_contact_rate": (
             policy["glove_contact_rate"]["value"]
-            >= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            >= thresholds[
                 "minimum_glove_contact_rate"
             ]
         ),
         "glove_save_rate": (
             policy["glove_save_rate"]["value"]
-            >= STAGE5_DIAGNOSTIC_THRESHOLDS["minimum_glove_save_rate"]
+            >= thresholds["minimum_glove_save_rate"]
         ),
         "peak_reach_extension": (
             policy["goalkeeper_peak_reach_extension"]["mean"]
-            >= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            >= thresholds[
                 "minimum_peak_reach_extension_mean"
             ]
         ),
         "high_shot_save_rate": (
             high_save_rate
-            >= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            >= thresholds[
                 "minimum_high_shot_save_rate"
             ]
         ),
         "first_commit_aim_error": (
             policy["first_commit_aim_error_m"]["mean"]
-            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            <= thresholds[
                 "maximum_first_commit_aim_error_m"
             ]
         ),
         "immediate_commit_rate": (
             policy["immediate_commit_rate"]["value"]
-            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            <= thresholds[
                 "maximum_immediate_commit_rate"
             ]
         ),
         "premature_commit_rate": (
             policy["premature_commit_rate"]["value"]
-            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            <= thresholds[
                 "maximum_premature_commit_rate"
             ]
         ),
         "late_commit_rate": (
             policy["late_commit_rate"]["value"]
-            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            <= thresholds[
                 "maximum_late_commit_rate"
             ]
         ),
         "timely_commit_rate": (
             policy["timely_commit_rate"]["value"]
-            >= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            >= thresholds[
                 "minimum_timely_commit_rate"
             ]
         ),
         "first_commit_reach_shortfall": (
             policy["first_commit_reach_shortfall"]["mean"]
-            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            <= thresholds[
                 "maximum_first_commit_reach_shortfall"
             ]
         ),
         "policy_action_overrides": (
             policy["policy_action_override_count"]
-            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            <= thresholds[
                 "maximum_policy_action_override_count"
             ]
         ),
         "command_clamps": (
             policy["control_command_clamp_count"]
-            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            <= thresholds[
                 "maximum_command_clamp_count"
             ]
         ),
         "invalids": (
             policy["invalid_rate"]["successes"]
-            <= STAGE5_DIAGNOSTIC_THRESHOLDS["maximum_invalids"]
+            <= thresholds["maximum_invalids"]
         ),
         "timeouts": (
             policy["timeout_rate"]["successes"]
-            <= STAGE5_DIAGNOSTIC_THRESHOLDS["maximum_timeouts"]
+            <= thresholds["maximum_timeouts"]
         ),
         "action_mask_violations": (
             policy["action_mask_violations"]
-            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+            <= thresholds[
                 "maximum_action_mask_violations"
             ]
         ),
@@ -1558,14 +1628,20 @@ def stage5_diagnostic_gate(
                 ),
             }
         )
+        if profile == "imitation-v1":
+            checks["commit_rate"] = (
+                policy["commit_rate"]["value"]
+                >= thresholds["minimum_commit_rate"]
+            )
     failed = [name for name, passed in checks.items() if not passed]
     return {
         "passed": not failed,
         "control_version": control_version,
+        "profile": profile,
         "checks_passed": sum(checks.values()),
         "checks_total": len(checks),
         "failed_checks": failed,
-        "thresholds": dict(STAGE5_DIAGNOSTIC_THRESHOLDS),
+        "thresholds": dict(thresholds),
     }
 
 
@@ -2003,6 +2079,7 @@ def build_report(
         "continuous_actions": config.continuous_actions,
         "discrete_branches": list(config.discrete_branches),
         "motor_profile_id": config.motor_profile_id,
+        "stage5_gate_profile": config.stage5_gate_profile,
         "environment_parameters": dict(sorted(config.environment_parameters.items())),
         "full_benchmark": full,
         "primary_metric": config.primary_metric,
@@ -2172,6 +2249,10 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
         "continuous_actions": report.get("continuous_actions", 0),
         "discrete_branches": report.get("discrete_branches", DISCRETE_BRANCHES),
         "motor_profile_id": report.get("motor_profile_id"),
+        "stage5_gate_profile": report.get(
+            "stage5_gate_profile",
+            "control-v2",
+        ),
         "environment_parameters": report.get("environment_parameters", {}),
         "primary_metric": report["primary_metric"],
         "comparisons": report["comparisons"],

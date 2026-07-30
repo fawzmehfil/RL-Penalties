@@ -1,12 +1,12 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "stage": 5,
-  "status": "control-v2-diagnostic-failed",
+  "status": "imitation-bootstrap-implementation-verified",
   "behavior_name": "GoalkeeperControl-v2",
   "observation_spec_id": "control-state-v2",
   "action_spec_id": "goalkeeper-hybrid-v1",
   "motor_profile_id": "keeper-control-v1",
-  "trainer_config": "configs/training/goalkeeper-control-v2-ppo-diagnostic.yaml",
+  "trainer_config": "configs/training/goalkeeper-control-v2-bc-diagnostic.yaml",
   "training_runs": [
     {
       "run_id": "gk-control-v1_ppo_seed-001",
@@ -118,6 +118,18 @@
     "handoff_script": "scripts/run_stage5_control_v2_diagnostic.sh",
     "diagnostic_steps": 250000,
     "status": "diagnostic-completed-failed"
+  },
+  "imitation_bootstrap": {
+    "demonstration_contract_id": "goalkeeper-control-v2-reactive-demo-v1",
+    "demonstration_contract": "configs/demonstrations/goalkeeper-control-v2-reactive-demo-v1.json",
+    "teacher_policy_id": "reactive_reach_v1",
+    "canonical_attempts": 20000,
+    "diagnostic_config": "configs/training/goalkeeper-control-v2-bc-diagnostic.yaml",
+    "promotion_config": "configs/training/goalkeeper-control-v2-bc-ppo.yaml",
+    "diagnostic_steps": 500000,
+    "behavioral_cloning_steps": 300000,
+    "handoff_script": "scripts/run_stage5_control_v2_bc_handoff.sh",
+    "status": "implementation-verified-demonstration-and-training-pending"
   },
   "selected_checkpoint": null
 }

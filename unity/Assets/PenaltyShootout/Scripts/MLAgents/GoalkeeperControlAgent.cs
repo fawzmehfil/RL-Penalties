@@ -15,6 +15,14 @@ namespace PenaltyShootout.MLAgents
         [SerializeField]
         private PenaltyAreaController controller;
 
+        [SerializeField]
+        private GoalkeeperControlHeuristicMode heuristicMode;
+
+        [SerializeField]
+        [Range(0.1f, 1f)]
+        private float reactiveTeacherCommitHorizon =
+            GoalkeeperReactiveControlPolicyV1.DefaultCommitHorizon;
+
         private GoalkeeperControlCommand pendingCommand =
             GoalkeeperControlCommand.Neutral;
         private GoalkeeperControlActionMask currentMask =
@@ -58,6 +66,12 @@ namespace PenaltyShootout.MLAgents
         {
             get => controller;
             set => controller = value;
+        }
+
+        public GoalkeeperControlHeuristicMode HeuristicMode
+        {
+            get => heuristicMode;
+            set => heuristicMode = value;
         }
 
         public bool UsesDeferredDecisionScheduling
@@ -228,6 +242,32 @@ namespace PenaltyShootout.MLAgents
         public override void Heuristic(in ActionBuffers actionsOut)
         {
             var continuous = actionsOut.ContinuousActions;
+            if (heuristicMode ==
+                GoalkeeperControlHeuristicMode.ReactiveTeacher)
+            {
+                var gravity =
+                    controller == null || controller.ArenaOrigin == null
+                        ? Physics.gravity
+                        : controller.ArenaOrigin.InverseTransformDirection(
+                            Physics.gravity);
+                var command = controller == null
+                    ? GoalkeeperControlCommand.Neutral
+                    : GoalkeeperReactiveControlPolicyV1.Decide(
+                        controller.BallLocalPosition,
+                        controller.BallLocalVelocity,
+                        gravity,
+                        controller.GoalkeeperControlLocalPosition.x,
+                        currentMask,
+                        reactiveTeacherCommitHorizon);
+                continuous[0] = command.MoveX;
+                continuous[1] = command.AimX;
+                continuous[2] = command.AimY;
+                continuous[3] = command.Reach;
+                var teacherDiscrete = actionsOut.DiscreteActions;
+                teacherDiscrete[0] = command.Commit ? 1 : 0;
+                return;
+            }
+
             var move = 0f;
             var reach = -1f;
 #if ENABLE_LEGACY_INPUT_MANAGER

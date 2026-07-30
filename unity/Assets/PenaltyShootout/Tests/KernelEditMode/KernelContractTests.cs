@@ -1,11 +1,34 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using NUnit.Framework;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace PenaltyShootout.Kernel.Tests
 {
     public sealed class KernelContractTests
     {
+        [Serializable]
+        private sealed class ReactiveTeacherParityContract
+        {
+            public ReactiveTeacherParityFixture[] fixtures;
+        }
+
+        [Serializable]
+        private sealed class ReactiveTeacherParityFixture
+        {
+            public string name;
+            public float[] ball_position;
+            public float[] ball_velocity;
+            public float[] gravity;
+            public float keeper_x;
+            public bool can_commit;
+            public float commit_horizon;
+            public float[] expected_actions;
+            public bool expected_commit;
+        }
+
         private EnvironmentKernelConfig environment;
         private ShotDistributionConfig shots;
         private GoalkeeperMotorConfig motor;
@@ -1449,6 +1472,76 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void Stage5ReactiveTeacherMatchesVisibleStateParityFixtures()
+        {
+            var fixturePath = Path.GetFullPath(
+                Path.Combine(
+                    Application.dataPath,
+                    "../../configs/demonstrations/" +
+                    "reactive-teacher-v1-parity.json"));
+            var contract =
+                JsonUtility.FromJson<ReactiveTeacherParityContract>(
+                    File.ReadAllText(fixturePath));
+
+            Assert.That(contract.fixtures, Has.Length.EqualTo(5));
+            foreach (var fixture in contract.fixtures)
+            {
+                var command = GoalkeeperReactiveControlPolicyV1.Decide(
+                    ToVector3(fixture.ball_position),
+                    ToVector3(fixture.ball_velocity),
+                    ToVector3(fixture.gravity),
+                    fixture.keeper_x,
+                    new GoalkeeperControlActionMask(
+                        fixture.can_commit),
+                    fixture.commit_horizon);
+
+                Assert.That(
+                    command.MoveX,
+                    Is.EqualTo(fixture.expected_actions[0])
+                        .Within(0.00001f),
+                    fixture.name);
+                Assert.That(
+                    command.AimX,
+                    Is.EqualTo(fixture.expected_actions[1])
+                        .Within(0.00001f),
+                    fixture.name);
+                Assert.That(
+                    command.AimY,
+                    Is.EqualTo(fixture.expected_actions[2])
+                        .Within(0.00001f),
+                    fixture.name);
+                Assert.That(
+                    command.Reach,
+                    Is.EqualTo(fixture.expected_actions[3])
+                        .Within(0.00001f),
+                    fixture.name);
+                Assert.That(
+                    command.Commit,
+                    Is.EqualTo(fixture.expected_commit),
+                    fixture.name);
+            }
+        }
+
+        [Test]
+        public void Stage5ReactiveTeacherRejectsNonFiniteVisibleState()
+        {
+            var command = GoalkeeperReactiveControlPolicyV1.Decide(
+                new Vector3(float.NaN, 1f, 8f),
+                new Vector3(0f, 2f, -14f),
+                Physics.gravity,
+                0f,
+                new GoalkeeperControlActionMask(true));
+
+            Assert.That(
+                command.MoveX,
+                Is.EqualTo(GoalkeeperControlCommand.Neutral.MoveX));
+            Assert.That(
+                command.Reach,
+                Is.EqualTo(GoalkeeperControlCommand.Neutral.Reach));
+            Assert.That(command.Commit, Is.False);
+        }
+
+        [Test]
         public void Stage5ReachScaffoldingEndsBeforeIndependentReachLesson()
         {
             var command = GoalkeeperControlCommand.Neutral;
@@ -1515,6 +1608,12 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(random.NextUInt(), Is.EqualTo(3561993920U));
             Assert.That(random.NextUInt(), Is.EqualTo(683038915U));
             Assert.That(random.NextUInt(), Is.EqualTo(1183706632U));
+        }
+
+        private static Vector3 ToVector3(float[] values)
+        {
+            Assert.That(values, Has.Length.EqualTo(3));
+            return new Vector3(values[0], values[1], values[2]);
         }
 
         [Test]

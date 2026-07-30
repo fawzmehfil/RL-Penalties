@@ -2075,6 +2075,8 @@ MonoBehaviour:
   hasUpgradedFromAgentParameters: 1
   MaxStep: 0
   controller: {fileID: 3822235362379611057}
+  heuristicMode: 0
+  reactiveTeacherCommitHorizon: 0.62
 --- !u!1 &7527199597756995609
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "demonstration_contract_id": "goalkeeper-control-v2-reactive-demo-v1",
+  "behavior_name": "GoalkeeperControl-v2",
+  "observation_spec_id": "control-state-v2",
+  "action_spec_id": "goalkeeper-hybrid-v1",
+  "scenario_suite_id": "on-target-v0",
+  "observation_shapes": [
+    [
+      35
+    ]
+  ],
+  "continuous_actions": 4,
+  "discrete_branches": [
+    2
+  ],
+  "arena_count": 16,
+  "attempts_per_arena": 1250,
+  "total_attempts": 20000,
+  "master_seed": 20260723,
+  "teacher_policy_id": "reactive_reach_v1",
+  "commit_horizon_seconds": 0.62,
+  "minimum_teacher_quality": {
+    "save_rate": 0.5,
+    "glove_contact_rate": 0.65,
+    "high_shot_save_rate": 0.55
+  },
+  "dataset_requirements": {
+    "commits_per_episode": 1,
+    "minimum_aim_x": -0.9,
+    "maximum_aim_x": 0.9,
+    "minimum_aim_y": -0.9,
+    "maximum_aim_y": 0.9,
+    "maximum_invalids": 0,
+    "maximum_timeouts": 0,
+    "maximum_off_target": 0,
+    "maximum_action_mask_violations": 0,
+    "maximum_control_command_clamps": 0,
+    "maximum_duplicate_decision_requests": 0,
+    "maximum_missing_actions": 0
+  }
+}

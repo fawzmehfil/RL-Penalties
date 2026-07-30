@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "teacher_policy_id": "reactive_reach_v1",
+  "fixtures": [
+    {
+      "name": "low_left",
+      "ball_position": [0.0, 0.8, 8.0],
+      "ball_velocity": [-5.2, 0.3, -14.0],
+      "gravity": [0.0, -9.81, 0.0],
+      "keeper_x": 0.2,
+      "can_commit": true,
+      "commit_horizon": 0.62,
+      "expected_actions": [-1.0, -0.83702213, -1.0, 1.0],
+      "expected_commit": true
+    },
+    {
+      "name": "high_right",
+      "ball_position": [0.4, 1.5, 7.0],
+      "ball_velocity": [4.8, 6.8, -13.0],
+      "gravity": [0.0, -9.81, 0.0],
+      "keeper_x": -0.4,
+      "can_commit": true,
+      "commit_horizon": 0.62,
+      "expected_actions": [1.0, 0.84073675, 1.0, 1.0],
+      "expected_commit": true
+    },
+    {
+      "name": "middle_center",
+      "ball_position": [0.0, 1.2, 10.0],
+      "ball_velocity": [0.2, 4.2, -16.0],
+      "gravity": [0.0, -9.81, 0.0],
+      "keeper_x": 0.0,
+      "can_commit": true,
+      "commit_horizon": 0.62,
+      "expected_actions": [0.1, 0.03521127, 0.62070662, 1.0],
+      "expected_commit": false
+    },
+    {
+      "name": "masked",
+      "ball_position": [0.0, 1.4, 6.0],
+      "ball_velocity": [-2.0, 3.0, -15.0],
+      "gravity": [0.0, -9.81, 0.0],
+      "keeper_x": 0.0,
+      "can_commit": false,
+      "commit_horizon": 0.62,
+      "expected_actions": [-0.64, -0.22535211, 0.5362162, 1.0],
+      "expected_commit": false
+    },
+    {
+      "name": "receding",
+      "ball_position": [1.0, 1.0, 4.0],
+      "ball_velocity": [2.0, 1.0, 0.2],
+      "gravity": [0.0, -9.81, 0.0],
+      "keeper_x": 0.0,
+      "can_commit": true,
+      "commit_horizon": 0.62,
+      "expected_actions": [0.8, 0.28169015, -0.1981982, 1.0],
+      "expected_commit": false
+    }
+  ]
+}

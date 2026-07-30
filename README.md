@@ -24,7 +24,7 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 5 control lifecycle fixed; learning gate failed
+## Current status: Stage 5.5 imitation bootstrap ready
 
 Stages 0-4 established and evaluated the deterministic environment, the first
 trainable nine-action goalkeeper, fixed 20,000-shot benchmarks, and
@@ -54,7 +54,12 @@ bias, and disables duplicate observation normalization. Its 250,000-step
 diagnostic proved that the scheduler is exact, but the best deterministic
 checkpoint saved only 5.75% and selected no commit on all 400 evaluation
 shots. The Stage 3 seed `001` model remains the main clean goalkeeper until
-this richer control gate is passed.
+this richer control gate is passed. Stage 5.5 now records the validated
+visible-state `reactive_reach_v1` controller as ML-Agents demonstrations,
+strictly validates the resulting dataset, and uses behavioral cloning to
+initialize `GoalkeeperControl-v2` before PPO fine-tuning. The implementation
+is ready; the canonical 20,000-attempt demonstration recording and 500,000-step
+diagnostic have not yet been run.
 
 Stage 0 established the physics and tooling foundation before goalkeeper
 training:
@@ -831,6 +836,73 @@ fixed shots. Lifecycle telemetry passed exactly, but the behavioral gate did
 not: the best learned checkpoint saved 5.75% versus 57.25% for
 `reactive_reach_v1` and produced no deterministic commits. Do not start the
 4-million-step config from this result.
+
+### Stage 5.5 reactive imitation bootstrap
+
+Stage 5.5 preserves the validated `GoalkeeperControl-v2` motor, 35-float
+observation, four continuous controls, binary commit branch, shot physics, and
+terminal reward. It changes how the policy is initialized. The
+`reactive_reach_v1` teacher computes movement, goal-plane aim, reach, and
+commit timing from visible ball and goalkeeper state, gravity, and public goal
+geometry. It never reads the sampled target, launch parameters, future
+generator impact, flight-time parameter, or outcome.
+
+The versioned demonstration contract is
+`goalkeeper-control-v2-reactive-demo-v1`:
+
+- 16 arenas and 1,250 completed attempts per arena.
+- 20,000 canonical `on-target-v0` attempts with master seed `20260723`.
+- One `.demo` file per arena, closed only after a terminal episode.
+- Exactly one legal commit per episode and bounded finite continuous actions.
+- Minimum teacher quality of 50% saves, 65% glove contact, and 55% high-shot
+  saves.
+- Zero invalids, timeouts, off-target outcomes, action-mask violations,
+  command clamps, duplicate decision requests, or missing policy actions.
+
+The inspector loads the actual ML-Agents `.demo` files, checks the `[[35]]`,
+continuous `4`, branch `[2]` behavior spec, validates all episode/action
+constraints, and writes hashes and dataset metrics to the ignored
+`results/demonstrations/.../manifest.json`. Existing data is reused only after
+strict validation; partial or invalid output fails without being deleted or
+overwritten.
+
+The 500,000-step diagnostic uses behavioral cloning at strength `0.5` for
+300,000 steps, with PPO becoming dominant for the final 200,000 steps.
+Checkpoints are retained every 50,000 steps and screened on the same 400 fixed
+shots against stand-center, random-hybrid, the reactive teacher, and the
+no-BC v2 checkpoint. Promotion requires all of:
+
+```text
+save rate >= 35%
+commit rate >= 85%
+glove-contact rate >= 40%
+glove-save rate >= 20%
+high-shot save rate >= 30%
+mean first-commit aim error <= 0.75 m
+mean peak reach >= 0.65
+exact request/consume/discard balance
+zero invalids, timeouts, masks, clamps, duplicates, and missing actions
+```
+
+Close the Unity editor, then verify both Stage 5 builds without starting the
+long recording or training job:
+
+```bash
+scripts/verify_stage5_imitation.sh
+```
+
+Run the full record, validate, train, and checkpoint-screen handoff with:
+
+```bash
+scripts/run_stage5_control_v2_bc_handoff.sh 1
+```
+
+Raw `.demo` files, checkpoints, and evaluation CSVs remain ignored under
+`results/`. If the diagnostic passes, the next promotion run trains three
+2-million-step seeds using
+`configs/training/goalkeeper-control-v2-bc-ppo.yaml`. If deterministic
+inactivity remains, training length is not increased; the next investigation
+separates movement/aim/reach learning from commit timing.
 
 ## Later milestones
 

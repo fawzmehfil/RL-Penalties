@@ -4,6 +4,7 @@ using PenaltyShootout.Kernel;
 using PenaltyShootout.MLAgents;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
+using Unity.MLAgents.Demonstrations;
 using Unity.MLAgents.Policies;
 using UnityEditor;
 using UnityEditor.Build;
@@ -20,6 +21,8 @@ namespace PenaltyShootout.Stage0.Editor
             "Assets/PenaltyShootout/Scenes/GoalkeeperControlLab.unity";
         public const string TrainingScenePath =
             "Assets/PenaltyShootout/Scenes/ControlTraining.unity";
+        public const string DemonstrationScenePath =
+            "Assets/PenaltyShootout/Scenes/ControlDemonstration.unity";
         public const string PrefabPath =
             "Assets/PenaltyShootout/Prefabs/Stage5ControlArena.prefab";
         public const string MotorConfigPath =
@@ -41,12 +44,14 @@ namespace PenaltyShootout.Stage0.Editor
             CreateControlArenaPrefab(motor);
             EnsureMotorLabScene();
             EnsureTrainingScene();
+            EnsureDemonstrationScene();
             SetBuildScenes();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             Debug.Log(
-                $"Prepared {PrefabPath}, {MotorLabScenePath}, and " +
-                $"{TrainingScenePath} for Stage 5.");
+                $"Prepared {PrefabPath}, {MotorLabScenePath}, " +
+                $"{TrainingScenePath}, and {DemonstrationScenePath} " +
+                "for Stage 5.");
         }
 
         [MenuItem("Penalty Shootout/Stage 5/Build macOS Headless")]
@@ -69,6 +74,19 @@ namespace PenaltyShootout.Stage0.Editor
                     Application.dataPath,
                     "../../builds/linux/PenaltyShootoutStage5.x86_64"));
             BuildHeadless(BuildTarget.StandaloneLinux64, output);
+        }
+
+        [MenuItem(
+            "Penalty Shootout/Stage 5/Build macOS Reactive Demonstration")]
+        public static void BuildMacReactiveDemonstration()
+        {
+            PrepareProject();
+            var output = Path.GetFullPath(
+                Path.Combine(
+                    Application.dataPath,
+                    "../../builds/macos/" +
+                    "PenaltyShootoutStage5Demo.app"));
+            BuildDemonstrationHeadless(BuildTarget.StandaloneOSX, output);
         }
 
         private static void EnsureStage2ArenaPrefab()
@@ -442,6 +460,69 @@ namespace PenaltyShootout.Stage0.Editor
             EditorSceneManager.SaveScene(scene, TrainingScenePath);
         }
 
+        private static void EnsureDemonstrationScene()
+        {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(
+                    DemonstrationScenePath) != null)
+            {
+                return;
+            }
+
+            var scene =
+                EditorSceneManager.NewScene(
+                    NewSceneSetup.EmptyScene,
+                    NewSceneMode.Single);
+            var columns = Mathf.CeilToInt(Mathf.Sqrt(TrainingArenaCount));
+            for (var index = 0; index < TrainingArenaCount; index++)
+            {
+                var row = index / columns;
+                var column = index % columns;
+                var instance = InstantiateArena(
+                    $"Stage5DemonstrationArena_{index:000}",
+                    new Vector3(
+                        column * TrainingArenaSpacing,
+                        0f,
+                        row * TrainingArenaSpacing));
+                var controller =
+                    instance.GetComponent<PenaltyAreaController>();
+                controller.ArenaId = index;
+                controller.AutoRun = false;
+                controller.ShowDebugUi = false;
+                ConfigureAgentBehavior(
+                    instance,
+                    BehaviorType.HeuristicOnly);
+                var agent =
+                    instance.GetComponentInChildren<
+                        GoalkeeperControlAgent>(true);
+                agent.HeuristicMode =
+                    GoalkeeperControlHeuristicMode.ReactiveTeacher;
+                var recorder =
+                    agent.GetComponent<DemonstrationRecorder>() ??
+                    agent.gameObject.AddComponent<DemonstrationRecorder>();
+                recorder.Record = false;
+                recorder.NumStepsToRecord = 0;
+                recorder.DemonstrationName =
+                    $"GKCtrlV2A{index:000}";
+            }
+
+            var coordinatorObject =
+                new GameObject("Stage5ReactiveDemonstrationCoordinator");
+            var coordinator =
+                coordinatorObject.AddComponent<
+                    Stage5ReactiveDemonstrationCoordinator>();
+            coordinator.AttemptsPerArena = 1250;
+            coordinator.MasterSeed = 20260723UL;
+            coordinator.QuitWhenComplete = true;
+            CreateCamera(
+                new Vector3(18f, 12f, 42f),
+                new Vector3(12f, 1f, 12f),
+                45f);
+            CreateLight();
+            EditorSceneManager.SaveScene(
+                scene,
+                DemonstrationScenePath);
+        }
+
         private static GameObject InstantiateArena(
             string name,
             Vector3 position)
@@ -525,6 +606,9 @@ namespace PenaltyShootout.Stage0.Editor
                     true),
                 new EditorBuildSettingsScene(MotorLabScenePath, true),
                 new EditorBuildSettingsScene(TrainingScenePath, true),
+                new EditorBuildSettingsScene(
+                    DemonstrationScenePath,
+                    true),
             };
         }
 
@@ -566,6 +650,30 @@ namespace PenaltyShootout.Stage0.Editor
                 SetSceneBehaviorType(BehaviorType.HeuristicOnly);
                 EditorSceneManager.MarkSceneDirty(restored);
                 EditorSceneManager.SaveScene(restored);
+            }
+        }
+
+        private static void BuildDemonstrationHeadless(
+            BuildTarget target,
+            string output)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            var options = new BuildPlayerOptions
+            {
+                scenes = new[] { DemonstrationScenePath },
+                locationPathName = output,
+                target = target,
+                targetGroup = BuildTargetGroup.Standalone,
+                subtarget = (int)StandaloneBuildSubtarget.Player,
+                options = BuildOptions.Development,
+            };
+            var report = BuildPipeline.BuildPlayer(options);
+            if (report.summary.result != BuildResult.Succeeded)
+            {
+                throw new BuildFailedException(
+                    $"Reactive demonstration {target} build failed: " +
+                    $"{report.summary.result}, " +
+                    $"{report.summary.totalErrors} errors.");
             }
         }
 

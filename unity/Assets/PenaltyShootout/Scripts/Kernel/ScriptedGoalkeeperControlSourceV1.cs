@@ -92,11 +92,24 @@ namespace PenaltyShootout.Kernel
                 return GoalkeeperControlCommand.Neutral;
             }
 
-            var target = usePrivilegedTarget
-                ? new Vector2(
-                    controller.CurrentScenario.TargetLocal.x,
-                    controller.CurrentScenario.TargetLocal.y)
-                : PredictVisibleIntersection(out _);
+            if (!usePrivilegedTarget)
+            {
+                var gravity = controller.ArenaOrigin == null
+                    ? Physics.gravity
+                    : controller.ArenaOrigin.InverseTransformDirection(
+                        Physics.gravity);
+                return GoalkeeperReactiveControlPolicyV1.Decide(
+                    controller.BallLocalPosition,
+                    controller.BallLocalVelocity,
+                    gravity,
+                    controller.GoalkeeperControlLocalPosition.x,
+                    actionMask,
+                    reactiveCommitHorizon);
+            }
+
+            var target = new Vector2(
+                controller.CurrentScenario.TargetLocal.x,
+                controller.CurrentScenario.TargetLocal.y);
             var aim = GoalkeeperControlSpace.LocalToAim(target);
             var deltaX = target.x - controller.GoalkeeperControlLocalPosition.x;
             var command = new GoalkeeperControlCommand
@@ -107,38 +120,9 @@ namespace PenaltyShootout.Kernel
                 Reach = 1f,
                 Commit = false,
             };
-            var timeToPlane = VisibleTimeToGoalPlane();
-            command.Commit =
-                actionMask.CanCommit &&
-                (usePrivilegedTarget ||
-                 (timeToPlane >= 0f && timeToPlane <= reactiveCommitHorizon));
+            command.Commit = actionMask.CanCommit;
             return command;
         }
 
-        private Vector2 PredictVisibleIntersection(out float timeToPlane)
-        {
-            var position = controller.BallLocalPosition;
-            var velocity = controller.BallLocalVelocity;
-            timeToPlane = VisibleTimeToGoalPlane();
-            if (timeToPlane < 0f)
-            {
-                return new Vector2(position.x, position.y);
-            }
-
-            return new Vector2(
-                position.x + velocity.x * timeToPlane,
-                position.y +
-                velocity.y * timeToPlane +
-                0.5f * Physics.gravity.y * timeToPlane * timeToPlane);
-        }
-
-        private float VisibleTimeToGoalPlane()
-        {
-            var position = controller.BallLocalPosition;
-            var velocity = controller.BallLocalVelocity;
-            return velocity.z < -0.1f
-                ? Mathf.Clamp(-position.z / velocity.z, 0f, 1.5f)
-                : -1f;
-        }
     }
 }

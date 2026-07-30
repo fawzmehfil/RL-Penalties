@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "stage": 5.5,
+  "status": "implementation-verified-demonstration-and-training-pending",
+  "problem": {
+    "no_bc_run_id": "gk-control-v2-lifecycle-ballistics_seed-001",
+    "best_checkpoint": "GoalkeeperControl-v2-149997.onnx",
+    "save_rate": 0.0575,
+    "commit_rate": 0.0,
+    "decision_lifecycle_passed": true,
+    "conclusion": "The v2 scheduler is exact, but sparse PPO did not produce a deterministic commit policy."
+  },
+  "preserved_contracts": {
+    "behavior_name": "GoalkeeperControl-v2",
+    "observation_spec_id": "control-state-v2",
+    "vector_observation_size": 35,
+    "action_spec_id": "goalkeeper-hybrid-v1",
+    "continuous_actions": 4,
+    "discrete_branches": [
+      2
+    ],
+    "motor_profile_id": "keeper-control-v1",
+    "training_reward_spec_id": "goalkeeper-control-result-v2",
+    "scenario_suite_id": "on-target-v0"
+  },
+  "teacher": {
+    "policy_id": "reactive_reach_v1",
+    "inputs": [
+      "visible ball position",
+      "visible ball velocity",
+      "visible goalkeeper position",
+      "gravity",
+      "public goal geometry",
+      "current commit mask"
+    ],
+    "excluded_privileged_inputs": [
+      "requested target",
+      "launch parameters",
+      "sampled flight time",
+      "future generator impact",
+      "outcome"
+    ],
+    "reference_400_shot_metrics": {
+      "save_rate": 0.5725,
+      "glove_contact_rate": 0.735,
+      "high_shot_save_rate": 0.7028985507246377
+    }
+  },
+  "demonstration": {
+    "contract_id": "goalkeeper-control-v2-reactive-demo-v1",
+    "arena_count": 16,
+    "attempts_per_arena": 1250,
+    "total_attempts": 20000,
+    "master_seed": 20260723,
+    "output": "results/demonstrations/goalkeeper-control-v2-reactive-demo-v1-20k",
+    "status": "pending"
+  },
+  "diagnostic": {
+    "trainer_config": "configs/training/goalkeeper-control-v2-bc-diagnostic.yaml",
+    "max_steps": 500000,
+    "behavioral_cloning_strength": 0.5,
+    "behavioral_cloning_steps": 300000,
+    "checkpoint_interval": 50000,
+    "fixed_evaluation_attempts": 400,
+    "status": "pending"
+  },
+  "verification": {
+    "unity_editmode": {
+      "passed": 66,
+      "failed": 0
+    },
+    "unity_stage5_playmode": {
+      "passed": 3,
+      "failed": 0,
+      "includes_recording_smoke_attempts": 64
+    },
+    "unity_all_playmode": {
+      "passed": 7,
+      "failed": 0
+    },
+    "python": {
+      "passed": 62,
+      "failed": 0
+    },
+    "macos_training_build": "passed",
+    "macos_demonstration_build": "passed"
+  },
+  "promotion_gate": {
+    "minimum_save_rate": 0.35,
+    "minimum_commit_rate": 0.85,
+    "minimum_glove_contact_rate": 0.4,
+    "minimum_glove_save_rate": 0.2,
+    "minimum_high_shot_save_rate": 0.3,
+    "maximum_first_commit_aim_error_m": 0.75,
+    "minimum_peak_reach_extension_mean": 0.65,
+    "requires_exact_decision_lifecycle": true,
+    "requires_zero_safety_violations": true
+  },
+  "handoff_script": "scripts/run_stage5_control_v2_bc_handoff.sh"
+}
