@@ -126,6 +126,16 @@ def test_stage5_ppo_yaml_matches_pinned_mlagents_schema() -> None:
             1_000_000,
             250_000,
         ),
+        (
+            "goalkeeper-control-v1-ppo-reach-v2.yaml",
+            8_000_000,
+            500_000,
+        ),
+        (
+            "goalkeeper-control-v1-ppo-reach-v2-diagnostic.yaml",
+            1_000_000,
+            250_000,
+        ),
     ],
 )
 def test_stage5_reach_training_yaml_matches_pinned_mlagents_schema(
@@ -148,6 +158,12 @@ def test_stage5_reach_training_yaml_matches_pinned_mlagents_schema(
     ]
     assert len(reach_training.curriculum) == 1
     assert reach_training.curriculum[0].value.value == 1.0
+    if "-v2" in name:
+        reach_version = options.environment_parameters[
+            "stage5.reach_training_version"
+        ]
+        assert len(reach_version.curriculum) == 1
+        assert reach_version.curriculum[0].value.value == 2.0
 
 
 def test_stage5_scripted_policies_emit_bounded_masked_hybrid_actions() -> None:
@@ -271,7 +287,12 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
             "duplicate_terminal_events": 0,
             "has_save_commitment": True,
             "first_commit_ball_flight_time": 0.12,
+            "first_commit_visible_time_to_goal_plane": 0.58,
+            "first_commit_reach_demand": 1.0,
+            "first_commit_reach_extension": 0.72,
+            "first_commit_was_immediate": False,
             "first_commit_aim": {"x": 0.55, "y": 0.5},
+            "first_goalkeeper_contact_part": "LeftGlove",
             "goalkeeper_root_distance": 2.2,
             "goalkeeper_peak_root_speed": 5.1,
             "goalkeeper_peak_reach_extension": 1.0,
@@ -296,6 +317,7 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
             "action_mask_violations": 0,
             "duplicate_terminal_events": 0,
             "has_save_commitment": False,
+            "first_goalkeeper_contact_part": "None",
             "goalkeeper_root_distance": 0.4,
             "goalkeeper_peak_root_speed": 2.0,
             "goalkeeper_peak_reach_extension": 0.0,
@@ -319,10 +341,21 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
 
     assert report["commit_rate"]["value"] == 0.5
     assert report["first_commit_ball_flight_time"]["mean"] == 0.12
+    assert (
+        report["first_commit_visible_time_to_goal_plane"]["mean"] == 0.58
+    )
+    assert report["first_commit_reach_demand"]["mean"] == 1.0
+    assert report["first_commit_reach_extension"]["mean"] == 0.72
+    assert report["immediate_commit_rate"]["value"] == 0.0
     assert report["goalkeeper_root_distance_m"]["mean"] == 1.3
     assert report["goalkeeper_peak_reach_extension"]["maximum"] == 1.0
     assert report["control_target_clamp_count"] == 1
+    assert report["control_target_clamp_attempt_rate"]["value"] == 0.5
+    assert report["glove_first_contact_rate"]["value"] == 1.0
+    assert report["body_first_contact_rate"]["value"] == 0.0
     assert report["control_usage"]["accepted_decisions"] == 10
     assert report["control_usage"]["move_command_rate"] == 0.5
     assert report["control_usage"]["channels"]["reach"]["saturation_count"] == 2
     assert "high-right" in report["by_first_commit_aim_region"]
+    assert "in-window" in report["by_first_commit_timing_band"]
+    assert "LeftGlove" in report["by_first_contact_part"]

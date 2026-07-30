@@ -157,6 +157,12 @@ namespace PenaltyShootout.MLAgents
                 goal_frame_contact = result.GoalFrameContact,
                 goalkeeper_contact_count = result.GoalkeeperContactCount,
                 goal_frame_contact_count = result.GoalFrameContactCount,
+                first_goalkeeper_contact_part =
+                    result.FirstGoalkeeperContactPart.ToString(),
+                first_goalkeeper_contact_part_id =
+                    (int)result.FirstGoalkeeperContactPart,
+                first_goalkeeper_contact_time =
+                    result.FirstGoalkeeperContactTime,
                 last_goalkeeper_contact_part = result.LastGoalkeeperContactPart.ToString(),
                 last_goalkeeper_contact_part_id = (int)result.LastGoalkeeperContactPart,
                 glove_contact = result.GloveContact,
@@ -201,6 +207,14 @@ namespace PenaltyShootout.MLAgents
                     result.FirstCommitAttemptTime,
                 first_commit_ball_flight_time =
                     result.FirstCommitBallFlightTime,
+                first_commit_visible_time_to_goal_plane =
+                    result.FirstCommitVisibleTimeToGoalPlane,
+                first_commit_reach_demand =
+                    result.FirstCommitReachDemand,
+                first_commit_reach_extension =
+                    result.FirstCommitReachExtension,
+                first_commit_was_immediate =
+                    result.FirstCommitWasImmediate,
                 first_commit_aim = Vector2Payload.From(result.FirstCommitAim),
                 goalkeeper_root_distance =
                     result.GoalkeeperRootDistance,
@@ -260,6 +274,9 @@ namespace PenaltyShootout.MLAgents
             public bool goal_frame_contact;
             public int goalkeeper_contact_count;
             public int goal_frame_contact_count;
+            public string first_goalkeeper_contact_part;
+            public int first_goalkeeper_contact_part_id;
+            public float first_goalkeeper_contact_time;
             public string last_goalkeeper_contact_part;
             public int last_goalkeeper_contact_part_id;
             public bool glove_contact;
@@ -293,6 +310,10 @@ namespace PenaltyShootout.MLAgents
             public int first_commit_decision_index;
             public float first_commit_attempt_time;
             public float first_commit_ball_flight_time;
+            public float first_commit_visible_time_to_goal_plane;
+            public float first_commit_reach_demand;
+            public float first_commit_reach_extension;
+            public bool first_commit_was_immediate;
             public Vector2Payload first_commit_aim;
             public float goalkeeper_root_distance;
             public float goalkeeper_peak_root_speed;

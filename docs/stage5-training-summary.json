@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "stage": 5,
-  "status": "reach-correction-diagnostic-pending",
+  "status": "reach-v2-diagnostic-ready",
   "behavior_name": "GoalkeeperControl-v1",
   "observation_spec_id": "control-state-v1",
   "action_spec_id": "goalkeeper-hybrid-v1",
@@ -20,12 +20,27 @@
       "invalid_rate": 0.0,
       "timeout_rate": 0.0,
       "action_mask_violations": 0
+    },
+    {
+      "run_id": "gk-control-v1_reach-diagnostic_seed-001",
+      "seed": 1,
+      "steps": 1000000,
+      "training_reward_spec_id": "goalkeeper-control-training-reach-v1",
+      "evaluation_run_id": "stage5-reach-diagnostic-seed-001-400",
+      "evaluation_attempts": 400,
+      "save_rate": 0.195,
+      "glove_contact_rate": 0.1075,
+      "peak_reach_extension_mean": 0.581,
+      "invalid_rate": 0.0,
+      "timeout_rate": 0.0,
+      "action_mask_violations": 0,
+      "passed": false
     }
   ],
   "reach_correction": {
-    "reward_spec_id": "goalkeeper-control-training-reach-v1",
-    "diagnostic_config": "configs/training/goalkeeper-control-v1-ppo-reach-diagnostic.yaml",
-    "full_config": "configs/training/goalkeeper-control-v1-ppo-reach.yaml",
+    "reward_spec_id": "goalkeeper-control-training-reach-v2",
+    "diagnostic_config": "configs/training/goalkeeper-control-v1-ppo-reach-v2-diagnostic.yaml",
+    "full_config": "configs/training/goalkeeper-control-v1-ppo-reach-v2.yaml",
     "diagnostic_steps": 1000000,
     "status": "implementation-ready"
   },

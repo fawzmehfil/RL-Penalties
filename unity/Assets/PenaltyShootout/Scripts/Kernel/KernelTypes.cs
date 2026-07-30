@@ -110,6 +110,8 @@ namespace PenaltyShootout.Kernel
         public bool GoalFrameContact;
         public int GoalkeeperContactCount;
         public int GoalFrameContactCount;
+        public GoalkeeperContactPart FirstGoalkeeperContactPart;
+        public float FirstGoalkeeperContactTime;
         public GoalkeeperContactPart LastGoalkeeperContactPart;
         public bool GloveContact;
         public int GloveContactCount;
@@ -138,6 +140,10 @@ namespace PenaltyShootout.Kernel
         public int FirstCommitDecisionIndex;
         public float FirstCommitAttemptTime;
         public float FirstCommitBallFlightTime;
+        public float FirstCommitVisibleTimeToGoalPlane;
+        public float FirstCommitReachDemand;
+        public float FirstCommitReachExtension;
+        public bool FirstCommitWasImmediate;
         public Vector2 FirstCommitAim;
         public float GoalkeeperRootDistance;
         public float GoalkeeperPeakRootSpeed;
@@ -332,6 +338,8 @@ namespace PenaltyShootout.Kernel
         public int GoalFrameContactCount { get; private set; }
         public float LastGoalkeeperContactTime { get; private set; }
         public float LastGoalFrameContactTime { get; private set; }
+        public float FirstGoalkeeperContactTime { get; private set; }
+        public GoalkeeperContactPart FirstGoalkeeperContactPart { get; private set; }
         public GoalkeeperContactPart LastGoalkeeperContactPart { get; private set; }
         public bool GloveTouched { get; private set; }
         public int GloveContactCount { get; private set; }
@@ -349,6 +357,8 @@ namespace PenaltyShootout.Kernel
             GoalFrameContactCount = 0;
             LastGoalkeeperContactTime = float.NegativeInfinity;
             LastGoalFrameContactTime = float.NegativeInfinity;
+            FirstGoalkeeperContactTime = float.NegativeInfinity;
+            FirstGoalkeeperContactPart = GoalkeeperContactPart.None;
             LastGoalkeeperContactPart = GoalkeeperContactPart.None;
             GloveTouched = false;
             GloveContactCount = 0;
@@ -367,6 +377,12 @@ namespace PenaltyShootout.Kernel
             switch (kind)
             {
                 case ContactKind.Goalkeeper:
+                    if (!GoalkeeperTouched)
+                    {
+                        FirstGoalkeeperContactTime = attemptTime;
+                        FirstGoalkeeperContactPart = goalkeeperPart;
+                    }
+
                     GoalkeeperTouched = true;
                     GoalkeeperContactCount++;
                     LastGoalkeeperContactTime = attemptTime;

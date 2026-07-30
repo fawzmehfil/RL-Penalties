@@ -109,6 +109,9 @@ namespace PenaltyShootout.Kernel
         private int firstCommitDecisionIndex;
         private float firstCommitAttemptTime;
         private float firstCommitBallFlightTime;
+        private float firstCommitVisibleTimeToGoalPlane;
+        private float firstCommitReachDemand;
+        private float firstCommitReachExtension;
         private Vector2 firstCommitAim;
         private float minimumGloveBallDistance;
         private int controlCommandClampCount;
@@ -521,6 +524,9 @@ namespace PenaltyShootout.Kernel
             firstCommitDecisionIndex = -1;
             firstCommitAttemptTime = -1f;
             firstCommitBallFlightTime = -1f;
+            firstCommitVisibleTimeToGoalPlane = -1f;
+            firstCommitReachDemand = 0f;
+            firstCommitReachExtension = 0f;
             firstCommitAim = Vector2.zero;
             minimumGloveBallDistance = float.PositiveInfinity;
             controlCommandClampCount = 0;
@@ -875,7 +881,10 @@ namespace PenaltyShootout.Kernel
                 attemptId,
                 decisionIndex,
                 physicsTick,
-                ballFlightTime);
+                ballFlightTime,
+                GoalkeeperControlTrainingContracts.EstimateVisibleTimeToGoalPlane(
+                    BallLocalPosition,
+                    BallLocalVelocity));
             var mask = goalkeeperControlMotor.GetActionMask();
             var requested = resolvedControlSource == null
                 ? GoalkeeperControlCommand.Neutral
@@ -913,6 +922,11 @@ namespace PenaltyShootout.Kernel
                 firstCommitDecisionIndex = decisionIndex;
                 firstCommitAttemptTime = attemptTime;
                 firstCommitBallFlightTime = ballFlightTime;
+                firstCommitVisibleTimeToGoalPlane =
+                    context.VisibleTimeToGoalPlane;
+                firstCommitReachDemand = requested.Reach01;
+                firstCommitReachExtension =
+                    goalkeeperControlMotor.CurrentReachExtension;
                 firstCommitAim = new Vector2(requested.AimX, requested.AimY);
             }
 
@@ -1061,6 +1075,13 @@ namespace PenaltyShootout.Kernel
                 GoalFrameContact = contactHistory.GoalFrameTouched,
                 GoalkeeperContactCount = contactHistory.GoalkeeperContactCount,
                 GoalFrameContactCount = contactHistory.GoalFrameContactCount,
+                FirstGoalkeeperContactPart =
+                    contactHistory.FirstGoalkeeperContactPart,
+                FirstGoalkeeperContactTime =
+                    float.IsNegativeInfinity(
+                        contactHistory.FirstGoalkeeperContactTime)
+                        ? -1f
+                        : contactHistory.FirstGoalkeeperContactTime,
                 LastGoalkeeperContactPart = contactHistory.LastGoalkeeperContactPart,
                 GloveContact = contactHistory.GloveTouched,
                 GloveContactCount = contactHistory.GloveContactCount,
@@ -1089,6 +1110,15 @@ namespace PenaltyShootout.Kernel
                 FirstCommitDecisionIndex = firstCommitDecisionIndex,
                 FirstCommitAttemptTime = firstCommitAttemptTime,
                 FirstCommitBallFlightTime = firstCommitBallFlightTime,
+                FirstCommitVisibleTimeToGoalPlane =
+                    firstCommitVisibleTimeToGoalPlane,
+                FirstCommitReachDemand = firstCommitReachDemand,
+                FirstCommitReachExtension = firstCommitReachExtension,
+                FirstCommitWasImmediate =
+                    hasSaveCommitment &&
+                    firstCommitBallFlightTime <=
+                        GoalkeeperControlTrainingContracts
+                            .V2ImmediateCommitBallFlightTime,
                 FirstCommitAim = firstCommitAim,
                 GoalkeeperRootDistance =
                     goalkeeperControlMotor == null

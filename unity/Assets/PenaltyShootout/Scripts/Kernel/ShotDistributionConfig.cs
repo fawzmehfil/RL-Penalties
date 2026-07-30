@@ -26,6 +26,7 @@ namespace PenaltyShootout.Kernel
         public float ReachFocusMinimumYNormalized = 0.55f;
         [Range(0f, 1f)]
         public float ReachFocusMaximumYNormalized = 0.98f;
+        public bool ReachFocusBalancedHeightBands;
         public float AdditionalFrameClearance = 0.08f;
         public bool SpinEnabled;
         public bool CurveEnabled;

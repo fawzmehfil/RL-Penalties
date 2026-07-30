@@ -80,17 +80,34 @@ namespace PenaltyShootout.Kernel
         public readonly int DecisionIndex;
         public readonly int PhysicsTick;
         public readonly float BallFlightTime;
+        public readonly float VisibleTimeToGoalPlane;
 
         public GoalkeeperControlDecisionContext(
             long attemptId,
             int decisionIndex,
             int physicsTick,
             float ballFlightTime)
+            : this(
+                attemptId,
+                decisionIndex,
+                physicsTick,
+                ballFlightTime,
+                -1f)
+        {
+        }
+
+        public GoalkeeperControlDecisionContext(
+            long attemptId,
+            int decisionIndex,
+            int physicsTick,
+            float ballFlightTime,
+            float visibleTimeToGoalPlane)
         {
             AttemptId = attemptId;
             DecisionIndex = decisionIndex;
             PhysicsTick = physicsTick;
             BallFlightTime = ballFlightTime;
+            VisibleTimeToGoalPlane = visibleTimeToGoalPlane;
         }
     }
 

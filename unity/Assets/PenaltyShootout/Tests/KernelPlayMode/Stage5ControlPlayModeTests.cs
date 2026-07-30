@@ -63,7 +63,14 @@ namespace PenaltyShootout.Kernel.Tests
                 FirstCommitDecisionIndex = 2,
                 FirstCommitAttemptTime = 0.52f,
                 FirstCommitBallFlightTime = 0.12f,
+                FirstCommitVisibleTimeToGoalPlane = 0.58f,
+                FirstCommitReachDemand = 1f,
+                FirstCommitReachExtension = 0.72f,
+                FirstCommitWasImmediate = false,
                 FirstCommitAim = new Vector2(-0.8f, 0.6f),
+                FirstGoalkeeperContactPart =
+                    GoalkeeperContactPart.LeftGlove,
+                FirstGoalkeeperContactTime = 0.74f,
                 GoalkeeperRootDistance = 2.1f,
                 GoalkeeperPeakRootSpeed = 5.4f,
                 GoalkeeperPeakReachExtension = 1f,
@@ -95,6 +102,13 @@ namespace PenaltyShootout.Kernel.Tests
             StringAssert.Contains("\"control_mode\":\"HybridV1\"", json);
             StringAssert.Contains("\"has_save_commitment\":true", json);
             StringAssert.Contains("\"first_commit_aim\"", json);
+            StringAssert.Contains(
+                "\"first_commit_visible_time_to_goal_plane\":",
+                json);
+            StringAssert.Contains("\"first_commit_reach_demand\":1.0", json);
+            StringAssert.Contains(
+                "\"first_goalkeeper_contact_part\":\"LeftGlove\"",
+                json);
             StringAssert.Contains("\"goalkeeper_peak_reach_extension\":1.0", json);
             StringAssert.Contains("\"minimum_glove_ball_distance\"", json);
             StringAssert.Contains("\"sampled_shot_flight_time\"", json);

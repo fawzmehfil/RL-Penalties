@@ -954,6 +954,25 @@ def aggregate_policy(
     committed_episodes = [
         item for item in episodes if item.get("has_save_commitment")
     ]
+    contacted_episodes = [
+        item for item in episodes if item.get("goalkeeper_contact")
+    ]
+    glove_first_contacts = sum(
+        first_contact_category(item) == "glove"
+        for item in contacted_episodes
+    )
+    body_first_contacts = sum(
+        first_contact_category(item) == "body"
+        for item in contacted_episodes
+    )
+    immediate_commits = sum(
+        first_commit_was_immediate(item)
+        for item in committed_episodes
+    )
+    target_clamp_attempts = sum(
+        int(item.get("control_target_clamp_count", 0)) > 0
+        for item in episodes
+    )
     minimum_glove_distances = [
         float(item["minimum_glove_ball_distance"])
         for item in episodes
@@ -1010,6 +1029,42 @@ def aggregate_policy(
                         for item in committed_episodes
                     ]
                 ),
+                "first_commit_visible_time_to_goal_plane": numeric_summary(
+                    [
+                        float(
+                            item.get(
+                                "first_commit_visible_time_to_goal_plane",
+                                -1.0,
+                            )
+                        )
+                        for item in committed_episodes
+                        if float(
+                            item.get(
+                                "first_commit_visible_time_to_goal_plane",
+                                -1.0,
+                            )
+                        )
+                        >= 0.0
+                    ]
+                ),
+                "first_commit_reach_demand": numeric_summary(
+                    [
+                        float(item.get("first_commit_reach_demand", 0.0))
+                        for item in committed_episodes
+                    ]
+                ),
+                "first_commit_reach_extension": numeric_summary(
+                    [
+                        float(
+                            item.get(
+                                "first_commit_reach_extension",
+                                0.0,
+                            )
+                        )
+                        for item in committed_episodes
+                    ]
+                ),
+                "immediate_commit_rate": rate(immediate_commits, total),
                 "goalkeeper_root_distance_m": numeric_summary(
                     [
                         float(item.get("goalkeeper_root_distance", 0.0))
@@ -1044,6 +1099,18 @@ def aggregate_policy(
                     int(item.get("control_target_clamp_count", 0))
                     for item in episodes
                 ),
+                "control_target_clamp_attempt_rate": rate(
+                    target_clamp_attempts,
+                    total,
+                ),
+                "glove_first_contact_rate": rate(
+                    glove_first_contacts,
+                    len(contacted_episodes),
+                ),
+                "body_first_contact_rate": rate(
+                    body_first_contacts,
+                    len(contacted_episodes),
+                ),
                 "control_usage": control_usage(episodes),
                 "by_commit_status": aggregate_by(
                     episodes,
@@ -1056,6 +1123,14 @@ def aggregate_policy(
                 "by_first_commit_aim_region": aggregate_by(
                     committed_episodes,
                     first_commit_aim_region,
+                ),
+                "by_first_commit_timing_band": aggregate_by(
+                    committed_episodes,
+                    first_commit_timing_band,
+                ),
+                "by_first_contact_part": aggregate_by(
+                    episodes,
+                    first_contact_part,
                 ),
             }
         )
@@ -1278,6 +1353,38 @@ def first_commit_aim_error(item: dict[str, Any]) -> float:
         dtype=np.float64,
     )
     return float(np.linalg.norm(aimed_local - target_local))
+
+
+def first_commit_was_immediate(item: dict[str, Any]) -> bool:
+    if "first_commit_was_immediate" in item:
+        return bool(item["first_commit_was_immediate"])
+    return float(item.get("first_commit_ball_flight_time", -1.0)) <= 0.06
+
+
+def first_commit_timing_band(item: dict[str, Any]) -> str:
+    time_to_plane = float(
+        item.get("first_commit_visible_time_to_goal_plane", -1.0)
+    )
+    if time_to_plane < 0.0:
+        return "unavailable"
+    if time_to_plane > 0.72:
+        return "early"
+    if time_to_plane < 0.35:
+        return "late"
+    return "in-window"
+
+
+def first_contact_part(item: dict[str, Any]) -> str:
+    return str(item.get("first_goalkeeper_contact_part") or "None")
+
+
+def first_contact_category(item: dict[str, Any]) -> str:
+    part = first_contact_part(item)
+    if part in {"LeftGlove", "RightGlove"}:
+        return "glove"
+    if part in {"Arm", "TorsoOrHead", "Leg"}:
+        return "body"
+    return "none"
 
 
 def is_wrong_side(item: dict[str, Any]) -> bool:
@@ -1561,6 +1668,16 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                             policy["first_commit_ball_flight_time"],
                         "first_commit_aim_error_m":
                             policy["first_commit_aim_error_m"],
+                        "first_commit_visible_time_to_goal_plane":
+                            policy[
+                                "first_commit_visible_time_to_goal_plane"
+                            ],
+                        "first_commit_reach_demand":
+                            policy["first_commit_reach_demand"],
+                        "first_commit_reach_extension":
+                            policy["first_commit_reach_extension"],
+                        "immediate_commit_rate":
+                            policy["immediate_commit_rate"],
                         "goalkeeper_root_distance_m":
                             policy["goalkeeper_root_distance_m"],
                         "goalkeeper_peak_root_speed_mps":
@@ -1573,10 +1690,20 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                             policy["control_command_clamp_count"],
                         "control_target_clamp_count":
                             policy["control_target_clamp_count"],
+                        "control_target_clamp_attempt_rate":
+                            policy["control_target_clamp_attempt_rate"],
+                        "glove_first_contact_rate":
+                            policy["glove_first_contact_rate"],
+                        "body_first_contact_rate":
+                            policy["body_first_contact_rate"],
                         "control_usage": policy["control_usage"],
                         "by_commit_status": policy["by_commit_status"],
                         "by_first_commit_aim_region":
                             policy["by_first_commit_aim_region"],
+                        "by_first_commit_timing_band":
+                            policy["by_first_commit_timing_band"],
+                        "by_first_contact_part":
+                            policy["by_first_contact_part"],
                     }
                     if "commit_rate" in policy
                     else {}

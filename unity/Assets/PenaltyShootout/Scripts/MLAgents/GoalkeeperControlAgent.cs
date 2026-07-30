@@ -23,6 +23,7 @@ namespace PenaltyShootout.MLAgents
         private float heuristicAimY;
         private int stage5Lesson;
         private bool reachTrainingEnabled;
+        private int reachTrainingVersion;
         private bool attemptAutoCommitApplied;
         private bool attemptReachFloorApplied;
 
@@ -163,7 +164,13 @@ namespace PenaltyShootout.MLAgents
             GoalkeeperControlDecisionContext context,
             GoalkeeperControlActionMask actionMask)
         {
-            currentMask = actionMask;
+            currentMask =
+                GoalkeeperControlTrainingContracts.ApplyCommitGuard(
+                    actionMask,
+                    context,
+                    reachTrainingEnabled,
+                    reachTrainingVersion,
+                    stage5Lesson);
             var result = hasPendingCommand
                 ? pendingCommand
                 : GoalkeeperControlCommand.Neutral;
@@ -177,6 +184,7 @@ namespace PenaltyShootout.MLAgents
                 context,
                 currentMask,
                 reachTrainingEnabled,
+                reachTrainingVersion,
                 stage5Lesson,
                 out var autoCommitApplied,
                 out var reachFloorApplied);
@@ -204,7 +212,8 @@ namespace PenaltyShootout.MLAgents
             var trainingReward =
                 GoalkeeperControlTrainingContracts.TrainingReward(
                     result,
-                    reachTrainingEnabled);
+                    reachTrainingEnabled,
+                    reachTrainingVersion);
             SetReward(trainingReward);
             RecordStats(result, sparseReward, trainingReward);
             GoalkeeperBenchmarkTelemetry.Emit(
@@ -231,11 +240,21 @@ namespace PenaltyShootout.MLAgents
                 parameters.GetWithDefault(
                     "stage5.reach_training_enabled",
                     0f) >= 0.5f;
+            reachTrainingVersion = reachTrainingEnabled
+                ? Mathf.Clamp(
+                    Mathf.RoundToInt(
+                        parameters.GetWithDefault(
+                            "stage5.reach_training_version",
+                            1f)),
+                    1,
+                    2)
+                : 0;
             var shots = controller.ShotConfiguration;
             ApplyLessonDefaults(shots, stage5Lesson);
             GoalkeeperControlTrainingContracts.ApplyReachFocusLesson(
                 shots,
                 reachTrainingEnabled,
+                reachTrainingVersion,
                 stage5Lesson);
             shots.MinimumTargetXNormalized =
                 parameters.GetWithDefault(
@@ -422,6 +441,35 @@ namespace PenaltyShootout.MLAgents
             stats.Add(
                 "Stage5/ReachTrainingEnabled",
                 reachTrainingEnabled ? 1f : 0f);
+            stats.Add(
+                "Stage5/ReachTrainingVersion",
+                reachTrainingVersion);
+            stats.Add(
+                "Stage5/FirstContactGloveRate",
+                result.FirstGoalkeeperContactPart ==
+                    GoalkeeperContactPart.LeftGlove ||
+                result.FirstGoalkeeperContactPart ==
+                    GoalkeeperContactPart.RightGlove
+                    ? 1f
+                    : 0f);
+            stats.Add(
+                "Stage5/TargetClampAttemptRate",
+                result.ControlTargetClampCount > 0 ? 1f : 0f);
+            if (result.HasSaveCommitment)
+            {
+                stats.Add(
+                    "Stage5/FirstCommitVisibleTimeToGoalPlane",
+                    result.FirstCommitVisibleTimeToGoalPlane);
+                stats.Add(
+                    "Stage5/FirstCommitReachDemand",
+                    result.FirstCommitReachDemand);
+                stats.Add(
+                    "Stage5/FirstCommitReachExtension",
+                    result.FirstCommitReachExtension);
+                stats.Add(
+                    "Stage5/ImmediateCommitRate",
+                    result.FirstCommitWasImmediate ? 1f : 0f);
+            }
             stats.Add("Stage5/SparseReward", sparseReward);
             stats.Add("Stage5/TrainingReward", trainingReward);
             stats.Add("Stage5/Lesson", stage5Lesson);

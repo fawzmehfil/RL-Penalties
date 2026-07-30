@@ -592,6 +592,45 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void ReachFocusBalancedHeightBandsCoverEveryBandDeterministically()
+        {
+            shots.ReachFocusProbability = 1f;
+            shots.ReachFocusMinimumAbsoluteXNormalized = 0.4f;
+            shots.ReachFocusMaximumAbsoluteXNormalized = 0.9f;
+            shots.ReachFocusMinimumYNormalized = 0.03f;
+            shots.ReachFocusMaximumYNormalized = 0.97f;
+            shots.ReachFocusBalancedHeightBands = true;
+            var bandCounts = new int[3];
+            for (ulong seed = 1; seed <= 300; seed++)
+            {
+                var scenario = ProceduralShotGenerator.Sample(
+                    shots,
+                    seed,
+                    Physics.gravity,
+                    environment.FixedTimestep);
+                var repeated = ProceduralShotGenerator.Sample(
+                    shots,
+                    seed,
+                    Physics.gravity,
+                    environment.FixedTimestep);
+                var normalizedBand =
+                    Mathf.InverseLerp(
+                        shots.ReachFocusMinimumYNormalized,
+                        shots.ReachFocusMaximumYNormalized,
+                        scenario.TargetYNormalized);
+                var band = Mathf.Min(
+                    2,
+                    Mathf.FloorToInt(normalizedBand * 3f));
+                bandCounts[band]++;
+                Assert.That(
+                    repeated.TargetYNormalized,
+                    Is.EqualTo(scenario.TargetYNormalized));
+            }
+
+            Assert.That(bandCounts, Is.All.GreaterThan(50));
+        }
+
+        [Test]
         public void Stage5ReachTrainingRewardPrefersSuccessfulGloveContactOnly()
         {
             var gloveSave = new AttemptResult
@@ -640,6 +679,168 @@ namespace PenaltyShootout.Kernel.Tests
                     bodySave,
                     false),
                 Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void Stage5ReachV2RewardStronglyPrefersGloveSaves()
+        {
+            var gloveSave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                GloveContact = true,
+                MinimumGloveBallDistance = 0f,
+            };
+            var bodySave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.BlockedThenOut,
+                MinimumGloveBallDistance = 0.5f,
+            };
+            var gloveGoal = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Goal,
+                GloveContact = true,
+                MinimumGloveBallDistance = 0f,
+            };
+            var closeGoal = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Goal,
+                MinimumGloveBallDistance = 0f,
+            };
+            var distantGoal = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Goal,
+                MinimumGloveBallDistance = 1f,
+            };
+
+            Assert.That(
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    gloveSave,
+                    true,
+                    2),
+                Is.EqualTo(1f));
+            Assert.That(
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    bodySave,
+                    true,
+                    2),
+                Is.EqualTo(0.25f));
+            Assert.That(
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    gloveGoal,
+                    true,
+                    2),
+                Is.EqualTo(-0.75f));
+            Assert.That(
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    closeGoal,
+                    true,
+                    2),
+                Is.EqualTo(-0.85f).Within(1e-5f));
+            Assert.That(
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    distantGoal,
+                    true,
+                    2),
+                Is.EqualTo(-1f));
+        }
+
+        [Test]
+        public void Stage5VisibleTimeToPlaneAndV2CommitGuardAreDeterministic()
+        {
+            Assert.That(
+                GoalkeeperControlTrainingContracts
+                    .EstimateVisibleTimeToGoalPlane(
+                        new Vector3(0f, 1f, 10f),
+                        new Vector3(0f, 0f, -20f)),
+                Is.EqualTo(0.5f).Within(1e-5f));
+            Assert.That(
+                GoalkeeperControlTrainingContracts
+                    .EstimateVisibleTimeToGoalPlane(
+                        new Vector3(0f, 1f, 10f),
+                        Vector3.zero),
+                Is.EqualTo(-1f));
+
+            var motorMask = new GoalkeeperControlActionMask(true);
+            var early = new GoalkeeperControlDecisionContext(
+                1,
+                2,
+                3,
+                0.04f,
+                0.9f);
+            var inWindow = new GoalkeeperControlDecisionContext(
+                1,
+                3,
+                4,
+                0.20f,
+                0.6f);
+            Assert.That(
+                GoalkeeperControlTrainingContracts.ApplyCommitGuard(
+                    motorMask,
+                    early,
+                    true,
+                    2,
+                    1).CanCommit,
+                Is.False);
+            Assert.That(
+                GoalkeeperControlTrainingContracts.ApplyCommitGuard(
+                    motorMask,
+                    inWindow,
+                    true,
+                    2,
+                    1).CanCommit,
+                Is.True);
+            Assert.That(
+                GoalkeeperControlTrainingContracts.ApplyCommitGuard(
+                    motorMask,
+                    early,
+                    true,
+                    2,
+                    3).CanCommit,
+                Is.True);
+        }
+
+        [Test]
+        public void Stage5ReachV2ScaffoldReleasesCommitAndReachByLessonThree()
+        {
+            var command = GoalkeeperControlCommand.Neutral;
+            command.AimX = -0.5f;
+            command.AimY = 0.25f;
+            var inWindow = new GoalkeeperControlDecisionContext(
+                1,
+                2,
+                3,
+                0.2f,
+                0.6f);
+            var mask = new GoalkeeperControlActionMask(true);
+            var guided =
+                GoalkeeperControlTrainingContracts.ApplyScaffold(
+                    command,
+                    inWindow,
+                    mask,
+                    true,
+                    2,
+                    0,
+                    out var autoCommit,
+                    out var reachFloor);
+            Assert.That(guided.Commit, Is.True);
+            Assert.That(guided.Reach01, Is.EqualTo(1f));
+            Assert.That(autoCommit, Is.True);
+            Assert.That(reachFloor, Is.True);
+
+            var independent =
+                GoalkeeperControlTrainingContracts.ApplyScaffold(
+                    command,
+                    inWindow,
+                    mask,
+                    true,
+                    2,
+                    3,
+                    out autoCommit,
+                    out reachFloor);
+            Assert.That(independent.Commit, Is.False);
+            Assert.That(independent.Reach, Is.EqualTo(-1f));
+            Assert.That(autoCommit, Is.False);
+            Assert.That(reachFloor, Is.False);
         }
 
         [Test]
@@ -818,6 +1019,37 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(
                 contacts.LastGoalkeeperContactPart,
                 Is.EqualTo(GoalkeeperContactPart.LeftGlove));
+        }
+
+        [Test]
+        public void ContactHistoryPreservesFirstGoalkeeperContactAcrossReset()
+        {
+            var contacts = new ContactHistory();
+            contacts.Record(
+                ContactKind.Goalkeeper,
+                0.4f,
+                GoalkeeperContactPart.TorsoOrHead);
+            contacts.Record(
+                ContactKind.Goalkeeper,
+                0.5f,
+                GoalkeeperContactPart.RightGlove);
+            Assert.That(
+                contacts.FirstGoalkeeperContactPart,
+                Is.EqualTo(GoalkeeperContactPart.TorsoOrHead));
+            Assert.That(
+                contacts.FirstGoalkeeperContactTime,
+                Is.EqualTo(0.4f));
+            Assert.That(
+                contacts.LastGoalkeeperContactPart,
+                Is.EqualTo(GoalkeeperContactPart.RightGlove));
+
+            contacts.Reset();
+            Assert.That(
+                contacts.FirstGoalkeeperContactPart,
+                Is.EqualTo(GoalkeeperContactPart.None));
+            Assert.That(
+                contacts.FirstGoalkeeperContactTime,
+                Is.EqualTo(float.NegativeInfinity));
         }
 
         [Test]

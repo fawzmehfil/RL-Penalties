@@ -24,18 +24,20 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 5 reach-learning correction ready
+## Current status: Stage 5.2 reach/timing correction ready
 
 Stages 0-4 established and evaluated the deterministic environment, the first
 trainable nine-action goalkeeper, fixed 20,000-shot benchmarks, and
 partial-observation robustness. Stage 5 now adds a separate richer goalkeeper
 control task and physically validated motor. One 8-million-step Stage 5 seed
 reached a 45.7% save rate on a fixed 2,000-shot screen, but used glove contact
-on only 12.7% of attempts. A training-only Stage 5.1 correction is ready to
-test whether reach-focused shots, early action scaffolding, and a bounded
-preference for glove saves teach the policy to use its articulated arms. The
-Stage 3 seed `001` model remains the main clean goalkeeper until the richer
-control gate is passed.
+on only 12.7% of attempts. The first 1-million-step Stage 5.1 correction
+improved high-shot coverage but still committed immediately and produced glove
+contact on only 10.75% of its fixed 400-shot evaluation. Stage 5.2 replaces the
+fixed early commit with a visible time-to-goal-plane curriculum, balances
+focused shot heights, and increases the training preference for glove-first
+saves. The Stage 3 seed `001` model remains the main clean goalkeeper until the
+richer control gate is passed.
 
 Stage 0 established the physics and tooling foundation before goalkeeper
 training:
@@ -554,6 +556,56 @@ Use
 1-million-step gate. If glove usage, aim error, high-shot coverage, and overall
 save rate improve together, use
 `configs/training/goalkeeper-control-v1-ppo-reach.yaml` for the full run.
+
+### Stage 5.2 reach and timing correction
+
+The completed Stage 5.1 diagnostic saved 19.5% of 400 fixed shots, reached
+14.49% on high shots, and terminated with zero invalids, timeouts, or mask
+violations. It failed the richer-control gate because glove contact was only
+10.75%, mean commit aim error was 1.38 m, mean peak reach was 0.581, and every
+attempt committed on the first 0.04-second decision.
+
+Stage 5.2 is enabled by:
+
+```text
+stage5.reach_training_enabled = 1
+stage5.reach_training_version = 2
+```
+
+It preserves the released 32-float observation and hybrid action contracts.
+Its training-only curriculum uses ball position and velocity to estimate
+visible time remaining to the goal plane. Early lessons guide or guard commit
+timing, then remove every extra action constraint before canonical full-range
+training. Reach-focused targets are balanced across low, middle, and high
+bands. The v2 terminal reward gives `+1.0` to glove saves, `+0.25` to other
+saves, `-0.75` to glove-contact goals, between `-1.0` and `-0.85` to other
+goals based on measured glove proximity, and `0.0` to abnormal outcomes.
+Failed attempts always remain negative, and hidden target/future-impact fields
+are never observed or rewarded.
+
+Use
+`configs/training/goalkeeper-control-v1-ppo-reach-v2-diagnostic.yaml` for the
+new 1-million-step gate. Do not use
+`configs/training/goalkeeper-control-v1-ppo-reach-v2.yaml` for full training
+until that diagnostic passes.
+
+After closing the Unity editor, verify and rebuild without starting training or
+evaluation:
+
+```bash
+scripts/verify_stage5_reach_v2.sh
+```
+
+Then start the diagnostic:
+
+```bash
+arch -x86_64 .venv/bin/mlagents-learn \
+  configs/training/goalkeeper-control-v1-ppo-reach-v2-diagnostic.yaml \
+  --env builds/macos/PenaltyShootoutStage5.app \
+  --run-id gk-control-v1_reach-v2-diagnostic_seed-001 \
+  --seed 1 \
+  --no-graphics
+```
 
 ## Later milestones
 

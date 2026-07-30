@@ -1,13 +1,12 @@
 {
-  "schema_version": 1,
-  "stage": "5.1",
-  "status": "diagnostic-pending",
+  "schema_version": 2,
+  "stage": "5.2",
+  "status": "v2-implementation-ready",
   "behavior_name": "GoalkeeperControl-v1",
   "observation_spec_id": "control-state-v1",
   "action_spec_id": "goalkeeper-hybrid-v1",
   "motor_profile_id": "keeper-control-v1",
   "canonical_reward_spec_id": "goalkeeper-sparse-v0",
-  "training_reward_spec_id": "goalkeeper-control-training-reach-v1",
   "trigger_evidence": {
     "run_id": "stage5-seed-001-2k",
     "attempts": 2000,
@@ -18,14 +17,41 @@
     "reactive_glove_contact_rate": 0.737,
     "reactive_peak_reach_extension_mean": 0.9827
   },
-  "diagnostic_gate": {
+  "reach_v1_diagnostic": {
+    "training_reward_spec_id": "goalkeeper-control-training-reach-v1",
+    "run_id": "gk-control-v1_reach-diagnostic_seed-001",
+    "evaluation_run_id": "stage5-reach-diagnostic-seed-001-400",
     "steps": 1000000,
+    "attempts": 400,
+    "save_rate": 0.195,
+    "glove_contact_rate": 0.1075,
+    "peak_reach_extension_mean": 0.581,
+    "high_shot_save_rate": 0.1449,
+    "first_commit_aim_error_m": 1.383,
+    "immediate_commit_rate": 1.0,
+    "control_target_clamp_count": 206,
+    "invalid_rate": 0.0,
+    "timeout_rate": 0.0,
+    "action_mask_violations": 0,
+    "passed": false
+  },
+  "reach_v2": {
+    "training_reward_spec_id": "goalkeeper-control-training-reach-v2",
+    "diagnostic_config": "configs/training/goalkeeper-control-v1-ppo-reach-v2-diagnostic.yaml",
+    "full_config": "configs/training/goalkeeper-control-v1-ppo-reach-v2.yaml",
+    "diagnostic_steps": 1000000,
+    "implementation_status": "ready"
+  },
+  "diagnostic_gate": {
     "attempts": 400,
     "minimum_save_rate": 0.2,
     "minimum_glove_contact_rate": 0.25,
-    "minimum_peak_reach_extension_mean": 0.6,
+    "minimum_glove_save_rate": 0.12,
+    "minimum_peak_reach_extension_mean": 0.65,
     "minimum_high_shot_save_rate": 0.15,
     "maximum_first_commit_aim_error_m": 1.0,
+    "maximum_immediate_commit_rate": 0.1,
+    "maximum_control_target_clamp_attempt_rate": 0.2,
     "maximum_invalids": 0,
     "maximum_timeouts": 0,
     "maximum_action_mask_violations": 0

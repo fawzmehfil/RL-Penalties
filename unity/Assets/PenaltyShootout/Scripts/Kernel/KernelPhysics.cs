@@ -155,9 +155,30 @@ namespace PenaltyShootout.Kernel
                     random.Range(
                         configuration.ReachFocusMinimumAbsoluteXNormalized,
                         configuration.ReachFocusMaximumAbsoluteXNormalized);
-                targetYNormalized = random.Range(
-                    configuration.ReachFocusMinimumYNormalized,
-                    configuration.ReachFocusMaximumYNormalized);
+                if (configuration.ReachFocusBalancedHeightBands)
+                {
+                    var heightBand = Mathf.Min(
+                        2,
+                        Mathf.FloorToInt(random.NextFloat() * 3f));
+                    var heightSpan =
+                        configuration.ReachFocusMaximumYNormalized -
+                        configuration.ReachFocusMinimumYNormalized;
+                    var bandMinimum =
+                        configuration.ReachFocusMinimumYNormalized +
+                        heightSpan * heightBand / 3f;
+                    var bandMaximum =
+                        configuration.ReachFocusMinimumYNormalized +
+                        heightSpan * (heightBand + 1) / 3f;
+                    targetYNormalized = random.Range(
+                        bandMinimum,
+                        bandMaximum);
+                }
+                else
+                {
+                    targetYNormalized = random.Range(
+                        configuration.ReachFocusMinimumYNormalized,
+                        configuration.ReachFocusMaximumYNormalized);
+                }
             }
             else
             {
