@@ -27,6 +27,7 @@
   "suite_notes": "Fast subset of the frozen on-target-v0 generator.",
   "environment_parameters": {
     "stage5.lesson": 4,
+    "stage5.metrics_version": 4,
     "stage5.flight_time_min": 0.38,
     "stage5.flight_time_max": 0.50
   },

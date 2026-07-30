@@ -27,6 +27,7 @@
   "suite_notes": "Version 1 uses the existing rectangular range API and targets the high-right edge/corner region.",
   "environment_parameters": {
     "stage5.lesson": 4,
+    "stage5.metrics_version": 4,
     "stage5.target_x_min": 0.75,
     "stage5.target_x_max": 1,
     "stage5.target_y_min": 0.75,

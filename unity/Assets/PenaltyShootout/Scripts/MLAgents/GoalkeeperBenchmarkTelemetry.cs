@@ -217,6 +217,10 @@ namespace PenaltyShootout.MLAgents
                     result.FirstCommitWasImmediate,
                 first_commit_was_premature =
                     result.FirstCommitWasPremature,
+                first_commit_was_late =
+                    result.FirstCommitWasLate,
+                first_commit_was_timely =
+                    result.FirstCommitWasTimely,
                 first_commit_aim = Vector2Payload.From(result.FirstCommitAim),
                 first_commit_raw_policy_aim =
                     Vector2Payload.From(result.FirstCommitRawPolicyAim),
@@ -227,6 +231,10 @@ namespace PenaltyShootout.MLAgents
                         result.FirstCommitVisiblePredictedAim),
                 first_commit_visible_aim_error =
                     result.FirstCommitVisibleAimError,
+                first_commit_desired_reach =
+                    result.FirstCommitDesiredReach,
+                first_commit_reach_shortfall =
+                    result.FirstCommitReachShortfall,
                 first_eligible_commit_decision_index =
                     result.FirstEligibleCommitDecisionIndex,
                 first_eligible_commit_ball_flight_time =
@@ -249,6 +257,10 @@ namespace PenaltyShootout.MLAgents
                     result.ControlTargetClampCount,
                 root_target_saturation_distance =
                     result.RootTargetSaturationDistance,
+                training_decision_shaping_reward =
+                    result.TrainingDecisionShapingReward,
+                policy_action_override_count =
+                    result.PolicyActionOverrideCount,
                 accepted_control_decision_count =
                     result.AcceptedControlDecisionCount,
                 control_move_command_count =
@@ -338,11 +350,15 @@ namespace PenaltyShootout.MLAgents
             public float first_commit_reach_extension;
             public bool first_commit_was_immediate;
             public bool first_commit_was_premature;
+            public bool first_commit_was_late;
+            public bool first_commit_was_timely;
             public Vector2Payload first_commit_aim;
             public Vector2Payload first_commit_raw_policy_aim;
             public bool has_first_commit_visible_prediction;
             public Vector2Payload first_commit_visible_predicted_aim;
             public float first_commit_visible_aim_error;
+            public float first_commit_desired_reach;
+            public float first_commit_reach_shortfall;
             public int first_eligible_commit_decision_index;
             public float first_eligible_commit_ball_flight_time;
             public float first_eligible_commit_visible_time_to_goal_plane;
@@ -354,6 +370,8 @@ namespace PenaltyShootout.MLAgents
             public int control_target_clamp_count;
             public int root_target_saturation_count;
             public float root_target_saturation_distance;
+            public float training_decision_shaping_reward;
+            public int policy_action_override_count;
             public int accepted_control_decision_count;
             public int control_move_command_count;
             public int control_reach_command_count;

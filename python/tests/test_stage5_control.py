@@ -77,6 +77,7 @@ def test_stage5_benchmark_configs_are_versioned_and_valid(name: str) -> None:
     assert config.discrete_branches == (2,)
     assert config.stage5_lesson == 4
     assert config.total_attempts == 20_000
+    assert config.environment_parameters["stage5.metrics_version"] == 4.0
 
 
 def test_stage5_benchmark_rejects_v0_action_contract() -> None:
@@ -147,6 +148,16 @@ def test_stage5_ppo_yaml_matches_pinned_mlagents_schema() -> None:
             1_000_000,
             250_000,
         ),
+        (
+            "goalkeeper-control-v1-ppo-reach-v4.yaml",
+            8_000_000,
+            500_000,
+        ),
+        (
+            "goalkeeper-control-v1-ppo-reach-v4-diagnostic.yaml",
+            1_000_000,
+            200_000,
+        ),
     ],
 )
 def test_stage5_reach_training_yaml_matches_pinned_mlagents_schema(
@@ -181,6 +192,12 @@ def test_stage5_reach_training_yaml_matches_pinned_mlagents_schema(
         ]
         assert len(reach_version.curriculum) == 1
         assert reach_version.curriculum[0].value.value == 3.0
+    if "-v4" in name:
+        reach_version = options.environment_parameters[
+            "stage5.reach_training_version"
+        ]
+        assert len(reach_version.curriculum) == 1
+        assert reach_version.curriculum[0].value.value == 4.0
 
 
 def test_stage5_scripted_policies_emit_bounded_masked_hybrid_actions() -> None:
@@ -309,8 +326,12 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
             "first_commit_reach_extension": 0.72,
             "first_commit_was_immediate": False,
             "first_commit_was_premature": False,
+            "first_commit_was_late": False,
+            "first_commit_was_timely": True,
             "first_commit_aim": {"x": 0.55, "y": 0.5},
             "first_commit_visible_aim_error": 0.15,
+            "first_commit_desired_reach": 0.9,
+            "first_commit_reach_shortfall": 0.0,
             "first_eligible_commit_decision_index": 2,
             "first_eligible_commit_ball_flight_time": 0.08,
             "eligible_commit_decisions_before_commit": 1,
@@ -323,6 +344,8 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
             "control_target_clamp_count": 1,
             "root_target_saturation_count": 1,
             "root_target_saturation_distance": 0.25,
+            "training_decision_shaping_reward": 0.08,
+            "policy_action_override_count": 0,
             "accepted_control_decision_count": 5,
             "control_move_command_count": 4,
             "control_reach_command_count": 3,
@@ -350,6 +373,8 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
             "control_target_clamp_count": 0,
             "root_target_saturation_count": 0,
             "root_target_saturation_distance": 0.0,
+            "training_decision_shaping_reward": 0.0,
+            "policy_action_override_count": 0,
             "accepted_control_decision_count": 5,
             "control_move_command_count": 1,
             "control_reach_command_count": 0,
@@ -374,7 +399,11 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
     assert report["first_commit_reach_extension"]["mean"] == 0.72
     assert report["immediate_commit_rate"]["value"] == 0.0
     assert report["premature_commit_rate"]["value"] == 0.0
+    assert report["late_commit_rate"]["value"] == 0.0
+    assert report["timely_commit_rate"]["value"] == 0.5
     assert report["first_commit_visible_aim_error_m"]["mean"] == 0.15
+    assert report["first_commit_desired_reach"]["mean"] == 0.9
+    assert report["first_commit_reach_shortfall"]["mean"] == 0.0
     assert report["first_eligible_commit_decision_index"]["mean"] == 2.0
     assert (
         report["first_eligible_commit_ball_flight_time"]["mean"] == 0.08
@@ -389,6 +418,8 @@ def test_stage5_aggregation_reports_commit_and_motor_metrics() -> None:
     assert report["root_target_saturation_count"] == 1
     assert report["root_target_saturation_attempt_rate"]["value"] == 0.5
     assert report["root_target_saturation_distance_m"]["mean"] == 0.25
+    assert report["training_decision_shaping_reward"]["mean"] == 0.04
+    assert report["policy_action_override_count"] == 0
     assert report["saturated_shot_save_rate"]["value"] == 1.0
     assert report["glove_save_rate"]["value"] == 0.5
     assert report["glove_first_save_rate"]["value"] == 0.5
@@ -412,8 +443,8 @@ def test_stage5_diagnostic_selection_uses_behavioral_gate_before_save_rate() -> 
         "glove_contact_rate": {"value": 0.30},
         "stage5_diagnostic_gate": {
             "passed": True,
-            "checks_passed": 12,
-            "checks_total": 12,
+            "checks_passed": 16,
+            "checks_total": 16,
             "failed_checks": [],
         },
     }
@@ -426,7 +457,7 @@ def test_stage5_diagnostic_selection_uses_behavioral_gate_before_save_rate() -> 
         "stage5_diagnostic_gate": {
             "passed": False,
             "checks_passed": 8,
-            "checks_total": 12,
+            "checks_total": 16,
             "failed_checks": ["glove_contact_rate"],
         },
     }

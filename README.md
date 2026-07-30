@@ -24,7 +24,7 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 5.3 deliberate-save diagnostic ready
+## Current status: Stage 5.4 policy-faithful diagnostic ready
 
 Stages 0-4 established and evaluated the deterministic environment, the first
 trainable nine-action goalkeeper, fixed 20,000-shot benchmarks, and
@@ -36,10 +36,13 @@ improved high-shot coverage but still committed immediately and produced glove
 contact on only 10.75% of its fixed 400-shot evaluation. Stage 5.2 then reached
 a best 21.0% save rate, but still committed on the first decision in every
 attempt, used glove contact on only 8.75%, and saved only 1.45% of high shots.
-Stage 5.3 adds visible-state aim guidance, deliberate commit timing,
-contact-specific credit, and an explicit diagnostic gate. The Stage 3 seed
-`001` model remains the main clean goalkeeper until the richer control gate is
-passed.
+Stage 5.3 added visible-state guidance and reached 24.75% saves, but its best
+checkpoint still committed immediately on every attempt because the training
+scaffold could replace the policy's chosen action. Stage 5.4 removes all
+action, aim, reach, and timing overrides, adds decision-time credit to the
+policy action that actually executes, and increases final canonical exposure.
+The Stage 3 seed `001` model remains the main clean goalkeeper until the richer
+control gate is passed.
 
 Stage 0 established the physics and tooling foundation before goalkeeper
 training:
@@ -670,6 +673,72 @@ arch -x86_64 .venv/bin/mlagents-learn \
   --seed 1 \
   --no-graphics
 ```
+
+The completed Stage 5.3 screen did not pass its control-quality gate. The best
+checkpoint, `GoalkeeperControl-v1-749975.onnx`, saved 24.75% of 400 shots, but
+committed immediately and prematurely on every attempt. It used glove contact
+on 15.25% of attempts, saved 7.25% with gloves, saved 5.07% of high shots, and
+reached a mean peak extension of 0.565. It had zero invalids, timeouts, action
+mask violations, and malformed command clamps.
+
+### Stage 5.4 policy-faithful training
+
+The Stage 5.4 peripheral audit found no evidence that body dimensions, glove
+size, root travel, fixed timestep, decision cadence, shot speed, or collision
+geometry are the limiting factor. The same motor reached full extension in
+scripted validation, and the visible-state reactive controller produced 73.7%
+glove contact and 62.8% high-shot saves on the fixed evaluation distribution.
+The learned policy's low reach and first-decision commitment are therefore
+treated as policy/training failures. Stage 5.4 deliberately does not lengthen
+the arms, enlarge colliders, slow shots, or increase root travel.
+
+Stage 5.4 is enabled by:
+
+```text
+stage5.reach_training_enabled = 1
+stage5.reach_training_version = 4
+```
+
+Its training contract changes only the training layer:
+
+- The policy's raw move, aim, reach, and commit choices execute unchanged in
+  every lesson. There are no timing masks, automatic commits, aim blends, or
+  reach floors.
+- Decision-time reward uses only visible ball state and the submitted command.
+  It penalizes immediate, premature, and late commitment, visible aim error,
+  and insufficient reach, while giving a small bonus for a useful
+  time-to-plane commit window.
+- Terminal reward still dominates. Glove-first saves rank above glove, arm,
+  and body saves; a premature save cannot become a positive shortcut.
+- The curriculum retains focused early lessons but spends 35% of training on
+  the unassisted canonical distribution.
+- Telemetry proves that the deployed policy was evaluated: policy-action
+  override count must remain zero, alongside timing, reach, contact, physics,
+  and validity metrics.
+
+The Stage 5.4 diagnostic gate keeps the existing save, glove, high-shot,
+aim-error, reach, validity, and physics checks. It also requires at least 70%
+timely commits, no more than 15% late commits, mean reach shortfall at or below
+0.20, and zero policy-action overrides.
+
+After closing the Unity editor, verify the Stage 5.4 implementation and rebuild
+without starting training or evaluation:
+
+```bash
+scripts/verify_stage5_reach_v4.sh
+```
+
+Then train one 1-million-step seed and screen the retained checkpoints on the
+same 400 fixed shots:
+
+```bash
+scripts/run_stage5_reach_v4_diagnostic.sh 1
+```
+
+The handoff script trains only seed `001`, retains checkpoints near 200k,
+400k, 600k, 800k, and 1M, evaluates them with stand-center, random-hybrid, and
+reactive-reach baselines, and writes the comparison under
+`results/evaluations/gk-control-v1_reach-v4-policy-faithful_seed-001-checkpoint-screen-400/`.
 
 ## Later milestones
 

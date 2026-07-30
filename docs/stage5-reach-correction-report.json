@@ -1,7 +1,7 @@
 {
-  "schema_version": 3,
-  "stage": "5.3",
-  "status": "v3-diagnostic-ready",
+  "schema_version": 4,
+  "stage": "5.4",
+  "status": "v4-policy-faithful-diagnostic-ready",
   "behavior_name": "GoalkeeperControl-v1",
   "observation_spec_id": "control-state-v1",
   "action_spec_id": "goalkeeper-hybrid-v1",
@@ -56,18 +56,50 @@
     "action_mask_violations": 0,
     "passed": false
   },
-  "reach_v3": {
+  "reach_v3_diagnostic": {
     "training_reward_spec_id": "goalkeeper-control-training-reach-v3",
-    "diagnostic_config": "configs/training/goalkeeper-control-v1-ppo-reach-v3-diagnostic.yaml",
-    "full_config": "configs/training/goalkeeper-control-v1-ppo-reach-v3.yaml",
+    "run_id": "gk-control-v1_reach-v3-diagnostic_seed-001",
+    "evaluation_run_id": "gk-control-v1_reach-v3-diagnostic_seed-001-checkpoint-screen-400",
+    "steps": 1000000,
+    "evaluation_attempts_per_checkpoint": 400,
+    "best_checkpoint": "GoalkeeperControl-v1-749975.onnx",
+    "best_checkpoint_steps": 749975,
+    "save_rate": 0.2475,
+    "glove_contact_rate": 0.1525,
+    "glove_save_rate": 0.0725,
+    "peak_reach_extension_mean": 0.56477,
+    "high_shot_save_rate": 0.05072,
+    "first_commit_aim_error_m": 0.83769,
+    "immediate_commit_rate": 1.0,
+    "premature_commit_rate": 1.0,
+    "control_command_clamp_count": 0,
+    "invalid_rate": 0.0,
+    "timeout_rate": 0.0,
+    "action_mask_violations": 0,
+    "checks_passed": 6,
+    "checks_total": 12,
+    "passed": false
+  },
+  "reach_v4": {
+    "training_reward_spec_id": "goalkeeper-control-training-reach-v4",
+    "diagnostic_config": "configs/training/goalkeeper-control-v1-ppo-reach-v4-diagnostic.yaml",
+    "full_config": "configs/training/goalkeeper-control-v1-ppo-reach-v4.yaml",
     "diagnostic_steps": 1000000,
+    "canonical_training_fraction": 0.35,
     "implementation_status": "ready",
+    "policy_faithful_invariants": {
+      "timing_action_masks": false,
+      "automatic_commits": false,
+      "aim_overrides": false,
+      "reach_floors": false
+    },
     "changes": [
-      "Visible-state goal-plane aim guidance fades to zero before the canonical lesson.",
-      "Commit scaffolding requires observed ball flight and a useful visible time-to-plane window.",
-      "Terminal credit ranks glove-first, later glove, arm, and body saves separately.",
-      "Premature commits and visible aim error receive bounded penalties.",
-      "Root-target physical saturation is reported separately from invalid command clamping."
+      "Every lesson executes the policy's legal actions unchanged.",
+      "Visible-state decision credit directly penalizes immediate, early, and late commits.",
+      "Visible aim error and predicted-intercept reach shortfall receive bounded decision penalties.",
+      "Premature saves cannot produce a positive terminal shortcut.",
+      "PPO exploration is increased and the canonical lesson receives the final 35 percent of training.",
+      "Checkpoint selection requires the complete behavioral gate, not save rate alone."
     ]
   },
   "diagnostic_gate": {
@@ -80,6 +112,10 @@
     "maximum_first_commit_aim_error_m": 1.0,
     "maximum_immediate_commit_rate": 0.1,
     "maximum_premature_commit_rate": 0.15,
+    "maximum_late_commit_rate": 0.15,
+    "minimum_timely_commit_rate": 0.7,
+    "maximum_first_commit_reach_shortfall": 0.2,
+    "maximum_policy_action_override_count": 0,
     "maximum_control_command_clamp_count": 0,
     "maximum_invalids": 0,
     "maximum_timeouts": 0,

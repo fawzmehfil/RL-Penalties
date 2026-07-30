@@ -25,7 +25,8 @@
   "master_seed": 20260723,
   "primary_metric": "save_rate",
   "environment_parameters": {
-    "stage5.lesson": 4
+    "stage5.lesson": 4,
+    "stage5.metrics_version": 4
   },
   "save_outcomes": [
     "Saved",

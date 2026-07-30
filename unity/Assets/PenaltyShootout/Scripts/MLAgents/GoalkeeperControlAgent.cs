@@ -24,6 +24,7 @@ namespace PenaltyShootout.MLAgents
         private int stage5Lesson;
         private bool reachTrainingEnabled;
         private int reachTrainingVersion;
+        private int controlMetricsVersion = 3;
         private bool attemptAutoCommitApplied;
         private bool attemptReachFloorApplied;
         private bool attemptAimGuidanceApplied;
@@ -33,10 +34,16 @@ namespace PenaltyShootout.MLAgents
         private int eligibleCommitDecisionsBeforeCommit;
         private bool hasRecordedCommitMetadata;
         private bool firstCommitWasPremature;
+        private bool firstCommitWasLate;
+        private bool firstCommitWasTimely;
         private Vector2 firstCommitRawPolicyAim;
         private bool hasFirstCommitVisiblePrediction;
         private Vector2 firstCommitVisiblePredictedAim;
         private float firstCommitVisibleAimError = -1f;
+        private float firstCommitDesiredReach;
+        private float firstCommitReachShortfall;
+        private float attemptDecisionShapingReward;
+        private int attemptPolicyActionOverrideCount;
 
         public PenaltyAreaController Controller
         {
@@ -190,10 +197,16 @@ namespace PenaltyShootout.MLAgents
                 result.Commit = false;
             }
 
+            var usesPolicyFaithfulMetrics =
+                reachTrainingVersion >= 4 ||
+                controlMetricsVersion >= 4;
             var preferredOpportunity =
                 currentMask.CanCommit &&
-                GoalkeeperControlTrainingContracts
-                    .IsV3PreferredCommitOpportunity(context);
+                (usesPolicyFaithfulMetrics
+                    ? GoalkeeperControlTrainingContracts
+                        .IsV4TimelyCommitOpportunity(context)
+                    : GoalkeeperControlTrainingContracts
+                        .IsV3PreferredCommitOpportunity(context));
             if (preferredOpportunity &&
                 firstEligibleCommitDecisionIndex < 0)
             {
@@ -214,28 +227,68 @@ namespace PenaltyShootout.MLAgents
                 out var reachFloorApplied);
             attemptAutoCommitApplied |= autoCommitApplied;
             attemptReachFloorApplied |= reachFloorApplied;
-            attemptAimGuidanceApplied |=
+            var aimGuidanceApplied =
                 !Mathf.Approximately(result.AimX, rawPolicyAim.x) ||
                 !Mathf.Approximately(result.AimY, rawPolicyAim.y);
+            attemptAimGuidanceApplied |= aimGuidanceApplied;
+            attemptPolicyActionOverrideCount +=
+                (autoCommitApplied ? 1 : 0) +
+                (reachFloorApplied ? 1 : 0) +
+                (aimGuidanceApplied ? 1 : 0);
             var acceptedCommit = result.Commit && currentMask.CanCommit;
-            if (!hasRecordedCommitMetadata && acceptedCommit)
-            {
-                hasRecordedCommitMetadata = true;
-                firstCommitRawPolicyAim = rawPolicyAim;
-                firstCommitWasPremature =
+            var usesPolicyFaithfulTraining =
+                reachTrainingEnabled &&
+                reachTrainingVersion >= 4;
+            var decisionCredit = usesPolicyFaithfulMetrics
+                ? GoalkeeperControlTrainingContracts
+                    .EvaluateDecisionCreditV4(
+                        result,
+                        context,
+                        controller == null
+                            ? 0f
+                            : controller
+                                .GoalkeeperControlLocalPosition.x)
+                : new GoalkeeperControlDecisionCredit(
+                    0f,
+                    false,
                     GoalkeeperControlTrainingContracts
-                        .IsV3PrematureCommit(context);
-                hasFirstCommitVisiblePrediction =
-                    context.HasVisibleGoalPlanePrediction;
-                firstCommitVisiblePredictedAim =
-                    context.VisiblePredictedAim;
-                firstCommitVisibleAimError =
+                        .IsV3PrematureCommit(context),
+                    false,
+                    false,
                     context.HasVisibleGoalPlanePrediction
                         ? GoalkeeperControlTrainingContracts
                             .VisibleAimErrorMeters(
                                 rawPolicyAim,
                                 context.VisiblePredictedAim)
-                        : -1f;
+                        : -1f,
+                    0f,
+                    0f);
+            if (acceptedCommit &&
+                usesPolicyFaithfulTraining)
+            {
+                AddReward(decisionCredit.Reward);
+                attemptDecisionShapingReward +=
+                    decisionCredit.Reward;
+            }
+
+            if (!hasRecordedCommitMetadata && acceptedCommit)
+            {
+                hasRecordedCommitMetadata = true;
+                firstCommitRawPolicyAim = rawPolicyAim;
+                firstCommitWasPremature =
+                    decisionCredit.IsPremature;
+                firstCommitWasLate = decisionCredit.IsLate;
+                firstCommitWasTimely = decisionCredit.IsTimely;
+                hasFirstCommitVisiblePrediction =
+                    context.HasVisibleGoalPlanePrediction;
+                firstCommitVisiblePredictedAim =
+                    context.VisiblePredictedAim;
+                firstCommitVisibleAimError =
+                    decisionCredit.VisibleAimError;
+                firstCommitDesiredReach =
+                    decisionCredit.DesiredReach01;
+                firstCommitReachShortfall =
+                    decisionCredit.ReachShortfall;
             }
             else if (!hasRecordedCommitMetadata && preferredOpportunity)
             {
@@ -261,6 +314,12 @@ namespace PenaltyShootout.MLAgents
             result.FirstCommitWasPremature =
                 hasRecordedCommitMetadata &&
                 firstCommitWasPremature;
+            result.FirstCommitWasLate =
+                hasRecordedCommitMetadata &&
+                firstCommitWasLate;
+            result.FirstCommitWasTimely =
+                hasRecordedCommitMetadata &&
+                firstCommitWasTimely;
             result.FirstCommitRawPolicyAim =
                 firstCommitRawPolicyAim;
             result.HasFirstCommitVisiblePrediction =
@@ -272,6 +331,14 @@ namespace PenaltyShootout.MLAgents
                 hasRecordedCommitMetadata
                     ? firstCommitVisibleAimError
                     : -1f;
+            result.FirstCommitDesiredReach =
+                hasRecordedCommitMetadata
+                    ? firstCommitDesiredReach
+                    : 0f;
+            result.FirstCommitReachShortfall =
+                hasRecordedCommitMetadata
+                    ? firstCommitReachShortfall
+                    : 0f;
             result.FirstEligibleCommitDecisionIndex =
                 firstEligibleCommitDecisionIndex;
             result.FirstEligibleCommitBallFlightTime =
@@ -280,6 +347,10 @@ namespace PenaltyShootout.MLAgents
                 firstEligibleCommitVisibleTimeToGoalPlane;
             result.EligibleCommitDecisionsBeforeCommit =
                 eligibleCommitDecisionsBeforeCommit;
+            result.TrainingDecisionShapingReward =
+                attemptDecisionShapingReward;
+            result.PolicyActionOverrideCount =
+                attemptPolicyActionOverrideCount;
             var sparseReward =
                 GoalkeeperTrainingContracts.SparseReward(result.Outcome);
             var trainingReward =
@@ -313,6 +384,13 @@ namespace PenaltyShootout.MLAgents
                 parameters.GetWithDefault(
                     "stage5.reach_training_enabled",
                     0f) >= 0.5f;
+            controlMetricsVersion = Mathf.Clamp(
+                Mathf.RoundToInt(
+                    parameters.GetWithDefault(
+                        "stage5.metrics_version",
+                        3f)),
+                3,
+                4);
             reachTrainingVersion = reachTrainingEnabled
                 ? Mathf.Clamp(
                     Mathf.RoundToInt(
@@ -320,7 +398,7 @@ namespace PenaltyShootout.MLAgents
                             "stage5.reach_training_version",
                             1f)),
                     1,
-                    3)
+                    4)
                 : 0;
             var shots = controller.ShotConfiguration;
             ApplyLessonDefaults(shots, stage5Lesson);
@@ -556,6 +634,12 @@ namespace PenaltyShootout.MLAgents
             stats.Add(
                 "Stage5/AimGuidanceRate",
                 attemptAimGuidanceApplied ? 1f : 0f);
+            stats.Add(
+                "Stage5/PolicyActionOverrideCount",
+                result.PolicyActionOverrideCount);
+            stats.Add(
+                "Stage5/DecisionShapingReward",
+                result.TrainingDecisionShapingReward);
             if (result.HasSaveCommitment)
             {
                 stats.Add(
@@ -573,6 +657,18 @@ namespace PenaltyShootout.MLAgents
                 stats.Add(
                     "Stage5/PrematureCommitRate",
                     result.FirstCommitWasPremature ? 1f : 0f);
+                stats.Add(
+                    "Stage5/LateCommitRate",
+                    result.FirstCommitWasLate ? 1f : 0f);
+                stats.Add(
+                    "Stage5/TimelyCommitRate",
+                    result.FirstCommitWasTimely ? 1f : 0f);
+                stats.Add(
+                    "Stage5/FirstCommitDesiredReach",
+                    result.FirstCommitDesiredReach);
+                stats.Add(
+                    "Stage5/FirstCommitReachShortfall",
+                    result.FirstCommitReachShortfall);
                 if (result.FirstCommitVisibleAimError >= 0f)
                 {
                     stats.Add(
@@ -596,10 +692,16 @@ namespace PenaltyShootout.MLAgents
             eligibleCommitDecisionsBeforeCommit = 0;
             hasRecordedCommitMetadata = false;
             firstCommitWasPremature = false;
+            firstCommitWasLate = false;
+            firstCommitWasTimely = false;
             firstCommitRawPolicyAim = Vector2.zero;
             hasFirstCommitVisiblePrediction = false;
             firstCommitVisiblePredictedAim = Vector2.zero;
             firstCommitVisibleAimError = -1f;
+            firstCommitDesiredReach = 0f;
+            firstCommitReachShortfall = 0f;
+            attemptDecisionShapingReward = 0f;
+            attemptPolicyActionOverrideCount = 0;
         }
     }
 }

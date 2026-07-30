@@ -69,6 +69,10 @@ STAGE5_DIAGNOSTIC_THRESHOLDS = {
     "maximum_first_commit_aim_error_m": 1.0,
     "maximum_immediate_commit_rate": 0.10,
     "maximum_premature_commit_rate": 0.15,
+    "maximum_late_commit_rate": 0.15,
+    "minimum_timely_commit_rate": 0.70,
+    "maximum_first_commit_reach_shortfall": 0.20,
+    "maximum_policy_action_override_count": 0,
     "maximum_command_clamp_count": 0,
     "maximum_invalids": 0,
     "maximum_timeouts": 0,
@@ -987,6 +991,14 @@ def aggregate_policy(
         bool(item.get("first_commit_was_premature", False))
         for item in committed_episodes
     )
+    late_commits = sum(
+        bool(item.get("first_commit_was_late", False))
+        for item in committed_episodes
+    )
+    timely_commits = sum(
+        bool(item.get("first_commit_was_timely", False))
+        for item in committed_episodes
+    )
     root_saturation_attempts = sum(
         int(
             item.get(
@@ -1112,6 +1124,8 @@ def aggregate_policy(
                     premature_commits,
                     total,
                 ),
+                "late_commit_rate": rate(late_commits, total),
+                "timely_commit_rate": rate(timely_commits, total),
                 "first_commit_visible_aim_error_m": numeric_summary(
                     [
                         float(item["first_commit_visible_aim_error"])
@@ -1123,6 +1137,28 @@ def aggregate_policy(
                             )
                         )
                         >= 0.0
+                    ]
+                ),
+                "first_commit_desired_reach": numeric_summary(
+                    [
+                        float(
+                            item.get(
+                                "first_commit_desired_reach",
+                                0.0,
+                            )
+                        )
+                        for item in committed_episodes
+                    ]
+                ),
+                "first_commit_reach_shortfall": numeric_summary(
+                    [
+                        float(
+                            item.get(
+                                "first_commit_reach_shortfall",
+                                0.0,
+                            )
+                        )
+                        for item in committed_episodes
                     ]
                 ),
                 "first_eligible_commit_decision_index": numeric_summary(
@@ -1236,6 +1272,21 @@ def aggregate_policy(
                         )
                         > 0.0
                     ]
+                ),
+                "training_decision_shaping_reward": numeric_summary(
+                    [
+                        float(
+                            item.get(
+                                "training_decision_shaping_reward",
+                                0.0,
+                            )
+                        )
+                        for item in episodes
+                    ]
+                ),
+                "policy_action_override_count": sum(
+                    int(item.get("policy_action_override_count", 0))
+                    for item in episodes
                 ),
                 "saturated_shot_save_rate": rate(
                     sum(
@@ -1366,6 +1417,30 @@ def stage5_diagnostic_gate(policy: dict[str, Any]) -> dict[str, Any]:
             policy["premature_commit_rate"]["value"]
             <= STAGE5_DIAGNOSTIC_THRESHOLDS[
                 "maximum_premature_commit_rate"
+            ]
+        ),
+        "late_commit_rate": (
+            policy["late_commit_rate"]["value"]
+            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "maximum_late_commit_rate"
+            ]
+        ),
+        "timely_commit_rate": (
+            policy["timely_commit_rate"]["value"]
+            >= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "minimum_timely_commit_rate"
+            ]
+        ),
+        "first_commit_reach_shortfall": (
+            policy["first_commit_reach_shortfall"]["mean"]
+            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "maximum_first_commit_reach_shortfall"
+            ]
+        ),
+        "policy_action_overrides": (
+            policy["policy_action_override_count"]
+            <= STAGE5_DIAGNOSTIC_THRESHOLDS[
+                "maximum_policy_action_override_count"
             ]
         ),
         "command_clamps": (
@@ -1713,8 +1788,8 @@ def write_summary(path: Path, report: dict[str, Any]) -> None:
                 "",
                 "## Stage 5 diagnostic",
                 "",
-                "| Policy | Gate | Glove Contact | Glove Save | High Save | Immediate | Premature | Aim Error (m) | Peak Reach | Command Clamps | Root Saturation |",
-                "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+                "| Policy | Gate | Glove Contact | Glove Save | High Save | Timely | Immediate | Early | Late | Aim Error (m) | Peak Reach | Reach Gap | Overrides | Clamps |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
             ]
         )
         for policy in report["policies"]:
@@ -1726,23 +1801,26 @@ def write_summary(path: Path, report: dict[str, Any]) -> None:
                 .get("value", 0.0)
             )
             lines.append(
-                "| {policy} | {passed}/{total} | {glove:.3f} | {glove_save:.3f} | {high:.3f} | {immediate:.3f} | {premature:.3f} | {aim:.3f} | {reach:.3f} | {clamps} | {saturation:.3f} |".format(
+                "| {policy} | {passed}/{total} | {glove:.3f} | {glove_save:.3f} | {high:.3f} | {timely:.3f} | {immediate:.3f} | {premature:.3f} | {late:.3f} | {aim:.3f} | {reach:.3f} | {reach_gap:.3f} | {overrides} | {clamps} |".format(
                     policy=policy["policy"],
                     passed=gate["checks_passed"],
                     total=gate["checks_total"],
                     glove=policy["glove_contact_rate"]["value"],
                     glove_save=policy["glove_save_rate"]["value"],
                     high=high_save,
+                    timely=policy["timely_commit_rate"]["value"],
                     immediate=policy["immediate_commit_rate"]["value"],
                     premature=policy["premature_commit_rate"]["value"],
+                    late=policy["late_commit_rate"]["value"],
                     aim=policy["first_commit_aim_error_m"]["mean"],
                     reach=policy[
                         "goalkeeper_peak_reach_extension"
                     ]["mean"],
+                    reach_gap=policy[
+                        "first_commit_reach_shortfall"
+                    ]["mean"],
+                    overrides=policy["policy_action_override_count"],
                     clamps=policy["control_command_clamp_count"],
-                    saturation=policy[
-                        "root_target_saturation_attempt_rate"
-                    ]["value"],
                 )
             )
         selection = report.get("stage5_diagnostic_selection")
@@ -2025,8 +2103,16 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                             policy["immediate_commit_rate"],
                         "premature_commit_rate":
                             policy["premature_commit_rate"],
+                        "late_commit_rate":
+                            policy["late_commit_rate"],
+                        "timely_commit_rate":
+                            policy["timely_commit_rate"],
                         "first_commit_visible_aim_error_m":
                             policy["first_commit_visible_aim_error_m"],
+                        "first_commit_desired_reach":
+                            policy["first_commit_desired_reach"],
+                        "first_commit_reach_shortfall":
+                            policy["first_commit_reach_shortfall"],
                         "first_eligible_commit_decision_index":
                             policy[
                                 "first_eligible_commit_decision_index"
@@ -2067,6 +2153,12 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                             policy[
                                 "root_target_saturation_distance_m"
                             ],
+                        "training_decision_shaping_reward":
+                            policy[
+                                "training_decision_shaping_reward"
+                            ],
+                        "policy_action_override_count":
+                            policy["policy_action_override_count"],
                         "saturated_shot_save_rate":
                             policy["saturated_shot_save_rate"],
                         "glove_save_rate":

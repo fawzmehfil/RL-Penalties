@@ -68,12 +68,16 @@ namespace PenaltyShootout.Kernel.Tests
                 FirstCommitReachExtension = 0.72f,
                 FirstCommitWasImmediate = false,
                 FirstCommitWasPremature = false,
+                FirstCommitWasLate = false,
+                FirstCommitWasTimely = true,
                 FirstCommitAim = new Vector2(-0.8f, 0.6f),
                 FirstCommitRawPolicyAim = new Vector2(-0.7f, 0.5f),
                 HasFirstCommitVisiblePrediction = true,
                 FirstCommitVisiblePredictedAim =
                     new Vector2(-0.75f, 0.55f),
                 FirstCommitVisibleAimError = 0.12f,
+                FirstCommitDesiredReach = 0.9f,
+                FirstCommitReachShortfall = 0.1f,
                 FirstEligibleCommitDecisionIndex = 2,
                 FirstEligibleCommitBallFlightTime = 0.08f,
                 FirstEligibleCommitVisibleTimeToGoalPlane = 0.62f,
@@ -86,6 +90,8 @@ namespace PenaltyShootout.Kernel.Tests
                 GoalkeeperPeakReachExtension = 1f,
                 ControlTargetClampCount = 1,
                 RootTargetSaturationDistance = 0.22f,
+                TrainingDecisionShapingReward = 0.05f,
+                PolicyActionOverrideCount = 0,
                 MinimumGloveBallDistance = 0.04f,
                 SampledShotFlightTime = 0.58f,
                 SampledLaunchDelay = 0.24f,
@@ -126,6 +132,12 @@ namespace PenaltyShootout.Kernel.Tests
             StringAssert.Contains(
                 "\"first_commit_was_premature\":false",
                 json);
+            StringAssert.Contains(
+                "\"first_commit_was_late\":false",
+                json);
+            StringAssert.Contains(
+                "\"first_commit_was_timely\":true",
+                json);
             StringAssert.Contains("\"first_commit_raw_policy_aim\"", json);
             StringAssert.Contains(
                 "\"first_commit_visible_aim_error\":",
@@ -135,6 +147,15 @@ namespace PenaltyShootout.Kernel.Tests
                 json);
             StringAssert.Contains(
                 "\"root_target_saturation_distance\":",
+                json);
+            StringAssert.Contains(
+                "\"first_commit_desired_reach\":",
+                json);
+            StringAssert.Contains(
+                "\"first_commit_reach_shortfall\":",
+                json);
+            StringAssert.Contains(
+                "\"policy_action_override_count\":0",
                 json);
             StringAssert.Contains("\"sampled_shot_flight_time\"", json);
             StringAssert.Contains(

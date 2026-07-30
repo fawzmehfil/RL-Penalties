@@ -10,6 +10,8 @@ namespace PenaltyShootout.Kernel
             "goalkeeper-control-training-reach-v2";
         public const string RewardSpecV3Id =
             "goalkeeper-control-training-reach-v3";
+        public const string RewardSpecV4Id =
+            "goalkeeper-control-training-reach-v4";
         public const float GloveSaveReward = 1f;
         public const float OtherSaveReward = 0.8f;
         public const float GoalReward = -1f;
@@ -33,6 +35,20 @@ namespace PenaltyShootout.Kernel
         public const float V3EarlyCommitPenalty = 0.10f;
         public const float V3MaximumAimErrorPenalty = 0.15f;
         public const float V3AimErrorPenaltyDistance = 2f;
+        public const float V4MinimumTimeToPlane = 0.35f;
+        public const float V4MaximumTimeToPlane = 0.68f;
+        public const float V4ImmediateCommitPenalty = 0.30f;
+        public const float V4PrematureCommitPenalty = 0.22f;
+        public const float V4LateCommitPenalty = 0.15f;
+        public const float V4TimelyCommitBonus = 0.08f;
+        public const float V4MaximumAimErrorPenalty = 0.25f;
+        public const float V4MaximumReachShortfallPenalty = 0.25f;
+        public const float V4GloveFirstSaveReward = 1f;
+        public const float V4GloveSaveReward = 0.85f;
+        public const float V4ArmSaveReward = 0.60f;
+        public const float V4BodySaveReward = 0.35f;
+        public const float V4PrematureSaveRewardCeiling = 0f;
+        public const float V4LateSaveRewardCeiling = 0.15f;
         public const float MaximumVisibleTimeToGoalPlane = 1.5f;
 
         public static float TrainingReward(
@@ -52,7 +68,12 @@ namespace PenaltyShootout.Kernel
                 return GoalkeeperTrainingContracts.SparseReward(result.Outcome);
             }
 
-            if (reachTrainingVersion >= 3)
+            if (reachTrainingVersion >= 4)
+            {
+                return TrainingRewardV4(result);
+            }
+
+            if (reachTrainingVersion == 3)
             {
                 return TrainingRewardV3(result);
             }
@@ -159,6 +180,113 @@ namespace PenaltyShootout.Kernel
                     V3PreferredMaximumTimeToPlane;
         }
 
+        public static bool IsV4TimelyCommitOpportunity(
+            GoalkeeperControlDecisionContext context)
+        {
+            return context.BallFlightTime >=
+                    V3MinimumObservedBallFlightTime &&
+                context.HasVisibleGoalPlanePrediction &&
+                context.VisibleTimeToGoalPlane >=
+                    V4MinimumTimeToPlane &&
+                context.VisibleTimeToGoalPlane <=
+                    V4MaximumTimeToPlane;
+        }
+
+        public static GoalkeeperControlDecisionCredit EvaluateDecisionCreditV4(
+            GoalkeeperControlCommand command,
+            GoalkeeperControlDecisionContext context,
+            float goalkeeperRootLocalX)
+        {
+            if (!command.Commit)
+            {
+                return new GoalkeeperControlDecisionCredit(
+                    0f,
+                    false,
+                    false,
+                    false,
+                    false,
+                    -1f,
+                    0f,
+                    0f);
+            }
+
+            var immediate =
+                context.BallFlightTime < V3MinimumObservedBallFlightTime;
+            var predictionAvailable =
+                context.HasVisibleGoalPlanePrediction &&
+                context.VisibleTimeToGoalPlane >= 0f;
+            var premature =
+                immediate ||
+                !predictionAvailable ||
+                context.VisibleTimeToGoalPlane > V4MaximumTimeToPlane;
+            var late =
+                predictionAvailable &&
+                !premature &&
+                context.VisibleTimeToGoalPlane < V4MinimumTimeToPlane;
+            var timely = predictionAvailable && !premature && !late;
+
+            var reward = immediate
+                ? -V4ImmediateCommitPenalty
+                : premature
+                    ? -V4PrematureCommitPenalty
+                    : late
+                        ? -V4LateCommitPenalty
+                        : V4TimelyCommitBonus;
+            var visibleAimError = predictionAvailable
+                ? VisibleAimErrorMeters(
+                    new Vector2(command.AimX, command.AimY),
+                    context.VisiblePredictedAim)
+                : -1f;
+            if (visibleAimError >= 0f)
+            {
+                reward -=
+                    V4MaximumAimErrorPenalty *
+                    Mathf.Clamp01(
+                        visibleAimError / V3AimErrorPenaltyDistance);
+            }
+
+            var desiredReach01 = predictionAvailable
+                ? DesiredReachV4(
+                    context.VisiblePredictedAim,
+                    goalkeeperRootLocalX)
+                : 0f;
+            var reachShortfall = Mathf.Max(
+                0f,
+                desiredReach01 - command.Reach01);
+            reward -=
+                V4MaximumReachShortfallPenalty *
+                reachShortfall;
+            return new GoalkeeperControlDecisionCredit(
+                reward,
+                immediate,
+                premature,
+                late,
+                timely,
+                visibleAimError,
+                desiredReach01,
+                reachShortfall);
+        }
+
+        public static float DesiredReachV4(
+            Vector2 visiblePredictedAim,
+            float goalkeeperRootLocalX)
+        {
+            var target = GoalkeeperControlSpace.AimToLocal(
+                visiblePredictedAim.x,
+                visiblePredictedAim.y);
+            var horizontalDemand = Mathf.InverseLerp(
+                0.35f,
+                1.35f,
+                Mathf.Abs(target.x - goalkeeperRootLocalX));
+            var verticalDemand = Mathf.InverseLerp(
+                1.15f,
+                2.05f,
+                target.y);
+            return Mathf.Clamp01(Mathf.Max(
+                horizontalDemand,
+                verticalDemand));
+        }
+
         public static GoalkeeperControlActionMask ApplyCommitGuard(
             GoalkeeperControlActionMask actionMask,
             GoalkeeperControlDecisionContext context,
@@ -172,7 +300,12 @@ namespace PenaltyShootout.Kernel
             }
 
             var clampedLesson = Mathf.Clamp(lesson, 0, 4);
-            if (reachTrainingVersion >= 3)
+            if (reachTrainingVersion >= 4)
+            {
+                return actionMask;
+            }
+
+            if (reachTrainingVersion == 3)
             {
                 if (clampedLesson >= 4)
                 {
@@ -247,7 +380,12 @@ namespace PenaltyShootout.Kernel
             }
 
             var clampedLesson = Mathf.Clamp(lesson, 0, 4);
-            if (reachTrainingVersion >= 3)
+            if (reachTrainingVersion >= 4)
+            {
+                return command;
+            }
+
+            if (reachTrainingVersion == 3)
             {
                 return ApplyScaffoldV3(
                     command,
@@ -318,7 +456,13 @@ namespace PenaltyShootout.Kernel
                 return;
             }
 
-            if (reachTrainingVersion >= 3)
+            if (reachTrainingVersion >= 4)
+            {
+                ApplyReachFocusLessonV4(shots, lesson);
+                return;
+            }
+
+            if (reachTrainingVersion == 3)
             {
                 ApplyReachFocusLessonV3(shots, lesson);
                 return;
@@ -444,6 +588,61 @@ namespace PenaltyShootout.Kernel
                             result.FirstCommitVisibleAimError /
                             V3AimErrorPenaltyDistance);
                 }
+            }
+
+            return reward;
+        }
+
+        private static float TrainingRewardV4(AttemptResult result)
+        {
+            if (!IsSave(result.Outcome) &&
+                result.Outcome != AttemptOutcome.Goal)
+            {
+                return 0f;
+            }
+
+            if (result.Outcome == AttemptOutcome.Goal)
+            {
+                var distance = result.MinimumGloveBallDistance;
+                var proximity = distance < 0f
+                    ? 0f
+                    : 1f - Mathf.Clamp01(
+                        distance / V2GoalProximityDistance);
+                return GoalReward +
+                    V3MaximumGoalProximityCredit * proximity;
+            }
+
+            float reward;
+            switch (result.FirstGoalkeeperContactPart)
+            {
+                case GoalkeeperContactPart.LeftGlove:
+                case GoalkeeperContactPart.RightGlove:
+                    reward = V4GloveFirstSaveReward;
+                    break;
+                case GoalkeeperContactPart.Arm:
+                    reward = V4ArmSaveReward;
+                    break;
+                default:
+                    reward = result.GloveContact
+                        ? V4GloveSaveReward
+                        : V4BodySaveReward;
+                    break;
+            }
+
+            if (result.HasSaveCommitment &&
+                result.FirstCommitWasPremature)
+            {
+                return Mathf.Min(
+                    reward,
+                    V4PrematureSaveRewardCeiling);
+            }
+
+            if (result.HasSaveCommitment &&
+                result.FirstCommitWasLate)
+            {
+                return Mathf.Min(
+                    reward,
+                    V4LateSaveRewardCeiling);
             }
 
             return reward;
@@ -612,6 +811,31 @@ namespace PenaltyShootout.Kernel
                     break;
                 default:
                     SetFocus(shots, 0.45f, 0.45f, 0.95f, 0.02f, 0.98f);
+                    break;
+            }
+        }
+
+        private static void ApplyReachFocusLessonV4(
+            ShotDistributionConfig shots,
+            int lesson)
+        {
+            shots.ReachFocusBalancedHeightBands = true;
+            switch (Mathf.Clamp(lesson, 0, 4))
+            {
+                case 0:
+                    SetFocus(shots, 0.35f, 0.25f, 0.55f, 0.12f, 0.88f);
+                    break;
+                case 1:
+                    SetFocus(shots, 0.45f, 0.30f, 0.70f, 0.08f, 0.92f);
+                    break;
+                case 2:
+                    SetFocus(shots, 0.50f, 0.35f, 0.85f, 0.04f, 0.96f);
+                    break;
+                case 3:
+                    SetFocus(shots, 0.45f, 0.40f, 0.95f, 0.02f, 0.98f);
+                    break;
+                default:
+                    SetFocus(shots, 0.35f, 0.45f, 0.95f, 0.02f, 0.98f);
                     break;
             }
         }

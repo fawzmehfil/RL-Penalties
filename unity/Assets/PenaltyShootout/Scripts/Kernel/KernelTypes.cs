@@ -145,11 +145,15 @@ namespace PenaltyShootout.Kernel
         public float FirstCommitReachExtension;
         public bool FirstCommitWasImmediate;
         public bool FirstCommitWasPremature;
+        public bool FirstCommitWasLate;
+        public bool FirstCommitWasTimely;
         public Vector2 FirstCommitAim;
         public Vector2 FirstCommitRawPolicyAim;
         public bool HasFirstCommitVisiblePrediction;
         public Vector2 FirstCommitVisiblePredictedAim;
         public float FirstCommitVisibleAimError;
+        public float FirstCommitDesiredReach;
+        public float FirstCommitReachShortfall;
         public int FirstEligibleCommitDecisionIndex;
         public float FirstEligibleCommitBallFlightTime;
         public float FirstEligibleCommitVisibleTimeToGoalPlane;
@@ -160,6 +164,8 @@ namespace PenaltyShootout.Kernel
         public int ControlCommandClampCount;
         public int ControlTargetClampCount;
         public float RootTargetSaturationDistance;
+        public float TrainingDecisionShapingReward;
+        public int PolicyActionOverrideCount;
         public int AcceptedControlDecisionCount;
         public int ControlMoveCommandCount;
         public int ControlReachCommandCount;

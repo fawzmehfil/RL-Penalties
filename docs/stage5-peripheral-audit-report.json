@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "stage": "5.4",
+  "status": "completed",
+  "audit_scope": [
+    "policy action masking and substitution",
+    "decision cadence and launch lifecycle",
+    "curriculum transitions",
+    "shot distribution",
+    "motor reach envelope",
+    "arm and glove contact geometry",
+    "root target saturation",
+    "ballistics and terminal outcomes"
+  ],
+  "findings": {
+    "primary_root_cause": {
+      "component": "training action path",
+      "finding": "Stage 5.3 masked premature commit actions and substituted aim, reach, and automatic commit behavior in early lessons.",
+      "effect": "PPO did not receive policy-faithful trajectories and retained an always-commit discrete policy at canonical inference."
+    },
+    "curriculum": {
+      "finding": "The unassisted canonical lesson occupied only the final 15 percent of the diagnostic.",
+      "effect": "Immediate and premature commit rates rose to 100 percent when assistance disappeared."
+    },
+    "motor_reach": {
+      "finding": "No physical reach expansion is justified.",
+      "reactive_visible_state_save_rate": 0.5335,
+      "reactive_visible_state_high_shot_save_rate": 0.62758,
+      "reactive_glove_contact_rate": 0.737,
+      "reactive_peak_reach_extension_mean": 0.98275,
+      "learned_v3_peak_reach_extension_mean": 0.56477
+    },
+    "decision_and_physics": {
+      "fixed_timestep_seconds": 0.02,
+      "decision_period_ticks": 2,
+      "decision_period_seconds": 0.04,
+      "first_decision_occurs_after_launch": true,
+      "procedural_shots_are_deterministic_and_on_target": true,
+      "invalid_rate": 0.0,
+      "timeout_rate": 0.0,
+      "action_mask_violations": 0,
+      "command_clamps": 0
+    },
+    "contact_geometry": {
+      "finding": "The deterministic two-bone arms and authoritative glove/arm colliders are functional.",
+      "motor_validation_attempts": 128,
+      "motor_validation_glove_contacts": 48,
+      "maximum_validated_peak_reach": 1.0
+    },
+    "root_target_saturation": {
+      "v3_attempt_rate": 0.2825,
+      "finding": "Saturation marks physically bounded edge targets, not malformed actions.",
+      "action": "Retain current realistic root limits and report saturation separately from command clamping."
+    }
+  },
+  "changes_authorized": [
+    "remove all training-time policy action overrides",
+    "add visible-state decision credit",
+    "rebalance curriculum exposure",
+    "increase PPO exploration",
+    "extend timing and reach telemetry"
+  ],
+  "changes_rejected": [
+    "increase goalkeeper body size",
+    "lengthen arms",
+    "expand root travel",
+    "slow the ball generator",
+    "expose generator targets or privileged future impact"
+  ]
+}

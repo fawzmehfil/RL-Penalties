@@ -136,6 +136,38 @@ namespace PenaltyShootout.Kernel
         }
     }
 
+    public readonly struct GoalkeeperControlDecisionCredit
+    {
+        public readonly float Reward;
+        public readonly bool IsImmediate;
+        public readonly bool IsPremature;
+        public readonly bool IsLate;
+        public readonly bool IsTimely;
+        public readonly float VisibleAimError;
+        public readonly float DesiredReach01;
+        public readonly float ReachShortfall;
+
+        public GoalkeeperControlDecisionCredit(
+            float reward,
+            bool isImmediate,
+            bool isPremature,
+            bool isLate,
+            bool isTimely,
+            float visibleAimError,
+            float desiredReach01,
+            float reachShortfall)
+        {
+            Reward = reward;
+            IsImmediate = isImmediate;
+            IsPremature = isPremature;
+            IsLate = isLate;
+            IsTimely = isTimely;
+            VisibleAimError = visibleAimError;
+            DesiredReach01 = desiredReach01;
+            ReachShortfall = reachShortfall;
+        }
+    }
+
     public interface IGoalkeeperControlSourceV1
     {
         GoalkeeperControlCommand DecideControl(

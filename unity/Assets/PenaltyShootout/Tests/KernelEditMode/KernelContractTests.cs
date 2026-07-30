@@ -1064,6 +1064,235 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void Stage5ReachV4NeverOverridesPolicyActionsOrTiming()
+        {
+            var command = new GoalkeeperControlCommand
+            {
+                MoveX = -0.3f,
+                AimX = 0.4f,
+                AimY = 0.7f,
+                Reach = -0.2f,
+                Commit = true,
+            };
+            var context = new GoalkeeperControlDecisionContext(
+                1,
+                0,
+                0,
+                0.04f,
+                0.8f,
+                true,
+                new Vector2(-0.8f, 0.9f));
+            var mask = new GoalkeeperControlActionMask(true);
+
+            for (var lesson = 0; lesson <= 4; lesson++)
+            {
+                var guarded =
+                    GoalkeeperControlTrainingContracts.ApplyCommitGuard(
+                        mask,
+                        context,
+                        true,
+                        4,
+                        lesson);
+                var output =
+                    GoalkeeperControlTrainingContracts.ApplyScaffold(
+                        command,
+                        context,
+                        guarded,
+                        true,
+                        4,
+                        lesson,
+                        out var autoCommit,
+                        out var reachFloor);
+                Assert.That(guarded.CanCommit, Is.True);
+                Assert.That(output.MoveX, Is.EqualTo(command.MoveX));
+                Assert.That(output.AimX, Is.EqualTo(command.AimX));
+                Assert.That(output.AimY, Is.EqualTo(command.AimY));
+                Assert.That(output.Reach, Is.EqualTo(command.Reach));
+                Assert.That(output.Commit, Is.EqualTo(command.Commit));
+                Assert.That(autoCommit, Is.False);
+                Assert.That(reachFloor, Is.False);
+            }
+        }
+
+        [Test]
+        public void Stage5ReachV4DecisionCreditTeachesTimingAimAndReach()
+        {
+            var prediction = new Vector2(0.8f, 0.9f);
+            var good = new GoalkeeperControlCommand
+            {
+                AimX = prediction.x,
+                AimY = prediction.y,
+                Reach = 1f,
+                Commit = true,
+            };
+            var immediate =
+                GoalkeeperControlTrainingContracts
+                    .EvaluateDecisionCreditV4(
+                        good,
+                        new GoalkeeperControlDecisionContext(
+                            1,
+                            0,
+                            0,
+                            0.04f,
+                            0.55f,
+                            true,
+                            prediction),
+                        0f);
+            var timely =
+                GoalkeeperControlTrainingContracts
+                    .EvaluateDecisionCreditV4(
+                        good,
+                        new GoalkeeperControlDecisionContext(
+                            1,
+                            2,
+                            2,
+                            0.12f,
+                            0.55f,
+                            true,
+                            prediction),
+                        0f);
+            var late =
+                GoalkeeperControlTrainingContracts
+                    .EvaluateDecisionCreditV4(
+                        good,
+                        new GoalkeeperControlDecisionContext(
+                            1,
+                            8,
+                            8,
+                            0.36f,
+                            0.20f,
+                            true,
+                            prediction),
+                        0f);
+            var poorAimAndReach = good;
+            poorAimAndReach.AimX = -0.8f;
+            poorAimAndReach.AimY = -0.9f;
+            poorAimAndReach.Reach = -1f;
+            var poor =
+                GoalkeeperControlTrainingContracts
+                    .EvaluateDecisionCreditV4(
+                        poorAimAndReach,
+                        new GoalkeeperControlDecisionContext(
+                            1,
+                            2,
+                            2,
+                            0.12f,
+                            0.55f,
+                            true,
+                            prediction),
+                        0f);
+
+            Assert.That(immediate.IsImmediate, Is.True);
+            Assert.That(immediate.IsPremature, Is.True);
+            Assert.That(immediate.Reward, Is.LessThan(0f));
+            Assert.That(timely.IsTimely, Is.True);
+            Assert.That(timely.Reward, Is.GreaterThan(0f));
+            Assert.That(late.IsLate, Is.True);
+            Assert.That(late.Reward, Is.LessThan(0f));
+            Assert.That(poor.VisibleAimError, Is.GreaterThan(1f));
+            Assert.That(poor.DesiredReach01, Is.GreaterThan(0.9f));
+            Assert.That(poor.ReachShortfall, Is.GreaterThan(0.9f));
+            Assert.That(poor.Reward, Is.LessThan(timely.Reward));
+        }
+
+        [Test]
+        public void Stage5ReachV4PrematureSavesCannotBecomePositiveShortcuts()
+        {
+            var timelyGlove = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                HasSaveCommitment = true,
+                FirstCommitWasTimely = true,
+                FirstGoalkeeperContactPart =
+                    GoalkeeperContactPart.LeftGlove,
+            };
+            var timelyBody = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                HasSaveCommitment = true,
+                FirstCommitWasTimely = true,
+                FirstGoalkeeperContactPart =
+                    GoalkeeperContactPart.TorsoOrHead,
+            };
+            var prematureGlove = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                HasSaveCommitment = true,
+                FirstCommitWasPremature = true,
+                FirstGoalkeeperContactPart =
+                    GoalkeeperContactPart.LeftGlove,
+            };
+            var lateGlove = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                HasSaveCommitment = true,
+                FirstCommitWasLate = true,
+                FirstGoalkeeperContactPart =
+                    GoalkeeperContactPart.LeftGlove,
+            };
+            var goal = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Goal,
+                MinimumGloveBallDistance = 0f,
+            };
+
+            var gloveReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    timelyGlove,
+                    true,
+                    4);
+            var bodyReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    timelyBody,
+                    true,
+                    4);
+            var prematureReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    prematureGlove,
+                    true,
+                    4);
+            var lateReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    lateGlove,
+                    true,
+                    4);
+            var goalReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    goal,
+                    true,
+                    4);
+
+            Assert.That(gloveReward, Is.GreaterThan(bodyReward));
+            Assert.That(prematureReward, Is.LessThanOrEqualTo(0f));
+            Assert.That(lateReward, Is.LessThanOrEqualTo(0.15f));
+            Assert.That(goalReward, Is.LessThan(0f));
+        }
+
+        [Test]
+        public void Stage5ReachV4CurriculumKeepsCanonicalReachCoverage()
+        {
+            GoalkeeperControlTrainingContracts.ApplyReachFocusLesson(
+                shots,
+                true,
+                4,
+                0);
+            Assert.That(shots.ReachFocusProbability, Is.EqualTo(0.35f));
+            GoalkeeperControlTrainingContracts.ApplyReachFocusLesson(
+                shots,
+                true,
+                4,
+                4);
+            Assert.That(shots.ReachFocusProbability, Is.EqualTo(0.35f));
+            Assert.That(shots.ReachFocusBalancedHeightBands, Is.True);
+            Assert.That(
+                shots.ReachFocusMinimumYNormalized,
+                Is.LessThan(0.05f));
+            Assert.That(
+                shots.ReachFocusMaximumYNormalized,
+                Is.GreaterThan(0.95f));
+        }
+
+        [Test]
         public void Stage5ReachScaffoldingEndsBeforeIndependentReachLesson()
         {
             var command = GoalkeeperControlCommand.Neutral;
