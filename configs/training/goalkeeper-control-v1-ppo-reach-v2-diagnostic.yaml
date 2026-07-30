@@ -24,7 +24,7 @@ behaviors:
     time_horizon: 96
     summary_freq: 10000
     checkpoint_interval: 250000
-    keep_checkpoints: 4
+    keep_checkpoints: 5
 
 environment_parameters:
   stage5.reach_training_enabled: 1.0
