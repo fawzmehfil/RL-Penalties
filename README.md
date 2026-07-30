@@ -612,15 +612,30 @@ arch -x86_64 .venv/bin/mlagents-learn \
 Future stages extend the goalkeeper benchmark into a fuller football AI and
 playable demo:
 
-- Stage 6: broader shot variety, including curve, spin, deception, and harder
-  procedural distributions.
+- Stage 6: train and evaluate on a versioned mixture of standard procedural
+  shots, human-like aim and power distributions, imperfect timing and
+  directional noise, spin and curve, common player tendencies, and rare
+  edge or unusually fast shots. The human-like generator will use the same
+  shot-control parameters and launch physics planned for Stage 9 so the
+  playable mode is part of the training design rather than a late,
+  incompatible input source.
 - Stage 7: replay and analysis UI for heatmaps, per-quadrant results,
   trajectory review, and dive-choice inspection.
 - Stage 8: final model packaging, Unity inference import, model cards, and
   reproducible release artifacts.
 - Stage 9: a human-playable penalty mode where the user shoots against the
   trained goalkeeper with polished laptop controls, cameras, feedback, replay,
-  and game feel closer to a compact football game than a lab scene.
+  and game feel closer to a compact football game than a lab scene. Real
+  player-shot telemetry will first validate the Stage 6 distribution; only a
+  short calibration fine-tune should be needed if measured player shots expose
+  a meaningful distribution mismatch.
+
+Stage 6 is expected to produce the broadest goalkeeper checkpoint, but it is
+not the only training stage that matters. Stage 2 established perception and
+basic save learning, Stage 4 measured and trained observation robustness, and
+Stage 5 teaches the richer movement, commitment, aiming, and arm-reach policy
+that Stage 6 will continue training. Stage 6 broadens that learned controller;
+it does not replace the control capability or evidence built earlier.
 
 ## Open-source and third-party notices
 
