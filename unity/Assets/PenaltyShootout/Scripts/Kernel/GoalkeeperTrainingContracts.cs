@@ -9,6 +9,7 @@ namespace PenaltyShootout.Kernel
         StateV0 = 1,
         StatePartialV0 = 2,
         ControlStateV1 = 3,
+        ControlStateV2 = 4,
     }
 
     [Serializable]
@@ -146,6 +147,42 @@ namespace PenaltyShootout.Kernel
             WriteControlVisibleState(snapshot, add);
         }
 
+        public static void WriteControlStateV2(
+            PenaltyAreaController controller,
+            Action<float> add)
+        {
+            var gravity = controller != null && controller.ArenaOrigin != null
+                ? controller.ArenaOrigin.InverseTransformDirection(Physics.gravity)
+                : Physics.gravity;
+            WriteControlStateV2(
+                CaptureControlVisibleState(controller),
+                gravity,
+                add);
+        }
+
+        public static void WriteControlStateV2(
+            GoalkeeperControlVisibleStateSnapshot snapshot,
+            Vector3 visibleGravity,
+            Action<float> add)
+        {
+            WriteControlVisibleState(snapshot, add);
+            var hasPrediction =
+                GoalkeeperControlTrainingContracts.TryEstimateVisibleGoalPlaneAim(
+                    snapshot.BallLocalPosition,
+                    snapshot.BallLocalVelocity,
+                    visibleGravity,
+                    out var timeToPlane,
+                    out var predictedAim);
+            add(hasPrediction
+                ? Mathf.Clamp01(
+                    timeToPlane /
+                    GoalkeeperControlTrainingContracts
+                        .MaximumVisibleTimeToGoalPlane)
+                : -1f);
+            add(hasPrediction ? Clamp(predictedAim.x) : 0f);
+            add(hasPrediction ? Clamp(predictedAim.y) : 0f);
+        }
+
         public static GoalkeeperVisibleStateSnapshot CaptureVisibleState(
             PenaltyAreaController controller)
         {
@@ -255,7 +292,9 @@ namespace PenaltyShootout.Kernel
 
         public static string ObservationSpecIdForProfile(GoalkeeperObservationProfile profile)
         {
-            return profile == GoalkeeperObservationProfile.ControlStateV1
+            return profile == GoalkeeperObservationProfile.ControlStateV2
+                ? KernelConstants.GoalkeeperControlV2ObservationSpecId
+                : profile == GoalkeeperObservationProfile.ControlStateV1
                 ? KernelConstants.GoalkeeperControlObservationSpecId
                 : profile == GoalkeeperObservationProfile.StatePartialV0
                 ? KernelConstants.GoalkeeperPartialObservationSpecId

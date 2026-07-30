@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "stage": 5,
+  "status": "control-v2-diagnostic-failed",
+  "supersedes_training_attempt": "goalkeeper-control-training-reach-v4",
+  "preserved": {
+    "action_spec_id": "goalkeeper-hybrid-v1",
+    "motor_profile_id": "keeper-control-v1",
+    "physics_timestep_seconds": 0.02,
+    "decision_period_physics_ticks": 2,
+    "canonical_scenario_suite_id": "on-target-v0"
+  },
+  "stage5_v4_evidence": {
+    "evaluation_attempts": 400,
+    "best_checkpoint": "GoalkeeperControl-v1-1000022.onnx",
+    "best_save_rate": 0.1075,
+    "best_glove_contact_rate": 0.11,
+    "best_high_shot_save_rate": 0.021739130434782608,
+    "training_episode_length_at_1000000_steps": 44.16289520263672,
+    "accepted_controller_commands": {
+      "mean": 20.6975,
+      "minimum": 10,
+      "maximum": 87
+    },
+    "first_commit_ball_flight_time_seconds": {
+      "mean": 0.1740999793447554,
+      "minimum": 0.03999999910593033,
+      "maximum": 0.2799999713897705
+    },
+    "sampled_shot_flight_time_seconds": {
+      "mean": 0.6074912211298943,
+      "minimum": 0.38487112522125244,
+      "maximum": 0.8495248556137085
+    },
+    "raw_policy_aim": {
+      "horizontal_minimum": -1.0,
+      "horizontal_maximum": 0.993928849697113,
+      "horizontal_target_correlation": 0.9883912256064759,
+      "vertical_minimum": -0.18061189353466034,
+      "vertical_maximum": 0.17892788350582123,
+      "vertical_target_correlation": 0.34253435779904445
+    },
+    "reactive_reach_save_rate": 0.5425,
+    "reactive_reach_glove_contact_rate": 0.72,
+    "reactive_reach_high_shot_save_rate": 0.644927536231884
+  },
+  "diagnosed_contract_failures": [
+    "DecisionRequester and controller-driven decisions were both active",
+    "policy decisions were requested during non-flight lifecycle phases",
+    "raw v1 observations made vertical interception unnecessarily difficult",
+    "the v4 timing reward conflicted with fast-shot motor preparation time",
+    "the final v4 lesson retained a focused-shot distribution overlay"
+  ],
+  "replacement_contract": {
+    "behavior_name": "GoalkeeperControl-v2",
+    "observation_spec_id": "control-state-v2",
+    "vector_observation_size": 35,
+    "training_reward_spec_id": "goalkeeper-control-result-v2",
+    "benchmark_id": "goalkeeper-control-v2-id-20k",
+    "decision_scheduler": "controller-owned-one-request-one-command",
+    "first_decision_phase": "BallInFlight",
+    "normalization": false,
+    "canonical_final_focus_probability": 0.0
+  },
+  "diagnostic": {
+    "max_steps": 250000,
+    "checkpoint_interval": 50000,
+    "fixed_evaluation_attempts": 400,
+    "training_config": "configs/training/goalkeeper-control-v2-ppo-diagnostic.yaml",
+    "runner": "scripts/run_stage5_control_v2_diagnostic.sh",
+    "run_id": "gk-control-v2-lifecycle-ballistics_seed-001",
+    "evaluation_run_id": "gk-control-v2-lifecycle-ballistics_seed-001-checkpoint-screen-400",
+    "best_checkpoint": "GoalkeeperControl-v2-149997.onnx",
+    "best_save_rate": 0.0575,
+    "best_glove_contact_rate": 0.0425,
+    "best_glove_save_rate": 0.02,
+    "best_high_shot_save_rate": 0.014492753623188406,
+    "best_commit_rate": 0.0,
+    "best_peak_reach_extension": 0.0,
+    "reactive_reach_save_rate": 0.5725,
+    "reactive_reach_glove_contact_rate": 0.735,
+    "reactive_reach_high_shot_save_rate": 0.7028985507246377,
+    "decision_lifecycle_passed": true,
+    "behavioral_gate_passed": false
+  },
+  "promotion_requirements": [
+    "policy decision requests equal consumed decisions plus terminal discards",
+    "consumed decisions equal accepted controller commands",
+    "zero duplicate decision requests",
+    "zero missing policy actions",
+    "zero invalids, timeouts, action-mask violations, and command clamps",
+    "learned save, glove, and high-shot metrics move meaningfully toward reactive_reach_v1"
+  ]
+}

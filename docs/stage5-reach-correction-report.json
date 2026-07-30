@@ -1,7 +1,7 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "stage": "5.4",
-  "status": "v4-policy-faithful-diagnostic-ready",
+  "status": "v4-policy-faithful-diagnostic-failed",
   "behavior_name": "GoalkeeperControl-v1",
   "observation_spec_id": "control-state-v1",
   "action_spec_id": "goalkeeper-hybrid-v1",
@@ -86,7 +86,17 @@
     "full_config": "configs/training/goalkeeper-control-v1-ppo-reach-v4.yaml",
     "diagnostic_steps": 1000000,
     "canonical_training_fraction": 0.35,
-    "implementation_status": "ready",
+    "implementation_status": "completed-failed",
+    "run_id": "gk-control-v1_reach-v4-policy-faithful_seed-001",
+    "evaluation_run_id": "gk-control-v1_reach-v4-policy-faithful_seed-001-checkpoint-screen-400",
+    "evaluation_attempts_per_checkpoint": 400,
+    "best_checkpoint": "GoalkeeperControl-v1-1000022.onnx",
+    "best_checkpoint_steps": 1000022,
+    "save_rate": 0.1075,
+    "glove_contact_rate": 0.11,
+    "high_shot_save_rate": 0.021739130434782608,
+    "peak_reach_extension_mean": 0.6750029182434082,
+    "passed": false,
     "policy_faithful_invariants": {
       "timing_action_masks": false,
       "automatic_commits": false,
@@ -101,6 +111,13 @@
       "PPO exploration is increased and the canonical lesson receives the final 35 percent of training.",
       "Checkpoint selection requires the complete behavioral gate, not save rate alone."
     ]
+  },
+  "successor": {
+    "behavior_name": "GoalkeeperControl-v2",
+    "observation_spec_id": "control-state-v2",
+    "training_reward_spec_id": "goalkeeper-control-result-v2",
+    "diagnostic_steps": 250000,
+    "reason": "The v1 lifecycle mixed periodic and manual decision requests, included non-flight policy steps, and required implicit vertical interception under a physically contradictory timing reward."
   },
   "diagnostic_gate": {
     "attempts": 400,

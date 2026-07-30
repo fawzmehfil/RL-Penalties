@@ -195,6 +195,72 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void Stage5ControlV2AppendsOnlyVisibleBallisticEstimates()
+        {
+            var snapshot = new GoalkeeperControlVisibleStateSnapshot
+            {
+                BallLocalPosition = new Vector3(0.5f, 1f, 10f),
+                BallLocalVelocity = new Vector3(1f, 2f, -20f),
+                MotorState = GoalkeeperControlMotorState.Ready,
+                CanCommit = true,
+            };
+            var gravity = new Vector3(0f, -10f, 0f);
+            var observations = new List<float>();
+            GoalkeeperTrainingContracts.WriteControlStateV2(
+                snapshot,
+                gravity,
+                observations.Add);
+
+            Assert.That(
+                observations,
+                Has.Count.EqualTo(
+                    KernelConstants.GoalkeeperControlV2ObservationSize));
+            Assert.That(observations, Is.All.InRange(-1f, 1f));
+            Assert.That(
+                GoalkeeperControlTrainingContracts
+                    .TryEstimateVisibleGoalPlaneAim(
+                        snapshot.BallLocalPosition,
+                        snapshot.BallLocalVelocity,
+                        gravity,
+                        out var timeToPlane,
+                        out var predictedAim),
+                Is.True);
+            Assert.That(
+                observations[32],
+                Is.EqualTo(
+                    timeToPlane /
+                    GoalkeeperControlTrainingContracts
+                        .MaximumVisibleTimeToGoalPlane)
+                    .Within(1e-5f));
+            Assert.That(
+                observations[33],
+                Is.EqualTo(predictedAim.x).Within(1e-5f));
+            Assert.That(
+                observations[34],
+                Is.EqualTo(predictedAim.y).Within(1e-5f));
+
+            var manifest =
+                KernelManifestUtility.CreateGoalkeeperControlV2Json(
+                    controlMotor);
+            StringAssert.Contains(
+                KernelConstants.GoalkeeperControlV2BehaviorName,
+                manifest);
+            StringAssert.Contains(
+                KernelConstants.GoalkeeperControlV2ObservationSpecId,
+                manifest);
+            StringAssert.Contains(
+                "\"visible_time_to_goal_plane\"",
+                manifest);
+            StringAssert.Contains("\"requested_target\"", manifest);
+            StringAssert.Contains(
+                "\"future_goal_plane_intersection\"",
+                manifest);
+            StringAssert.DoesNotContain(
+                "\"requested_target_local\"",
+                manifest);
+        }
+
+        [Test]
         public void Stage5HybridCommandsClampAndRejectNonFiniteValues()
         {
             var command = new GoalkeeperControlCommand
@@ -1290,6 +1356,96 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(
                 shots.ReachFocusMaximumYNormalized,
                 Is.GreaterThan(0.95f));
+        }
+
+        [Test]
+        public void Stage5ControlV2RewardRanksContactsWithoutTimingShortcuts()
+        {
+            var gloveFirstSave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                FirstGoalkeeperContactPart =
+                    GoalkeeperContactPart.LeftGlove,
+                FirstCommitWasPremature = true,
+            };
+            var gloveLaterSave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                FirstGoalkeeperContactPart =
+                    GoalkeeperContactPart.TorsoOrHead,
+                GloveContact = true,
+                FirstCommitWasLate = true,
+            };
+            var armSave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.BlockedThenOut,
+                FirstGoalkeeperContactPart = GoalkeeperContactPart.Arm,
+            };
+            var bodySave = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Saved,
+                FirstGoalkeeperContactPart =
+                    GoalkeeperContactPart.TorsoOrHead,
+            };
+            var goal = new AttemptResult
+            {
+                Outcome = AttemptOutcome.Goal,
+                MinimumGloveBallDistance = 0f,
+            };
+
+            var gloveFirstReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    gloveFirstSave,
+                    true,
+                    5);
+            var gloveLaterReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    gloveLaterSave,
+                    true,
+                    5);
+            var armReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    armSave,
+                    true,
+                    5);
+            var bodyReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    bodySave,
+                    true,
+                    5);
+            var goalReward =
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    goal,
+                    true,
+                    5);
+
+            Assert.That(gloveFirstReward, Is.GreaterThan(gloveLaterReward));
+            Assert.That(gloveLaterReward, Is.GreaterThan(armReward));
+            Assert.That(armReward, Is.GreaterThan(bodyReward));
+            Assert.That(bodyReward, Is.GreaterThan(0f));
+            Assert.That(goalReward, Is.EqualTo(-1f));
+
+            gloveFirstSave.FirstCommitWasPremature = false;
+            gloveFirstSave.FirstCommitWasLate = true;
+            Assert.That(
+                GoalkeeperControlTrainingContracts.TrainingReward(
+                    gloveFirstSave,
+                    true,
+                    5),
+                Is.EqualTo(gloveFirstReward));
+        }
+
+        [Test]
+        public void Stage5ControlV2FinalLessonUsesCanonicalShotDistribution()
+        {
+            GoalkeeperControlTrainingContracts.ApplyReachFocusLesson(
+                shots,
+                true,
+                5,
+                4);
+
+            Assert.That(shots.ReachFocusProbability, Is.Zero);
+            Assert.That(shots.ReachFocusBalancedHeightBands, Is.False);
         }
 
         [Test]

@@ -178,6 +178,19 @@ namespace PenaltyShootout.Kernel
         void OnAttemptEnded(AttemptResult result);
     }
 
+    public interface IGoalkeeperDeferredControlSourceV2
+    {
+        bool UsesDeferredDecisionScheduling { get; }
+
+        void RequestControlDecision(
+            GoalkeeperControlDecisionContext context,
+            GoalkeeperControlActionMask actionMask);
+
+        GoalkeeperControlCommand ConsumeControlDecision(
+            GoalkeeperControlDecisionContext context,
+            GoalkeeperControlActionMask actionMask);
+    }
+
     public static class GoalkeeperControlSpace
     {
         public const int ContinuousActionCount = 4;

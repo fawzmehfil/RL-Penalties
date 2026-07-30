@@ -118,7 +118,11 @@ namespace PenaltyShootout.MLAgents
                 benchmark_id = CurrentBenchmarkId(),
                 environment_id = result.EnvironmentId,
                 behavior_name =
-                    observationSpecId == KernelConstants.GoalkeeperControlObservationSpecId
+                    observationSpecId ==
+                        KernelConstants.GoalkeeperControlV2ObservationSpecId
+                        ? KernelConstants.GoalkeeperControlV2BehaviorName
+                        : observationSpecId ==
+                            KernelConstants.GoalkeeperControlObservationSpecId
                         ? KernelConstants.GoalkeeperControlBehaviorName
                         : observationSpecId == KernelConstants.GoalkeeperPartialObservationSpecId
                         ? KernelConstants.GoalkeeperRobustBehaviorName
@@ -128,7 +132,10 @@ namespace PenaltyShootout.MLAgents
                     : observationSpecId,
                 reward_spec_id = KernelConstants.GoalkeeperSparseRewardSpecId,
                 action_spec_id =
-                    observationSpecId == KernelConstants.GoalkeeperControlObservationSpecId
+                    observationSpecId ==
+                        KernelConstants.GoalkeeperControlObservationSpecId ||
+                    observationSpecId ==
+                        KernelConstants.GoalkeeperControlV2ObservationSpecId
                         ? KernelConstants.GoalkeeperControlActionSpecId
                         : KernelConstants.ActionSpecId,
                 scenario_suite_id = result.ScenarioSuiteId,
@@ -273,6 +280,16 @@ namespace PenaltyShootout.MLAgents
                     result.ControlSaturationCounts ?? new int[4],
                 minimum_glove_ball_distance =
                     result.MinimumGloveBallDistance,
+                policy_decision_request_count =
+                    result.PolicyDecisionRequestCount,
+                policy_decision_consumed_count =
+                    result.PolicyDecisionConsumedCount,
+                policy_decision_discarded_count =
+                    result.PolicyDecisionDiscardedCount,
+                policy_decision_duplicate_request_count =
+                    result.PolicyDecisionDuplicateRequestCount,
+                policy_decision_missing_action_count =
+                    result.PolicyDecisionMissingActionCount,
             };
         }
 
@@ -378,6 +395,11 @@ namespace PenaltyShootout.MLAgents
             public float[] control_absolute_action_sums;
             public int[] control_saturation_counts;
             public float minimum_glove_ball_distance;
+            public int policy_decision_request_count;
+            public int policy_decision_consumed_count;
+            public int policy_decision_discarded_count;
+            public int policy_decision_duplicate_request_count;
+            public int policy_decision_missing_action_count;
         }
 
         [Serializable]

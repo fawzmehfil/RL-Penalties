@@ -167,6 +167,11 @@ namespace PenaltyShootout.Kernel
         public float TrainingDecisionShapingReward;
         public int PolicyActionOverrideCount;
         public int AcceptedControlDecisionCount;
+        public int PolicyDecisionRequestCount;
+        public int PolicyDecisionConsumedCount;
+        public int PolicyDecisionDiscardedCount;
+        public int PolicyDecisionDuplicateRequestCount;
+        public int PolicyDecisionMissingActionCount;
         public int ControlMoveCommandCount;
         public int ControlReachCommandCount;
         public float[] ControlAbsoluteActionSums;

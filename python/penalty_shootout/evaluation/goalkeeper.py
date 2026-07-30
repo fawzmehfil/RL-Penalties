@@ -28,14 +28,20 @@ from mlagents_envs.side_channel.stats_side_channel import StatsSideChannel
 BEHAVIOR_NAME = "GoalkeeperState-v0"
 ROBUST_BEHAVIOR_NAME = "GoalkeeperRobust-v0"
 CONTROL_BEHAVIOR_NAME = "GoalkeeperControl-v1"
+CONTROL_V2_BEHAVIOR_NAME = "GoalkeeperControl-v2"
+CONTROL_BEHAVIOR_NAMES = {
+    CONTROL_BEHAVIOR_NAME,
+    CONTROL_V2_BEHAVIOR_NAME,
+}
 SUPPORTED_BEHAVIOR_NAMES = {
     BEHAVIOR_NAME,
     ROBUST_BEHAVIOR_NAME,
-    CONTROL_BEHAVIOR_NAME,
+    *CONTROL_BEHAVIOR_NAMES,
 }
 OBSERVATION_SHAPES = [[24]]
 DISCRETE_BRANCHES = [9]
 CONTROL_OBSERVATION_SHAPES = [[32]]
+CONTROL_V2_OBSERVATION_SHAPES = [[35]]
 CONTROL_DISCRETE_BRANCHES = [2]
 CONTROL_CONTINUOUS_ACTIONS = 4
 STAGE3_TELEMETRY_CHANNEL_ID = uuid.UUID("b8d7b5b3-bfa6-4c46-9a3f-2e34d9fd7a31")
@@ -698,9 +704,15 @@ def validate_benchmark_config(config: BenchmarkConfig) -> None:
         raise ValueError(f"Unsupported benchmark schema: {config.schema_version}")
     if config.behavior_name not in SUPPORTED_BEHAVIOR_NAMES:
         raise ValueError(f"Unsupported behavior: {config.behavior_name}")
-    is_control = config.behavior_name == CONTROL_BEHAVIOR_NAME
+    is_control = config.behavior_name in CONTROL_BEHAVIOR_NAMES
     expected_observation_shapes = (
-        CONTROL_OBSERVATION_SHAPES if is_control else OBSERVATION_SHAPES
+        (
+            CONTROL_V2_OBSERVATION_SHAPES
+            if config.behavior_name == CONTROL_V2_BEHAVIOR_NAME
+            else CONTROL_OBSERVATION_SHAPES
+        )
+        if is_control
+        else OBSERVATION_SHAPES
     )
     expected_discrete_branches = (
         CONTROL_DISCRETE_BRANCHES if is_control else DISCRETE_BRANCHES
@@ -741,18 +753,25 @@ def validate_benchmark_config(config: BenchmarkConfig) -> None:
             "GoalkeeperControl-v1 requires control-state-v1 observations"
         )
     if (
-        config.behavior_name == CONTROL_BEHAVIOR_NAME
+        config.behavior_name == CONTROL_V2_BEHAVIOR_NAME
+        and config.observation_spec_id != "control-state-v2"
+    ):
+        raise ValueError(
+            "GoalkeeperControl-v2 requires control-state-v2 observations"
+        )
+    if (
+        is_control
         and config.action_spec_id != "goalkeeper-hybrid-v1"
     ):
         raise ValueError(
-            "GoalkeeperControl-v1 requires goalkeeper-hybrid-v1 actions"
+            "Goalkeeper control behaviors require goalkeeper-hybrid-v1 actions"
         )
     if (
-        config.behavior_name == CONTROL_BEHAVIOR_NAME
+        is_control
         and config.motor_profile_id != "keeper-control-v1"
     ):
         raise ValueError(
-            "GoalkeeperControl-v1 requires keeper-control-v1 motor"
+            "Goalkeeper control behaviors require keeper-control-v1 motor"
         )
     if config.arena_count <= 0 or config.attempts_per_arena <= 0:
         raise ValueError("arena_count and attempts_per_arena must be positive")
@@ -771,7 +790,7 @@ def make_policy(
 ) -> GoalkeeperPolicy:
     is_control = (
         config is not None
-        and config.behavior_name == CONTROL_BEHAVIOR_NAME
+        and config.behavior_name in CONTROL_BEHAVIOR_NAMES
     )
     if spec == "stand_center":
         return StandCenterV1Policy() if is_control else StandCenterPolicy()
@@ -1068,7 +1087,7 @@ def aggregate_policy(
         "by_flight_time_band": aggregate_by(episodes, flight_time_band),
         "by_first_dive_action": aggregate_by(episodes, first_dive_action),
     }
-    if config.behavior_name == CONTROL_BEHAVIOR_NAME:
+    if config.behavior_name in CONTROL_BEHAVIOR_NAMES:
         report.update(
             {
                 "commit_rate": rate(len(committed_episodes), total),
@@ -1288,6 +1307,35 @@ def aggregate_policy(
                     int(item.get("policy_action_override_count", 0))
                     for item in episodes
                 ),
+                "accepted_control_decision_count": sum(
+                    int(item.get("accepted_control_decision_count", 0))
+                    for item in episodes
+                ),
+                "policy_decision_request_count": sum(
+                    int(item.get("policy_decision_request_count", 0))
+                    for item in episodes
+                ),
+                "policy_decision_consumed_count": sum(
+                    int(item.get("policy_decision_consumed_count", 0))
+                    for item in episodes
+                ),
+                "policy_decision_discarded_count": sum(
+                    int(item.get("policy_decision_discarded_count", 0))
+                    for item in episodes
+                ),
+                "policy_decision_duplicate_request_count": sum(
+                    int(
+                        item.get(
+                            "policy_decision_duplicate_request_count",
+                            0,
+                        )
+                    )
+                    for item in episodes
+                ),
+                "policy_decision_missing_action_count": sum(
+                    int(item.get("policy_decision_missing_action_count", 0))
+                    for item in episodes
+                ),
                 "saturated_shot_save_rate": rate(
                     sum(
                         item["outcome"] in config.save_outcomes
@@ -1343,7 +1391,14 @@ def aggregate_policy(
                 ),
             }
         )
-        report["stage5_diagnostic_gate"] = stage5_diagnostic_gate(report)
+        report["stage5_diagnostic_gate"] = stage5_diagnostic_gate(
+            report,
+            control_version=(
+                2
+                if config.behavior_name == CONTROL_V2_BEHAVIOR_NAME
+                else 1
+            ),
+        )
     return report
 
 
@@ -1367,7 +1422,11 @@ def aggregate_by(
     }
 
 
-def stage5_diagnostic_gate(policy: dict[str, Any]) -> dict[str, Any]:
+def stage5_diagnostic_gate(
+    policy: dict[str, Any],
+    *,
+    control_version: int = 1,
+) -> dict[str, Any]:
     high_save_rate = (
         policy.get("by_height_band", {})
         .get("high", {})
@@ -1464,9 +1523,45 @@ def stage5_diagnostic_gate(policy: dict[str, Any]) -> dict[str, Any]:
             ]
         ),
     }
+    if control_version >= 2:
+        for timing_check in (
+            "immediate_commit_rate",
+            "premature_commit_rate",
+            "late_commit_rate",
+            "timely_commit_rate",
+            "first_commit_reach_shortfall",
+        ):
+            checks.pop(timing_check)
+        requests = policy.get("policy_decision_request_count", 0)
+        consumed = policy.get("policy_decision_consumed_count", 0)
+        discarded = policy.get("policy_decision_discarded_count", 0)
+        accepted = policy.get("accepted_control_decision_count", 0)
+        checks.update(
+            {
+                "decision_request_balance": (
+                    requests == consumed + discarded
+                ),
+                "decision_consumption_balance": consumed == accepted,
+                "decision_discard_limit": (
+                    discarded <= policy.get("attempts", 0)
+                ),
+                "duplicate_decision_requests": (
+                    policy.get(
+                        "policy_decision_duplicate_request_count",
+                        0,
+                    )
+                    == 0
+                ),
+                "missing_decision_actions": (
+                    policy.get("policy_decision_missing_action_count", 0)
+                    == 0
+                ),
+            }
+        )
     failed = [name for name, passed in checks.items() if not passed]
     return {
         "passed": not failed,
+        "control_version": control_version,
         "checks_passed": sum(checks.values()),
         "checks_total": len(checks),
         "failed_checks": failed,
@@ -1782,7 +1877,7 @@ def write_summary(path: Path, report: dict[str, Any]) -> None:
                 timeout=policy["timeout_rate"]["value"],
             )
         )
-    if report["behavior_name"] == CONTROL_BEHAVIOR_NAME:
+    if report["behavior_name"] in CONTROL_BEHAVIOR_NAMES:
         lines.extend(
             [
                 "",
@@ -1823,6 +1918,32 @@ def write_summary(path: Path, report: dict[str, Any]) -> None:
                     clamps=policy["control_command_clamp_count"],
                 )
             )
+        if report["behavior_name"] == CONTROL_V2_BEHAVIOR_NAME:
+            lines.extend(
+                [
+                    "",
+                    "## Decision lifecycle",
+                    "",
+                    "| Policy | Requests | Consumed | Discarded | Accepted | Duplicate | Missing |",
+                    "|---|---:|---:|---:|---:|---:|---:|",
+                ]
+            )
+            for policy in report["policies"]:
+                lines.append(
+                    "| {policy} | {requests} | {consumed} | {discarded} | {accepted} | {duplicate} | {missing} |".format(
+                        policy=policy["policy"],
+                        requests=policy["policy_decision_request_count"],
+                        consumed=policy["policy_decision_consumed_count"],
+                        discarded=policy["policy_decision_discarded_count"],
+                        accepted=policy["accepted_control_decision_count"],
+                        duplicate=policy[
+                            "policy_decision_duplicate_request_count"
+                        ],
+                        missing=policy[
+                            "policy_decision_missing_action_count"
+                        ],
+                    )
+                )
         selection = report.get("stage5_diagnostic_selection")
         if selection:
             lines.extend(
@@ -1891,7 +2012,7 @@ def build_report(
         "status": status,
         "policies": policy_reports,
     }
-    if config.behavior_name == CONTROL_BEHAVIOR_NAME:
+    if config.behavior_name in CONTROL_BEHAVIOR_NAMES:
         report["stage5_diagnostic_selection"] = (
             select_stage5_diagnostic_checkpoint(policy_reports)
         )

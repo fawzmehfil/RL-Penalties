@@ -15,14 +15,17 @@ namespace PenaltyShootout.Kernel
         public const string GoalkeeperStateBehaviorName = "GoalkeeperState-v0";
         public const string GoalkeeperRobustBehaviorName = "GoalkeeperRobust-v0";
         public const string GoalkeeperControlBehaviorName = "GoalkeeperControl-v1";
+        public const string GoalkeeperControlV2BehaviorName = "GoalkeeperControl-v2";
         public const string GoalkeeperStateObservationSpecId = "state-v0";
         public const string GoalkeeperPartialObservationSpecId = "state-po-v0";
         public const string GoalkeeperControlObservationSpecId = "control-state-v1";
+        public const string GoalkeeperControlV2ObservationSpecId = "control-state-v2";
         public const string GoalkeeperSparseRewardSpecId = "goalkeeper-sparse-v0";
         public const string GoalkeeperControlActionSpecId = "goalkeeper-hybrid-v1";
         public const string GoalkeeperControlMotorProfileId = "keeper-control-v1";
         public const int GoalkeeperStateObservationSize = 24;
         public const int GoalkeeperControlObservationSize = 32;
+        public const int GoalkeeperControlV2ObservationSize = 35;
         public const int GoalkeeperActionCount = 9;
         public const string Stage3BenchmarkId = "goalkeeper-state-v0-id-20k";
         public const string Stage4InDistributionBenchmarkId = "goalkeeper-robust-v0-id-20k";
@@ -36,6 +39,8 @@ namespace PenaltyShootout.Kernel
             "goalkeeper-control-v1-speed-ood-20k";
         public const string Stage5EdgeOodBenchmarkId =
             "goalkeeper-control-v1-edge-ood-20k";
+        public const string Stage5V2InDistributionBenchmarkId =
+            "goalkeeper-control-v2-id-20k";
         public const int ManifestSchemaVersion = 2;
         public const int AcceptanceSchemaVersion = 2;
 
@@ -440,6 +445,36 @@ namespace PenaltyShootout.Kernel
             GoalkeeperControlMotorConfig motor,
             bool prettyPrint = true)
         {
+            return CreateGoalkeeperControlJson(
+                motor,
+                KernelConstants.GoalkeeperControlBehaviorName,
+                KernelConstants.GoalkeeperControlObservationSpecId,
+                KernelConstants.GoalkeeperControlObservationSize,
+                false,
+                prettyPrint);
+        }
+
+        public static string CreateGoalkeeperControlV2Json(
+            GoalkeeperControlMotorConfig motor,
+            bool prettyPrint = true)
+        {
+            return CreateGoalkeeperControlJson(
+                motor,
+                KernelConstants.GoalkeeperControlV2BehaviorName,
+                KernelConstants.GoalkeeperControlV2ObservationSpecId,
+                KernelConstants.GoalkeeperControlV2ObservationSize,
+                true,
+                prettyPrint);
+        }
+
+        private static string CreateGoalkeeperControlJson(
+            GoalkeeperControlMotorConfig motor,
+            string behaviorName,
+            string observationSpecId,
+            int observationSize,
+            bool includeVisibleBallisticPrediction,
+            bool prettyPrint)
+        {
             if (motor == null)
             {
                 throw new ArgumentNullException(nameof(motor));
@@ -454,16 +489,14 @@ namespace PenaltyShootout.Kernel
             {
                 schema_version = 1,
                 environment_id = KernelConstants.EnvironmentId,
-                behavior_name = KernelConstants.GoalkeeperControlBehaviorName,
-                observation_spec_id =
-                    KernelConstants.GoalkeeperControlObservationSpecId,
+                behavior_name = behaviorName,
+                observation_spec_id = observationSpecId,
                 reward_spec_id = KernelConstants.GoalkeeperSparseRewardSpecId,
                 action_spec_id = KernelConstants.GoalkeeperControlActionSpecId,
                 motor_profile_id =
                     KernelConstants.GoalkeeperControlMotorProfileId,
                 scenario_suite_id = KernelConstants.ScenarioSuiteId,
-                vector_observation_size =
-                    KernelConstants.GoalkeeperControlObservationSize,
+                vector_observation_size = observationSize,
                 continuous_actions =
                     GoalkeeperControlSpace.ContinuousActionCount,
                 discrete_branches = new[]
@@ -482,41 +515,8 @@ namespace PenaltyShootout.Kernel
                     "no_commit",
                     "commit_save",
                 },
-                observation_order = new[]
-                {
-                    "ball_local_x",
-                    "ball_local_y",
-                    "ball_local_z",
-                    "ball_local_vx",
-                    "ball_local_vy",
-                    "ball_local_vz",
-                    "ball_angular_vx",
-                    "ball_angular_vy",
-                    "ball_angular_vz",
-                    "goalkeeper_root_x",
-                    "goalkeeper_root_y",
-                    "goalkeeper_root_vx",
-                    "goalkeeper_root_vy",
-                    "goalkeeper_body_roll",
-                    "motor_ready",
-                    "motor_moving",
-                    "motor_planting",
-                    "motor_diving",
-                    "motor_recovering",
-                    "motor_state_progress",
-                    "latched_aim_x",
-                    "latched_aim_y",
-                    "reach_aim_x",
-                    "reach_aim_y",
-                    "reach_extension",
-                    "left_glove_x",
-                    "left_glove_y",
-                    "right_glove_x",
-                    "right_glove_y",
-                    "can_commit",
-                    "attempt_time",
-                    "ball_flight_time",
-                },
+                observation_order = ControlObservationOrder(
+                    includeVisibleBallisticPrediction),
                 excluded_privileged_fields = new[]
                 {
                     "requested_target",
@@ -602,6 +602,58 @@ namespace PenaltyShootout.Kernel
 
             return JsonUtility.ToJson(manifest, prettyPrint) +
                 Environment.NewLine;
+        }
+
+        private static string[] ControlObservationOrder(
+            bool includeVisibleBallisticPrediction)
+        {
+            var v1 = new[]
+            {
+                "ball_local_x",
+                "ball_local_y",
+                "ball_local_z",
+                "ball_local_vx",
+                "ball_local_vy",
+                "ball_local_vz",
+                "ball_angular_vx",
+                "ball_angular_vy",
+                "ball_angular_vz",
+                "goalkeeper_root_x",
+                "goalkeeper_root_y",
+                "goalkeeper_root_vx",
+                "goalkeeper_root_vy",
+                "goalkeeper_body_roll",
+                "motor_ready",
+                "motor_moving",
+                "motor_planting",
+                "motor_diving",
+                "motor_recovering",
+                "motor_state_progress",
+                "latched_aim_x",
+                "latched_aim_y",
+                "reach_aim_x",
+                "reach_aim_y",
+                "reach_extension",
+                "left_glove_x",
+                "left_glove_y",
+                "right_glove_x",
+                "right_glove_y",
+                "can_commit",
+                "attempt_time",
+                "ball_flight_time",
+            };
+
+            if (!includeVisibleBallisticPrediction)
+            {
+                return v1;
+            }
+
+            var v2 = new string[v1.Length + 3];
+            Array.Copy(v1, v2, v1.Length);
+            v2[v1.Length] = "visible_time_to_goal_plane";
+            v2[v1.Length + 1] = "visible_predicted_aim_x";
+            v2[v1.Length + 2] = "visible_predicted_aim_y";
+            return v2;
         }
 
         private static string CreateGoalkeeperObservationManifestJson(

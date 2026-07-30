@@ -16,6 +16,7 @@ from penalty_shootout.evaluation.goalkeeper import (
     aggregate_policy,
     load_benchmark_config,
     select_stage5_diagnostic_checkpoint,
+    stage5_diagnostic_gate,
     validate_benchmark_config,
 )
 
@@ -52,6 +53,25 @@ def test_stage5_manifest_freezes_hybrid_control_contract() -> None:
         manifest["excluded_privileged_fields"]
     )
     assert manifest["motor"]["arms"]["solver"] == "deterministic-two-bone-ik"
+
+
+def test_stage5_v2_manifest_adds_visible_ballistics_without_privilege() -> None:
+    manifest = load_json(
+        ROOT / "configs" / "environment" / "goalkeeper-control-v2.json"
+    )
+
+    assert manifest["behavior_name"] == "GoalkeeperControl-v2"
+    assert manifest["observation_spec_id"] == "control-state-v2"
+    assert manifest["vector_observation_size"] == 35
+    assert manifest["observation_order"][-3:] == [
+        "visible_time_to_goal_plane",
+        "visible_predicted_aim_x",
+        "visible_predicted_aim_y",
+    ]
+    assert "requested_target" in manifest["excluded_privileged_fields"]
+    assert "future_goal_plane_intersection" in (
+        manifest["excluded_privileged_fields"]
+    )
 
 
 @pytest.mark.parametrize(
@@ -99,6 +119,24 @@ def test_stage5_benchmark_rejects_v0_action_contract() -> None:
         validate_benchmark_config(broken)
 
 
+def test_stage5_v2_benchmark_uses_35_float_contract() -> None:
+    config = load_benchmark_config(
+        ROOT
+        / "configs"
+        / "benchmarks"
+        / "goalkeeper-control-v2-id-20k.json"
+    )
+
+    assert config.behavior_name == "GoalkeeperControl-v2"
+    assert config.observation_spec_id == "control-state-v2"
+    assert config.observation_shapes == ((35,),)
+    assert config.continuous_actions == 4
+    assert config.discrete_branches == (2,)
+    assert config.environment_parameters[
+        "stage5.reach_training_version"
+    ] == 5.0
+
+
 def test_stage5_ppo_yaml_matches_pinned_mlagents_schema() -> None:
     register_trainer_plugins()
     raw = yaml.safe_load(
@@ -117,6 +155,34 @@ def test_stage5_ppo_yaml_matches_pinned_mlagents_schema() -> None:
     assert behavior.network_settings.hidden_units == 256
     assert behavior.network_settings.num_layers == 3
     assert len(options.environment_parameters["stage5.lesson"].curriculum) == 5
+
+
+@pytest.mark.parametrize(
+    ("name", "max_steps", "checkpoint_interval"),
+    [
+        ("goalkeeper-control-v2-ppo-diagnostic.yaml", 250_000, 50_000),
+        ("goalkeeper-control-v2-ppo.yaml", 4_000_000, 250_000),
+    ],
+)
+def test_stage5_v2_ppo_yaml_matches_pinned_mlagents_schema(
+    name: str,
+    max_steps: int,
+    checkpoint_interval: int,
+) -> None:
+    register_trainer_plugins()
+    raw = yaml.safe_load(
+        (ROOT / "configs" / "training" / name).read_text()
+    )
+    options = RunOptions.from_dict(json.loads(json.dumps(raw)))
+
+    behavior = options.behaviors["GoalkeeperControl-v2"]
+    assert behavior.max_steps == max_steps
+    assert behavior.checkpoint_interval == checkpoint_interval
+    assert behavior.network_settings.normalize is False
+    assert len(options.environment_parameters["stage5.lesson"].curriculum) == 5
+    assert options.environment_parameters[
+        "stage5.reach_training_version"
+    ].curriculum[0].value.value == 5.0
 
 
 @pytest.mark.parametrize(
@@ -469,3 +535,44 @@ def test_stage5_diagnostic_selection_uses_behavioral_gate_before_save_rate() -> 
     assert selected is not None
     assert selected["selected_policy"] == "onnx:passing"
     assert selected["passed"] is True
+
+
+def test_stage5_v2_gate_checks_one_request_one_command_lifecycle() -> None:
+    passing_rate = {"value": 0.30, "successes": 30, "total": 100}
+    zero_rate = {"value": 0.0, "successes": 0, "total": 100}
+    policy = {
+        "attempts": 100,
+        "save_rate": passing_rate,
+        "glove_contact_rate": passing_rate,
+        "glove_save_rate": {"value": 0.15},
+        "goalkeeper_peak_reach_extension": {"mean": 0.8},
+        "by_height_band": {
+            "high": {"save_rate": {"value": 0.20}},
+        },
+        "first_commit_aim_error_m": {"mean": 0.5},
+        "immediate_commit_rate": zero_rate,
+        "premature_commit_rate": zero_rate,
+        "late_commit_rate": zero_rate,
+        "timely_commit_rate": passing_rate,
+        "first_commit_reach_shortfall": {"mean": 0.5},
+        "policy_action_override_count": 0,
+        "control_command_clamp_count": 0,
+        "invalid_rate": zero_rate,
+        "timeout_rate": zero_rate,
+        "action_mask_violations": 0,
+        "policy_decision_request_count": 1_100,
+        "policy_decision_consumed_count": 1_000,
+        "policy_decision_discarded_count": 100,
+        "accepted_control_decision_count": 1_000,
+        "policy_decision_duplicate_request_count": 0,
+        "policy_decision_missing_action_count": 0,
+    }
+
+    gate = stage5_diagnostic_gate(policy, control_version=2)
+    assert gate["passed"] is True
+    assert "timely_commit_rate" not in gate["failed_checks"]
+
+    policy["policy_decision_missing_action_count"] = 1
+    failed = stage5_diagnostic_gate(policy, control_version=2)
+    assert failed["passed"] is False
+    assert "missing_decision_actions" in failed["failed_checks"]

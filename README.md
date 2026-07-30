@@ -24,7 +24,7 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 5.4 policy-faithful diagnostic ready
+## Current status: Stage 5 control lifecycle fixed; learning gate failed
 
 Stages 0-4 established and evaluated the deterministic environment, the first
 trainable nine-action goalkeeper, fixed 20,000-shot benchmarks, and
@@ -38,11 +38,23 @@ a best 21.0% save rate, but still committed on the first decision in every
 attempt, used glove contact on only 8.75%, and saved only 1.45% of high shots.
 Stage 5.3 added visible-state guidance and reached 24.75% saves, but its best
 checkpoint still committed immediately on every attempt because the training
-scaffold could replace the policy's chosen action. Stage 5.4 removes all
-action, aim, reach, and timing overrides, adds decision-time credit to the
-policy action that actually executes, and increases final canonical exposure.
-The Stage 3 seed `001` model remains the main clean goalkeeper until the richer
-control gate is passed.
+scaffold could replace the policy's chosen action. Stage 5.4 removed those
+overrides, but its best 1-million-step checkpoint saved only 10.75% of the
+fixed 400-shot batch. A forensic audit then found that the remaining problem
+was broader than PPO tuning: the v1 agent combined a `DecisionRequester` with
+manual requests, requested actions during non-flight phases, had insufficient
+explicit vertical interception state, and rewarded a timing window that was
+incompatible with the fastest shots and the motor's reach latency.
+
+`GoalkeeperControl-v2` corrects those contracts before more training. It uses
+one request for one executed command, starts decisions only after launch,
+appends three visible-derived ballistic values to a 35-float observation,
+uses result-first terminal training rewards, removes final-lesson distribution
+bias, and disables duplicate observation normalization. Its 250,000-step
+diagnostic proved that the scheduler is exact, but the best deterministic
+checkpoint saved only 5.75% and selected no commit on all 400 evaluation
+shots. The Stage 3 seed `001` model remains the main clean goalkeeper until
+this richer control gate is passed.
 
 Stage 0 established the physics and tooling foundation before goalkeeper
 training:
@@ -739,6 +751,86 @@ The handoff script trains only seed `001`, retains checkpoints near 200k,
 400k, 600k, 800k, and 1M, evaluates them with stand-center, random-hybrid, and
 reactive-reach baselines, and writes the comparison under
 `results/evaluations/gk-control-v1_reach-v4-policy-faithful_seed-001-checkpoint-screen-400/`.
+
+### Stage 5 control lifecycle remediation
+
+The completed Stage 5.4 screen ruled out a simple motor-capability problem.
+Its best checkpoint saved 10.75% of 400 fixed shots, compared with 54.25% for
+the visible-state reactive controller. The reactive controller also reached
+72% glove contact and saved 64.49% of high shots using the same body, arm,
+glove, shot, and physics configuration.
+
+The audit identified four coupled defects in the v1 learning task:
+
+- `DecisionRequester` and controller-driven `RequestDecision()` calls were
+  both active, so ML-Agents policy steps were not in one-to-one correspondence
+  with executed controller commands.
+- Decisions were requested during reset, ready, and run-up. TensorBoard
+  therefore reported substantially longer episodes than terminal telemetry's
+  accepted command count.
+- `control-state-v1` exposed raw visible ball state but required PPO to derive
+  vertical goal-plane interception during a short reaction window. The
+  reactive baseline's explicit ballistic derivation showed that this missing
+  representation was consequential.
+- The v4 reward penalized early commitment even where the fastest valid shots
+  required immediate motor preparation. The final lesson also retained a 35%
+  focused-shot overlay instead of matching canonical evaluation.
+
+The versioned replacement preserves the physical motor and action surface:
+
+- Behavior: `GoalkeeperControl-v2`
+- Observation: `control-state-v2`, exactly 35 floats
+- Action: four continuous controls plus commit branch `[2]`
+- Motor: unchanged `keeper-control-v1`
+- Benchmark: `goalkeeper-control-v2-id-20k`
+
+The first 32 observations remain in their v1 order. The final three are
+`visible_time_to_goal_plane`, `visible_predicted_aim_x`, and
+`visible_predicted_aim_y`. They are computed only from the current visible ball
+position, velocity, fixed gravity, and public goal geometry. Generator target,
+launch parameters, sampled flight time, future generator impact, and outcome
+remain excluded.
+
+The v2 lifecycle has no `DecisionRequester`. The controller requests the first
+decision only after ball launch, consumes that decision once on the following
+control tick, and then requests the next. Terminal telemetry records requested,
+consumed, discarded, duplicate, and missing decision counts. The evaluator
+requires:
+
+```text
+requests = consumed + terminal discards
+consumed = accepted controller commands
+duplicate requests = 0
+missing actions = 0
+terminal discards <= 1 per attempt
+```
+
+Training version `5` removes timing, target-error, proximity, and reach
+shortfall shaping. Terminal rewards rank glove-first, later-glove, arm, and
+body saves while keeping goals at `-1` and abnormal outcomes at `0`. The final
+lesson uses the exact canonical shot generator with no reach-focus overlay.
+The v2 PPO configs also set `normalize: false` because every observation is
+already explicitly bounded.
+
+After closing the Unity editor, verify and rebuild without starting training
+or evaluation:
+
+```bash
+scripts/verify_stage5_control_v2.sh
+```
+
+The completed deliberately short 250,000-step diagnostic was run with:
+
+```bash
+scripts/run_stage5_control_v2_diagnostic.sh 1
+```
+
+It retained checkpoints every 50,000 steps and screened them, plus
+stand-center, random-hybrid, and reactive-reach baselines, on the same 400
+fixed shots. Lifecycle telemetry passed exactly, but the behavioral gate did
+not: the best learned checkpoint saved 5.75% versus 57.25% for
+`reactive_reach_v1` and produced no deterministic commits. Do not start the
+4-million-step config from this result.
 
 ## Later milestones
 

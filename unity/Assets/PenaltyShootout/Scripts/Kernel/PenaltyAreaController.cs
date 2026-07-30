@@ -79,6 +79,7 @@ namespace PenaltyShootout.Kernel
 
         private IGoalkeeperActionSource resolvedActionSource;
         private IGoalkeeperControlSourceV1 resolvedControlSource;
+        private IGoalkeeperDeferredControlSourceV2 resolvedDeferredControlSource;
         private ScenarioInstance scenario;
         private AttemptResult lastResult;
         private long attemptId;
@@ -90,6 +91,7 @@ namespace PenaltyShootout.Kernel
         private int resetTicks;
         private int physicsTick;
         private int decisionIndex;
+        private int nextDeferredControlDecisionTick;
         private int actionMaskViolations;
         private bool launchIssued;
         private bool hasCentrePlaneIntersection;
@@ -198,6 +200,8 @@ namespace PenaltyShootout.Kernel
                 actionSource = value;
                 resolvedActionSource = value as IGoalkeeperActionSource;
                 resolvedControlSource = value as IGoalkeeperControlSourceV1;
+                resolvedDeferredControlSource =
+                    value as IGoalkeeperDeferredControlSourceV2;
             }
         }
 
@@ -373,6 +377,8 @@ namespace PenaltyShootout.Kernel
             stateMachine.InitializeTerminal();
             resolvedActionSource = actionSource as IGoalkeeperActionSource;
             resolvedControlSource = actionSource as IGoalkeeperControlSourceV1;
+            resolvedDeferredControlSource =
+                actionSource as IGoalkeeperDeferredControlSourceV2;
             Stage3BenchmarkRuntime.ApplyOverrides(this);
             initialized = ValidateDependencies(out var error);
             if (!initialized)
@@ -508,6 +514,7 @@ namespace PenaltyShootout.Kernel
             resetTicks = 0;
             physicsTick = 0;
             decisionIndex = 0;
+            nextDeferredControlDecisionTick = -1;
             actionMaskViolations = 0;
             launchIssued = false;
             hasCentrePlaneIntersection = false;
@@ -725,7 +732,15 @@ namespace PenaltyShootout.Kernel
             phaseTime = 0f;
             physicsTick = 0;
             decisionIndex = 0;
-            RequestAction();
+            if (UsesDeferredControlScheduling)
+            {
+                RequestDeferredControlDecision();
+                nextDeferredControlDecisionTick = 1;
+            }
+            else
+            {
+                RequestAction();
+            }
         }
 
         private void TickBallInFlight(float deltaTime)
@@ -809,7 +824,18 @@ namespace PenaltyShootout.Kernel
             }
 
             physicsTick++;
-            if (physicsTick % environmentConfiguration.DecisionPeriodTicks == 0)
+            if (UsesDeferredControlScheduling)
+            {
+                if (physicsTick >= nextDeferredControlDecisionTick)
+                {
+                    RequestControlAction(true);
+                    nextDeferredControlDecisionTick +=
+                        environmentConfiguration.DecisionPeriodTicks;
+                    RequestDeferredControlDecision();
+                }
+            }
+            else if (
+                physicsTick % environmentConfiguration.DecisionPeriodTicks == 0)
             {
                 RequestAction();
             }
@@ -875,7 +901,11 @@ namespace PenaltyShootout.Kernel
             decisionIndex++;
         }
 
-        private void RequestControlAction()
+        private bool UsesDeferredControlScheduling =>
+            resolvedDeferredControlSource != null &&
+            resolvedDeferredControlSource.UsesDeferredDecisionScheduling;
+
+        private GoalkeeperControlDecisionContext CreateControlDecisionContext()
         {
             var hasVisiblePrediction =
                 GoalkeeperControlTrainingContracts
@@ -885,7 +915,7 @@ namespace PenaltyShootout.Kernel
                         ToLocalDirection(Physics.gravity),
                         out var visibleTimeToGoalPlane,
                         out var visiblePredictedAim);
-            var context = new GoalkeeperControlDecisionContext(
+            return new GoalkeeperControlDecisionContext(
                 attemptId,
                 decisionIndex,
                 physicsTick,
@@ -893,10 +923,38 @@ namespace PenaltyShootout.Kernel
                 visibleTimeToGoalPlane,
                 hasVisiblePrediction,
                 visiblePredictedAim);
+        }
+
+        private void RequestDeferredControlDecision()
+        {
+            if (!UsesDeferredControlScheduling)
+            {
+                return;
+            }
+
+            var context = CreateControlDecisionContext();
             var mask = goalkeeperControlMotor.GetActionMask();
-            var requested = resolvedControlSource == null
-                ? GoalkeeperControlCommand.Neutral
-                : resolvedControlSource.DecideControl(context, mask);
+            resolvedDeferredControlSource.RequestControlDecision(context, mask);
+        }
+
+        private void RequestControlAction(bool consumeDeferred = false)
+        {
+            var context = CreateControlDecisionContext();
+            var mask = goalkeeperControlMotor.GetActionMask();
+            GoalkeeperControlCommand requested;
+            if (consumeDeferred && UsesDeferredControlScheduling)
+            {
+                requested =
+                    resolvedDeferredControlSource.ConsumeControlDecision(
+                        context,
+                        mask);
+            }
+            else
+            {
+                requested = resolvedControlSource == null
+                    ? GoalkeeperControlCommand.Neutral
+                    : resolvedControlSource.DecideControl(context, mask);
+            }
             requested = requested.Sanitized(out var commandClamped);
             if (commandClamped)
             {

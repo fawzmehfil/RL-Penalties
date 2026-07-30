@@ -37,10 +37,10 @@ namespace PenaltyShootout.Stage0.Editor
         {
             EnsureStage2ArenaPrefab();
             var motor = GetOrCreateMotorConfig();
-            ExportGoalkeeperControlManifest(motor);
+            ExportGoalkeeperControlV2Manifest(motor);
             CreateControlArenaPrefab(motor);
-            CreateMotorLabScene();
-            CreateTrainingScene();
+            EnsureMotorLabScene();
+            EnsureTrainingScene();
             SetBuildScenes();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
@@ -104,26 +104,26 @@ namespace PenaltyShootout.Stage0.Editor
             return configuration;
         }
 
-        private static void ExportGoalkeeperControlManifest(
+        private static void ExportGoalkeeperControlV2Manifest(
             GoalkeeperControlMotorConfig motor)
         {
             var output = Path.GetFullPath(
                 Path.Combine(
                     Application.dataPath,
-                    "../../configs/environment/goalkeeper-control-v1.json"));
+                    "../../configs/environment/goalkeeper-control-v2.json"));
             Directory.CreateDirectory(Path.GetDirectoryName(output)!);
             File.WriteAllText(
                 output,
-                KernelManifestUtility.CreateGoalkeeperControlJson(motor));
+                KernelManifestUtility.CreateGoalkeeperControlV2Json(motor));
         }
 
         private static void CreateControlArenaPrefab(
             GoalkeeperControlMotorConfig motorConfiguration)
         {
-            if (!AssetDatabase.CopyAsset(
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) == null &&
+                !AssetDatabase.CopyAsset(
                     Stage2ProjectBuilder.PrefabPath,
-                    PrefabPath) &&
-                AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) == null)
+                    PrefabPath))
             {
                 throw new InvalidOperationException(
                     $"Failed to create {PrefabPath}.");
@@ -153,30 +153,35 @@ namespace PenaltyShootout.Stage0.Editor
                     "Stage 5 arena is missing PenaltyAreaController.");
             }
 
-            RemoveV0Agent(controller);
+            RemoveKernelAgents(controller);
             var motor = ConfigureControlGoalkeeper(
                 controller,
                 motorConfiguration);
-            var agentObject = new GameObject("GoalkeeperControlAgent");
-            agentObject.transform.SetParent(controller.transform, false);
-            var behavior = agentObject.AddComponent<BehaviorParameters>();
+            var agent = GetOrCreateControlAgent(controller);
+            var agentObject = agent.gameObject;
+            var behavior = agentObject.GetComponent<BehaviorParameters>();
+            if (behavior == null)
+            {
+                behavior = agentObject.AddComponent<BehaviorParameters>();
+            }
+
             behavior.BehaviorName =
-                KernelConstants.GoalkeeperControlBehaviorName;
+                KernelConstants.GoalkeeperControlV2BehaviorName;
             behavior.BehaviorType = BehaviorType.HeuristicOnly;
             behavior.BrainParameters.VectorObservationSize =
-                KernelConstants.GoalkeeperControlObservationSize;
+                KernelConstants.GoalkeeperControlV2ObservationSize;
             behavior.BrainParameters.NumStackedVectorObservations = 1;
             behavior.BrainParameters.ActionSpec = new ActionSpec(
                 GoalkeeperControlSpace.ContinuousActionCount,
                 new[] { GoalkeeperControlSpace.CommitBranchSize });
 
-            var agent = agentObject.AddComponent<GoalkeeperControlAgent>();
             agent.Controller = controller;
             agent.MaxStep = 0;
-            var requester = agentObject.AddComponent<DecisionRequester>();
-            requester.DecisionPeriod = 2;
-            requester.DecisionStep = 0;
-            requester.TakeActionsBetweenDecisions = false;
+            foreach (var requester in
+                     agentObject.GetComponents<DecisionRequester>())
+            {
+                UnityEngine.Object.DestroyImmediate(requester);
+            }
 
             controller.ControlMode = GoalkeeperControlMode.HybridV1;
             controller.ControlMotorConfiguration = motorConfiguration;
@@ -184,20 +189,56 @@ namespace PenaltyShootout.Stage0.Editor
             controller.ActionSource = agent;
         }
 
-        private static void RemoveV0Agent(PenaltyAreaController controller)
+        private static void RemoveKernelAgents(
+            PenaltyAreaController controller)
         {
-            var agents =
+            var kernelAgents =
                 controller.GetComponentsInChildren<GoalkeeperKernelAgent>(true);
-            foreach (var agent in agents)
+            foreach (var agent in kernelAgents)
             {
                 UnityEngine.Object.DestroyImmediate(agent.gameObject);
             }
+        }
+
+        private static GoalkeeperControlAgent GetOrCreateControlAgent(
+            PenaltyAreaController controller)
+        {
+            var controlAgents =
+                controller.GetComponentsInChildren<GoalkeeperControlAgent>(true);
+            GoalkeeperControlAgent selected = null;
+            foreach (var agent in controlAgents)
+            {
+                if (selected == null)
+                {
+                    selected = agent;
+                    continue;
+                }
+
+                UnityEngine.Object.DestroyImmediate(agent.gameObject);
+            }
+
+            if (selected != null)
+            {
+                return selected;
+            }
+
+            var agentObject = new GameObject("GoalkeeperControlAgent");
+            agentObject.transform.SetParent(controller.transform, false);
+            return agentObject.AddComponent<GoalkeeperControlAgent>();
         }
 
         private static GoalkeeperMotorV1 ConfigureControlGoalkeeper(
             PenaltyAreaController controller,
             GoalkeeperControlMotorConfig configuration)
         {
+            var existingMotor = controller.GoalkeeperControlMotor;
+            if (existingMotor != null)
+            {
+                existingMotor.Configuration = configuration;
+                existingMotor.ArenaOrigin = controller.ArenaOrigin;
+                return existingMotor;
+            }
+
             var oldMotor = controller.GoalkeeperMotor;
             if (oldMotor == null)
             {
@@ -339,8 +380,14 @@ namespace PenaltyShootout.Stage0.Editor
             }
         }
 
-        private static void CreateMotorLabScene()
+        private static void EnsureMotorLabScene()
         {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(
+                    MotorLabScenePath) != null)
+            {
+                return;
+            }
+
             var scene =
                 EditorSceneManager.NewScene(
                     NewSceneSetup.EmptyScene,
@@ -358,8 +405,14 @@ namespace PenaltyShootout.Stage0.Editor
             EditorSceneManager.SaveScene(scene, MotorLabScenePath);
         }
 
-        private static void CreateTrainingScene()
+        private static void EnsureTrainingScene()
         {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(
+                    TrainingScenePath) != null)
+            {
+                return;
+            }
+
             var scene =
                 EditorSceneManager.NewScene(
                     NewSceneSetup.EmptyScene,

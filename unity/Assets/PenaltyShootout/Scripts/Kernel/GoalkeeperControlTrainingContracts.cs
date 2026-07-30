@@ -12,6 +12,8 @@ namespace PenaltyShootout.Kernel
             "goalkeeper-control-training-reach-v3";
         public const string RewardSpecV4Id =
             "goalkeeper-control-training-reach-v4";
+        public const string RewardSpecV5Id =
+            "goalkeeper-control-result-v2";
         public const float GloveSaveReward = 1f;
         public const float OtherSaveReward = 0.8f;
         public const float GoalReward = -1f;
@@ -49,6 +51,10 @@ namespace PenaltyShootout.Kernel
         public const float V4BodySaveReward = 0.35f;
         public const float V4PrematureSaveRewardCeiling = 0f;
         public const float V4LateSaveRewardCeiling = 0.15f;
+        public const float V5GloveFirstSaveReward = 1f;
+        public const float V5GloveSaveReward = 0.9f;
+        public const float V5ArmSaveReward = 0.75f;
+        public const float V5BodySaveReward = 0.5f;
         public const float MaximumVisibleTimeToGoalPlane = 1.5f;
 
         public static float TrainingReward(
@@ -68,7 +74,12 @@ namespace PenaltyShootout.Kernel
                 return GoalkeeperTrainingContracts.SparseReward(result.Outcome);
             }
 
-            if (reachTrainingVersion >= 4)
+            if (reachTrainingVersion >= 5)
+            {
+                return TrainingRewardV5(result);
+            }
+
+            if (reachTrainingVersion == 4)
             {
                 return TrainingRewardV4(result);
             }
@@ -456,7 +467,13 @@ namespace PenaltyShootout.Kernel
                 return;
             }
 
-            if (reachTrainingVersion >= 4)
+            if (reachTrainingVersion >= 5)
+            {
+                ApplyReachFocusLessonV5(shots, lesson);
+                return;
+            }
+
+            if (reachTrainingVersion == 4)
             {
                 ApplyReachFocusLessonV4(shots, lesson);
                 return;
@@ -648,6 +665,32 @@ namespace PenaltyShootout.Kernel
             return reward;
         }
 
+        private static float TrainingRewardV5(AttemptResult result)
+        {
+            if (result.Outcome == AttemptOutcome.Goal)
+            {
+                return GoalReward;
+            }
+
+            if (!IsSave(result.Outcome))
+            {
+                return 0f;
+            }
+
+            switch (result.FirstGoalkeeperContactPart)
+            {
+                case GoalkeeperContactPart.LeftGlove:
+                case GoalkeeperContactPart.RightGlove:
+                    return V5GloveFirstSaveReward;
+                case GoalkeeperContactPart.Arm:
+                    return V5ArmSaveReward;
+                default:
+                    return result.GloveContact
+                        ? V5GloveSaveReward
+                        : V5BodySaveReward;
+            }
+        }
+
         private static GoalkeeperControlCommand ApplyScaffoldV2(
             GoalkeeperControlCommand command,
             GoalkeeperControlDecisionContext context,
@@ -836,6 +879,32 @@ namespace PenaltyShootout.Kernel
                     break;
                 default:
                     SetFocus(shots, 0.35f, 0.45f, 0.95f, 0.02f, 0.98f);
+                    break;
+            }
+        }
+
+        private static void ApplyReachFocusLessonV5(
+            ShotDistributionConfig shots,
+            int lesson)
+        {
+            shots.ReachFocusBalancedHeightBands = true;
+            switch (Mathf.Clamp(lesson, 0, 4))
+            {
+                case 0:
+                    SetFocus(shots, 0f, 0.25f, 0.55f, 0.12f, 0.88f);
+                    break;
+                case 1:
+                    SetFocus(shots, 0.20f, 0.30f, 0.70f, 0.08f, 0.92f);
+                    break;
+                case 2:
+                    SetFocus(shots, 0.30f, 0.35f, 0.85f, 0.04f, 0.96f);
+                    break;
+                case 3:
+                    SetFocus(shots, 0.15f, 0.40f, 0.95f, 0.02f, 0.98f);
+                    break;
+                default:
+                    shots.ReachFocusBalancedHeightBands = false;
+                    SetFocus(shots, 0f, 0.45f, 0.95f, 0.02f, 0.98f);
                     break;
             }
         }

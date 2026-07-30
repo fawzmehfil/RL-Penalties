@@ -1,6 +1,7 @@
 using PenaltyShootout.Kernel;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
+using Unity.MLAgents.Policies;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
 
@@ -8,7 +9,8 @@ namespace PenaltyShootout.MLAgents
 {
     public sealed class GoalkeeperControlAgent :
         Agent,
-        IGoalkeeperControlSourceV1
+        IGoalkeeperControlSourceV1,
+        IGoalkeeperDeferredControlSourceV2
     {
         [SerializeField]
         private PenaltyAreaController controller;
@@ -44,11 +46,29 @@ namespace PenaltyShootout.MLAgents
         private float firstCommitReachShortfall;
         private float attemptDecisionShapingReward;
         private int attemptPolicyActionOverrideCount;
+        private bool policyDecisionOutstanding;
+        private GoalkeeperControlDecisionContext requestedDecisionContext;
+        private int policyDecisionRequestCount;
+        private int policyDecisionConsumedCount;
+        private int policyDecisionDiscardedCount;
+        private int policyDecisionDuplicateRequestCount;
+        private int policyDecisionMissingActionCount;
 
         public PenaltyAreaController Controller
         {
             get => controller;
             set => controller = value;
+        }
+
+        public bool UsesDeferredDecisionScheduling
+        {
+            get
+            {
+                var behavior = GetComponent<BehaviorParameters>();
+                return behavior != null &&
+                    behavior.BehaviorName ==
+                    KernelConstants.GoalkeeperControlV2BehaviorName;
+            }
         }
 
         private new void Awake()
@@ -103,14 +123,26 @@ namespace PenaltyShootout.MLAgents
             heuristicAimX = 0f;
             heuristicAimY = 0f;
             ResetAttemptTrainingTelemetry();
-            RequestDecision();
+            if (!UsesDeferredDecisionScheduling)
+            {
+                RequestDecision();
+            }
         }
 
         public override void CollectObservations(VectorSensor sensor)
         {
-            GoalkeeperTrainingContracts.WriteControlStateV1(
-                controller,
-                sensor.AddObservation);
+            if (UsesDeferredDecisionScheduling)
+            {
+                GoalkeeperTrainingContracts.WriteControlStateV2(
+                    controller,
+                    sensor.AddObservation);
+            }
+            else
+            {
+                GoalkeeperTrainingContracts.WriteControlStateV1(
+                    controller,
+                    sensor.AddObservation);
+            }
         }
 
         public override void OnActionReceived(ActionBuffers actions)
@@ -132,6 +164,56 @@ namespace PenaltyShootout.MLAgents
                 currentMask.CanCommit;
             pendingCommand = command.Sanitized(out _);
             hasPendingCommand = true;
+        }
+
+        public void RequestControlDecision(
+            GoalkeeperControlDecisionContext context,
+            GoalkeeperControlActionMask actionMask)
+        {
+            if (!UsesDeferredDecisionScheduling)
+            {
+                return;
+            }
+
+            if (policyDecisionOutstanding)
+            {
+                policyDecisionDuplicateRequestCount++;
+                return;
+            }
+
+            currentMask =
+                GoalkeeperControlTrainingContracts.ApplyCommitGuard(
+                    actionMask,
+                    context,
+                    reachTrainingEnabled,
+                    reachTrainingVersion,
+                    stage5Lesson);
+            requestedDecisionContext = context;
+            pendingCommand = GoalkeeperControlCommand.Neutral;
+            hasPendingCommand = false;
+            policyDecisionOutstanding = true;
+            policyDecisionRequestCount++;
+            RequestDecision();
+        }
+
+        public GoalkeeperControlCommand ConsumeControlDecision(
+            GoalkeeperControlDecisionContext context,
+            GoalkeeperControlActionMask actionMask)
+        {
+            if (!UsesDeferredDecisionScheduling)
+            {
+                return DecideControl(context, actionMask);
+            }
+
+            policyDecisionConsumedCount++;
+            if (!policyDecisionOutstanding || !hasPendingCommand)
+            {
+                policyDecisionMissingActionCount++;
+            }
+
+            policyDecisionOutstanding = false;
+            var decisionContext = requestedDecisionContext;
+            return DecideControl(decisionContext, actionMask);
         }
 
         public override void WriteDiscreteActionMask(
@@ -238,7 +320,7 @@ namespace PenaltyShootout.MLAgents
             var acceptedCommit = result.Commit && currentMask.CanCommit;
             var usesPolicyFaithfulTraining =
                 reachTrainingEnabled &&
-                reachTrainingVersion >= 4;
+                reachTrainingVersion == 4;
             var decisionCredit = usesPolicyFaithfulMetrics
                 ? GoalkeeperControlTrainingContracts
                     .EvaluateDecisionCreditV4(
@@ -296,7 +378,10 @@ namespace PenaltyShootout.MLAgents
             }
 
             hasPendingCommand = false;
-            RequestDecision();
+            if (!UsesDeferredDecisionScheduling)
+            {
+                RequestDecision();
+            }
             return result;
         }
 
@@ -351,6 +436,23 @@ namespace PenaltyShootout.MLAgents
                 attemptDecisionShapingReward;
             result.PolicyActionOverrideCount =
                 attemptPolicyActionOverrideCount;
+            if (policyDecisionOutstanding)
+            {
+                policyDecisionDiscardedCount++;
+                policyDecisionOutstanding = false;
+                hasPendingCommand = false;
+            }
+
+            result.PolicyDecisionRequestCount =
+                policyDecisionRequestCount;
+            result.PolicyDecisionConsumedCount =
+                policyDecisionConsumedCount;
+            result.PolicyDecisionDiscardedCount =
+                policyDecisionDiscardedCount;
+            result.PolicyDecisionDuplicateRequestCount =
+                policyDecisionDuplicateRequestCount;
+            result.PolicyDecisionMissingActionCount =
+                policyDecisionMissingActionCount;
             var sparseReward =
                 GoalkeeperTrainingContracts.SparseReward(result.Outcome);
             var trainingReward =
@@ -363,7 +465,9 @@ namespace PenaltyShootout.MLAgents
             GoalkeeperBenchmarkTelemetry.Emit(
                 result,
                 sparseReward,
-                KernelConstants.GoalkeeperControlObservationSpecId);
+                UsesDeferredDecisionScheduling
+                    ? KernelConstants.GoalkeeperControlV2ObservationSpecId
+                    : KernelConstants.GoalkeeperControlObservationSpecId);
             EndEpisode();
         }
 
@@ -390,7 +494,7 @@ namespace PenaltyShootout.MLAgents
                         "stage5.metrics_version",
                         3f)),
                 3,
-                4);
+                5);
             reachTrainingVersion = reachTrainingEnabled
                 ? Mathf.Clamp(
                     Mathf.RoundToInt(
@@ -398,7 +502,7 @@ namespace PenaltyShootout.MLAgents
                             "stage5.reach_training_version",
                             1f)),
                     1,
-                    4)
+                    5)
                 : 0;
             var shots = controller.ShotConfiguration;
             ApplyLessonDefaults(shots, stage5Lesson);
@@ -679,6 +783,21 @@ namespace PenaltyShootout.MLAgents
             stats.Add("Stage5/SparseReward", sparseReward);
             stats.Add("Stage5/TrainingReward", trainingReward);
             stats.Add("Stage5/Lesson", stage5Lesson);
+            stats.Add(
+                "Stage5/PolicyDecisionRequests",
+                result.PolicyDecisionRequestCount);
+            stats.Add(
+                "Stage5/PolicyDecisionConsumed",
+                result.PolicyDecisionConsumedCount);
+            stats.Add(
+                "Stage5/PolicyDecisionDiscarded",
+                result.PolicyDecisionDiscardedCount);
+            stats.Add(
+                "Stage5/PolicyDecisionDuplicateRequests",
+                result.PolicyDecisionDuplicateRequestCount);
+            stats.Add(
+                "Stage5/PolicyDecisionMissingActions",
+                result.PolicyDecisionMissingActionCount);
         }
 
         private void ResetAttemptTrainingTelemetry()
@@ -702,6 +821,13 @@ namespace PenaltyShootout.MLAgents
             firstCommitReachShortfall = 0f;
             attemptDecisionShapingReward = 0f;
             attemptPolicyActionOverrideCount = 0;
+            policyDecisionOutstanding = false;
+            requestedDecisionContext = default;
+            policyDecisionRequestCount = 0;
+            policyDecisionConsumedCount = 0;
+            policyDecisionDiscardedCount = 0;
+            policyDecisionDuplicateRequestCount = 0;
+            policyDecisionMissingActionCount = 0;
         }
     }
 }

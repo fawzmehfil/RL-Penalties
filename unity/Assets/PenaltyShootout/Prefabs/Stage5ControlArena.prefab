@@ -2005,7 +2005,6 @@ GameObject:
   - component: {fileID: 2603570053216968627}
   - component: {fileID: 8269851551454084174}
   - component: {fileID: 919584473989523736}
-  - component: {fileID: 2943261932174215227}
   m_Layer: 0
   m_Name: GoalkeeperControlAgent
   m_TagString: Untagged
@@ -2041,7 +2040,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier:
   m_BrainParameters:
-    VectorObservationSize: 32
+    VectorObservationSize: 35
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 4
@@ -2053,7 +2052,7 @@ MonoBehaviour:
   m_Model: {fileID: 0}
   m_InferenceDevice: 0
   m_BehaviorType: 1
-  m_BehaviorName: GoalkeeperControl-v1
+  m_BehaviorName: GoalkeeperControl-v2
   TeamId: 0
   m_UseChildSensors: 1
   m_UseChildActuators: 1
@@ -2076,21 +2075,6 @@ MonoBehaviour:
   hasUpgradedFromAgentParameters: 1
   MaxStep: 0
   controller: {fileID: 3822235362379611057}
---- !u!114 &2943261932174215227
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6920735711125522900}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3a5c9d521e5ef4759a8246a07d52221e, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  DecisionPeriod: 2
-  DecisionStep: 0
-  TakeActionsBetweenDecisions: 0
 --- !u!1 &7527199597756995609
 GameObject:
   m_ObjectHideFlags: 0

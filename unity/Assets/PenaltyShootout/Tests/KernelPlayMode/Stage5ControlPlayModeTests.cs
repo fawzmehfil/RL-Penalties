@@ -19,9 +19,9 @@ namespace PenaltyShootout.Kernel.Tests
             public int stage = 5;
             public string status;
             public string behavior_name =
-                KernelConstants.GoalkeeperControlBehaviorName;
+                KernelConstants.GoalkeeperControlV2BehaviorName;
             public string observation_spec_id =
-                KernelConstants.GoalkeeperControlObservationSpecId;
+                KernelConstants.GoalkeeperControlV2ObservationSpecId;
             public string action_spec_id =
                 KernelConstants.GoalkeeperControlActionSpecId;
             public string motor_profile_id =
@@ -102,17 +102,22 @@ namespace PenaltyShootout.Kernel.Tests
                     new[] { 2f, 3f, 2.5f, 4f },
                 ControlSaturationCounts =
                     new[] { 0, 1, 0, 2 },
+                PolicyDecisionRequestCount = 6,
+                PolicyDecisionConsumedCount = 5,
+                PolicyDecisionDiscardedCount = 1,
+                PolicyDecisionDuplicateRequestCount = 0,
+                PolicyDecisionMissingActionCount = 0,
             };
             var json = GoalkeeperBenchmarkTelemetry.CreateJson(
                 result,
                 1f,
-                KernelConstants.GoalkeeperControlObservationSpecId);
+                KernelConstants.GoalkeeperControlV2ObservationSpecId);
 
             StringAssert.Contains(
-                "\"behavior_name\":\"GoalkeeperControl-v1\"",
+                "\"behavior_name\":\"GoalkeeperControl-v2\"",
                 json);
             StringAssert.Contains(
-                "\"observation_spec_id\":\"control-state-v1\"",
+                "\"observation_spec_id\":\"control-state-v2\"",
                 json);
             StringAssert.Contains(
                 "\"action_spec_id\":\"goalkeeper-hybrid-v1\"",
@@ -162,6 +167,15 @@ namespace PenaltyShootout.Kernel.Tests
                 "\"accepted_control_decision_count\":5",
                 json);
             StringAssert.Contains("\"control_saturation_counts\":[0,1,0,2]", json);
+            StringAssert.Contains(
+                "\"policy_decision_request_count\":6",
+                json);
+            StringAssert.Contains(
+                "\"policy_decision_consumed_count\":5",
+                json);
+            StringAssert.Contains(
+                "\"policy_decision_discarded_count\":1",
+                json);
         }
 
         [UnityTest]
@@ -199,16 +213,48 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(behavior, Is.Not.Null);
             Assert.That(
                 behavior.BehaviorName,
-                Is.EqualTo(KernelConstants.GoalkeeperControlBehaviorName));
+                Is.EqualTo(
+                    KernelConstants.GoalkeeperControlV2BehaviorName));
             Assert.That(
                 behavior.BrainParameters.VectorObservationSize,
-                Is.EqualTo(KernelConstants.GoalkeeperControlObservationSize));
+                Is.EqualTo(
+                    KernelConstants.GoalkeeperControlV2ObservationSize));
             Assert.That(
                 behavior.BrainParameters.ActionSpec.NumContinuousActions,
                 Is.EqualTo(4));
             Assert.That(
                 behavior.BrainParameters.ActionSpec.BranchSizes,
                 Is.EqualTo(new[] { 2 }));
+            Assert.That(
+                agent.GetComponent<Unity.MLAgents.DecisionRequester>(),
+                Is.Null);
+
+            var waitFrames = 0;
+            while (template.LastResult == null && waitFrames < 300)
+            {
+                waitFrames++;
+                yield return new WaitForFixedUpdate();
+            }
+
+            Assert.That(template.LastResult, Is.Not.Null);
+            var lifecycle = template.LastResult;
+            Assert.That(
+                lifecycle.PolicyDecisionRequestCount,
+                Is.EqualTo(
+                    lifecycle.PolicyDecisionConsumedCount +
+                    lifecycle.PolicyDecisionDiscardedCount));
+            Assert.That(
+                lifecycle.PolicyDecisionConsumedCount,
+                Is.EqualTo(lifecycle.AcceptedControlDecisionCount));
+            Assert.That(
+                lifecycle.PolicyDecisionDuplicateRequestCount,
+                Is.Zero);
+            Assert.That(
+                lifecycle.PolicyDecisionMissingActionCount,
+                Is.Zero);
+            Assert.That(
+                lifecycle.PolicyDecisionDiscardedCount,
+                Is.LessThanOrEqualTo(1));
 
             const int attemptsPerPolicy = 32;
             var report = new MotorValidationReport

@@ -1,12 +1,12 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "stage": 5,
-  "status": "reach-v4-policy-faithful-diagnostic-ready",
-  "behavior_name": "GoalkeeperControl-v1",
-  "observation_spec_id": "control-state-v1",
+  "status": "control-v2-diagnostic-failed",
+  "behavior_name": "GoalkeeperControl-v2",
+  "observation_spec_id": "control-state-v2",
   "action_spec_id": "goalkeeper-hybrid-v1",
   "motor_profile_id": "keeper-control-v1",
-  "trainer_config": "configs/training/goalkeeper-control-v1-ppo.yaml",
+  "trainer_config": "configs/training/goalkeeper-control-v2-ppo-diagnostic.yaml",
   "training_runs": [
     {
       "run_id": "gk-control-v1_ppo_seed-001",
@@ -70,15 +70,54 @@
       "first_commit_aim_error_m": 0.83769,
       "immediate_commit_rate": 1.0,
       "passed": false
+    },
+    {
+      "run_id": "gk-control-v1_reach-v4-policy-faithful_seed-001",
+      "seed": 1,
+      "steps": 1000000,
+      "training_reward_spec_id": "goalkeeper-control-training-reach-v4",
+      "evaluation_run_id": "gk-control-v1_reach-v4-policy-faithful_seed-001-checkpoint-screen-400",
+      "evaluation_attempts_per_checkpoint": 400,
+      "best_checkpoint": "GoalkeeperControl-v1-1000022.onnx",
+      "best_checkpoint_steps": 1000022,
+      "save_rate": 0.1075,
+      "glove_contact_rate": 0.11,
+      "high_shot_save_rate": 0.021739130434782608,
+      "peak_reach_extension_mean": 0.6750029182434082,
+      "invalid_rate": 0.0,
+      "timeout_rate": 0.0,
+      "action_mask_violations": 0,
+      "passed": false
+    },
+    {
+      "run_id": "gk-control-v2-lifecycle-ballistics_seed-001",
+      "seed": 1,
+      "steps": 250000,
+      "training_reward_spec_id": "goalkeeper-control-result-v2",
+      "evaluation_run_id": "gk-control-v2-lifecycle-ballistics_seed-001-checkpoint-screen-400",
+      "evaluation_attempts_per_checkpoint": 400,
+      "best_checkpoint": "GoalkeeperControl-v2-149997.onnx",
+      "best_checkpoint_steps": 149997,
+      "save_rate": 0.0575,
+      "glove_contact_rate": 0.0425,
+      "glove_save_rate": 0.02,
+      "high_shot_save_rate": 0.014492753623188406,
+      "commit_rate": 0.0,
+      "peak_reach_extension_mean": 0.0,
+      "invalid_rate": 0.0,
+      "timeout_rate": 0.0,
+      "action_mask_violations": 0,
+      "decision_lifecycle_passed": true,
+      "passed": false
     }
   ],
-  "reach_correction": {
-    "reward_spec_id": "goalkeeper-control-training-reach-v4",
-    "diagnostic_config": "configs/training/goalkeeper-control-v1-ppo-reach-v4-diagnostic.yaml",
-    "full_config": "configs/training/goalkeeper-control-v1-ppo-reach-v4.yaml",
-    "handoff_script": "scripts/run_stage5_reach_v4_diagnostic.sh",
-    "diagnostic_steps": 1000000,
-    "status": "implementation-ready"
+  "control_v2_remediation": {
+    "reward_spec_id": "goalkeeper-control-result-v2",
+    "diagnostic_config": "configs/training/goalkeeper-control-v2-ppo-diagnostic.yaml",
+    "full_config": "configs/training/goalkeeper-control-v2-ppo.yaml",
+    "handoff_script": "scripts/run_stage5_control_v2_diagnostic.sh",
+    "diagnostic_steps": 250000,
+    "status": "diagnostic-completed-failed"
   },
   "selected_checkpoint": null
 }
