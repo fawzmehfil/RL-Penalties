@@ -146,6 +146,20 @@ def test_stage5_imitation_benchmark_uses_strict_gate_profile() -> None:
     assert config.discrete_branches == (2,)
 
 
+def test_stage5_bc_handoff_uses_collision_checked_evaluation_helper() -> None:
+    handoff = (
+        ROOT / "scripts" / "run_stage5_control_v2_bc_handoff.sh"
+    ).read_text(encoding="utf-8")
+    evaluator = (
+        ROOT / "scripts" / "run_stage5_control_v2_bc_evaluation.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "run_stage5_control_v2_bc_evaluation.sh" in handoff
+    assert 'STAGE5_EVAL_WORKER_ID_START:-1200' in evaluator
+    assert 'sock.bind(("127.0.0.1", port))' in evaluator
+    assert "--worker-id-start \"$WORKER_ID_START\"" in evaluator
+
+
 def test_stage5_imitation_gate_rejects_deterministic_no_commit_policy() -> None:
     policy = {
         "attempts": 100,

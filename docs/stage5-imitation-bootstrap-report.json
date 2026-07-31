@@ -103,5 +103,6 @@
     "requires_exact_decision_lifecycle": true,
     "requires_zero_safety_violations": true
   },
-  "handoff_script": "scripts/run_stage5_control_v2_bc_handoff.sh"
+  "handoff_script": "scripts/run_stage5_control_v2_bc_handoff.sh",
+  "evaluation_script": "scripts/run_stage5_control_v2_bc_evaluation.sh"
 }

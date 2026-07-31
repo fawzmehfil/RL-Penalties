@@ -903,6 +903,17 @@ Run the full record, validate, train, and checkpoint-screen handoff with:
 scripts/run_stage5_control_v2_bc_handoff.sh 1
 ```
 
+If recording and training complete but checkpoint screening is interrupted,
+resume only the fixed 400-shot evaluation with:
+
+```bash
+scripts/run_stage5_control_v2_bc_evaluation.sh 1
+```
+
+The evaluator preflights a dedicated worker-port range before launching Unity.
+Override it with `STAGE5_EVAL_WORKER_ID_START` only when another local service
+uses that range.
+
 The unattended handoff requires at least 20 GiB free at launch. During
 demonstration recording it aborts on a disk-full error, below 5 GiB free, or
 45 minutes without `.demo` file growth, leaving partial output intact for
