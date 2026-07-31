@@ -897,6 +897,11 @@ Run the full record, validate, train, and checkpoint-screen handoff with:
 scripts/run_stage5_control_v2_bc_handoff.sh 1
 ```
 
+The unattended handoff requires at least 20 GiB free at launch. During
+demonstration recording it aborts on a disk-full error, below 5 GiB free, or
+45 minutes without `.demo` file growth, leaving partial output intact for
+inspection rather than silently continuing.
+
 Raw `.demo` files, checkpoints, and evaluation CSVs remain ignored under
 `results/`. If the diagnostic passes, the next promotion run trains three
 2-million-step seeds using

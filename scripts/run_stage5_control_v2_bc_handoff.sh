@@ -24,6 +24,22 @@ EVALUATION_RUN_ID="${RUN_ID}-checkpoint-screen-400"
 TRAINING_DIR="$PROJECT_ROOT/results/$RUN_ID"
 EVALUATION_DIR="$PROJECT_ROOT/results/evaluations/$EVALUATION_RUN_ID"
 NO_BC_CHECKPOINT="$PROJECT_ROOT/results/gk-control-v2-lifecycle-ballistics_seed-001/GoalkeeperControl-v2/GoalkeeperControl-v2-149997.onnx"
+MIN_START_FREE_KB=$((20 * 1024 * 1024))
+MIN_RUNTIME_FREE_KB=$((5 * 1024 * 1024))
+DEMO_STALL_TIMEOUT_SECONDS=$((45 * 60))
+DEMO_POLL_SECONDS=30
+
+available_disk_kb() {
+  df -Pk "$PROJECT_ROOT" | awk 'NR == 2 { print $4 }'
+}
+
+demo_size_kb() {
+  if [[ -d "$DEMO_DIR" ]]; then
+    du -sk "$DEMO_DIR" 2>/dev/null | awk '{ print $1 }'
+  else
+    printf '0\n'
+  fi
+}
 
 test -x .venv/bin/mlagents-learn ||
   fail "Run scripts/setup_python.sh first"
@@ -42,16 +58,78 @@ pgrep -f \
   >/dev/null &&
   fail "Another Stage 5 recording, training, or evaluation process is running"
 
+FREE_KB="$(available_disk_kb)"
+[[ "$FREE_KB" =~ ^[0-9]+$ ]] ||
+  fail "Could not determine available disk space"
+if (( FREE_KB < MIN_START_FREE_KB )); then
+  fail "At least 20 GiB free is required before the unattended handoff"
+fi
+
 mkdir -p "$PROJECT_ROOT/results/demonstrations"
 if [[ ! -e "$DEMO_DIR" ]]; then
   echo "Recording the canonical 20,000-attempt reactive demonstration set"
+  if [[ -e "$DEMO_LOG" ]]; then
+    mv "$DEMO_LOG" "$DEMO_LOG.previous-$(date +%Y%m%d-%H%M%S)"
+  fi
+
   "$DEMO_BUILD/Contents/MacOS/Penalty Shootout RL" \
     -batchmode \
     -nographics \
     "--stage5-demo-output=$DEMO_DIR" \
     --stage5-demo-attempts-per-arena=1250 \
     --stage5-demo-master-seed=20260723 \
-    -logFile "$DEMO_LOG"
+    -logFile "$DEMO_LOG" &
+  DEMO_PID=$!
+  LAST_DEMO_SIZE_KB=0
+  LAST_DEMO_PROGRESS_AT="$(date +%s)"
+
+  stop_demo_recorder() {
+    if kill -0 "$DEMO_PID" 2>/dev/null; then
+      kill "$DEMO_PID" 2>/dev/null || true
+    fi
+    wait "$DEMO_PID" 2>/dev/null || true
+  }
+
+  abort_demo_recorder() {
+    local reason="$1"
+    stop_demo_recorder
+    fail "$reason Partial output remains at $DEMO_DIR"
+  }
+
+  trap stop_demo_recorder EXIT
+  trap 'abort_demo_recorder "Demonstration recording interrupted."' INT TERM
+
+  while kill -0 "$DEMO_PID" 2>/dev/null; do
+    sleep "$DEMO_POLL_SECONDS"
+
+    if [[ -f "$DEMO_LOG" ]] &&
+      grep -q "IOException: Disk full" "$DEMO_LOG"; then
+      abort_demo_recorder "Demonstration recording exhausted disk space."
+    fi
+
+    FREE_KB="$(available_disk_kb)"
+    [[ "$FREE_KB" =~ ^[0-9]+$ ]] ||
+      abort_demo_recorder "Could not monitor available disk space."
+    if (( FREE_KB < MIN_RUNTIME_FREE_KB )); then
+      abort_demo_recorder \
+        "Demonstration recording stopped below 5 GiB free space."
+    fi
+
+    CURRENT_DEMO_SIZE_KB="$(demo_size_kb)"
+    NOW="$(date +%s)"
+    if (( CURRENT_DEMO_SIZE_KB > LAST_DEMO_SIZE_KB )); then
+      LAST_DEMO_SIZE_KB="$CURRENT_DEMO_SIZE_KB"
+      LAST_DEMO_PROGRESS_AT="$NOW"
+    elif (( NOW - LAST_DEMO_PROGRESS_AT >= DEMO_STALL_TIMEOUT_SECONDS )); then
+      abort_demo_recorder \
+        "Demonstration files did not grow for 45 minutes."
+    fi
+  done
+
+  if ! wait "$DEMO_PID"; then
+    fail "Demonstration build exited unsuccessfully. See $DEMO_LOG"
+  fi
+  trap - EXIT INT TERM
 else
   echo "Reusing existing demonstration directory after strict validation"
 fi
