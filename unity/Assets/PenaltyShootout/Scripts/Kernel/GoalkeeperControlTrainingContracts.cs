@@ -353,6 +353,14 @@ namespace PenaltyShootout.Kernel
                 context.VisibleTimeToGoalPlane <= maximumTimeToPlane);
         }
 
+        public static GoalkeeperControlActionMask ApplySingleCommitLimit(
+            GoalkeeperControlActionMask actionMask,
+            bool hasCommitted)
+        {
+            return new GoalkeeperControlActionMask(
+                actionMask.CanCommit && !hasCommitted);
+        }
+
         public static GoalkeeperControlCommand ApplyScaffold(
             GoalkeeperControlCommand command,
             GoalkeeperControlDecisionContext context,

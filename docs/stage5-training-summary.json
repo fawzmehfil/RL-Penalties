@@ -129,6 +129,8 @@
     "diagnostic_steps": 500000,
     "behavioral_cloning_steps": 300000,
     "handoff_script": "scripts/run_stage5_control_v2_bc_handoff.sh",
+    "maximum_accepted_commits_per_attempt": 1,
+    "stored_action_alignment": "preceding-decision-observation-and-mask",
     "status": "implementation-verified-demonstration-and-training-pending"
   },
   "selected_checkpoint": null

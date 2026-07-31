@@ -1204,6 +1204,29 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void Stage5ControlAllowsOnlyOneCommitPerAttempt()
+        {
+            var available = new GoalkeeperControlActionMask(true);
+            var unavailable = new GoalkeeperControlActionMask(false);
+
+            Assert.That(
+                GoalkeeperControlTrainingContracts
+                    .ApplySingleCommitLimit(available, false)
+                    .CanCommit,
+                Is.True);
+            Assert.That(
+                GoalkeeperControlTrainingContracts
+                    .ApplySingleCommitLimit(available, true)
+                    .CanCommit,
+                Is.False);
+            Assert.That(
+                GoalkeeperControlTrainingContracts
+                    .ApplySingleCommitLimit(unavailable, false)
+                    .CanCommit,
+                Is.False);
+        }
+
+        [Test]
         public void Stage5ReachV4DecisionCreditTeachesTimingAimAndReach()
         {
             var prediction = new Vector2(0.8f, 0.9f);

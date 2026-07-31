@@ -344,7 +344,10 @@ namespace PenaltyShootout.Kernel
                 ? Vector3.zero
                 : goalkeeperControlMotor.RightGloveArenaLocal;
         public bool GoalkeeperControlCanCommit =>
-            goalkeeperControlMotor != null && goalkeeperControlMotor.CanCommit;
+            goalkeeperControlMotor != null &&
+            GoalkeeperControlTrainingContracts.ApplySingleCommitLimit(
+                goalkeeperControlMotor.GetActionMask(),
+                hasSaveCommitment).CanCommit;
 
         private void Awake()
         {
@@ -933,14 +936,20 @@ namespace PenaltyShootout.Kernel
             }
 
             var context = CreateControlDecisionContext();
-            var mask = goalkeeperControlMotor.GetActionMask();
+            var mask = GoalkeeperControlTrainingContracts
+                .ApplySingleCommitLimit(
+                    goalkeeperControlMotor.GetActionMask(),
+                    hasSaveCommitment);
             resolvedDeferredControlSource.RequestControlDecision(context, mask);
         }
 
         private void RequestControlAction(bool consumeDeferred = false)
         {
             var context = CreateControlDecisionContext();
-            var mask = goalkeeperControlMotor.GetActionMask();
+            var mask = GoalkeeperControlTrainingContracts
+                .ApplySingleCommitLimit(
+                    goalkeeperControlMotor.GetActionMask(),
+                    hasSaveCommitment);
             GoalkeeperControlCommand requested;
             if (consumeDeferred && UsesDeferredControlScheduling)
             {

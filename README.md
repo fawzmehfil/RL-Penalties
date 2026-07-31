@@ -859,12 +859,18 @@ The versioned demonstration contract is
 - Zero invalids, timeouts, off-target outcomes, action-mask violations,
   command clamps, duplicate decision requests, or missing policy actions.
 
+After the first accepted commit, the commit branch remains masked until the
+next attempt. This prevents a recovered goalkeeper from performing an
+unrealistic second dive against the same shot.
+
 The inspector loads the actual ML-Agents `.demo` files, checks the `[[35]]`,
 continuous `4`, branch `[2]` behavior spec, validates all episode/action
 constraints, and writes hashes and dataset metrics to the ignored
 `results/demonstrations/.../manifest.json`. Existing data is reused only after
 strict validation; partial or invalid output fails without being deleted or
-overwritten.
+overwritten. ML-Agents records an executed action with the following
+observation, so action legality is checked against the preceding decision's
+observation and action mask.
 
 The 500,000-step diagnostic uses behavioral cloning at strength `0.5` for
 300,000 steps, with PPO becoming dominant for the final 200,000 steps.

@@ -204,6 +204,7 @@ def test_stage5_demo_pair_inspection_enforces_one_legal_commit() -> None:
         observation[29] = can_commit
         info = SimpleNamespace(
             done=done,
+            action_mask=[False, not bool(can_commit)],
             observations=[
                 SimpleNamespace(
                     float_data=SimpleNamespace(data=observation)
@@ -217,10 +218,11 @@ def test_stage5_demo_pair_inspection_enforces_one_legal_commit() -> None:
         return SimpleNamespace(agent_info=info, action_info=action)
 
     valid_pairs = [
-        pair(done=False),
-        pair(done=False, commit=1),
+        pair(done=False, can_commit=1.0),
+        pair(done=False, commit=1, can_commit=0.0),
         pair(done=True),
-        pair(done=False, commit=1),
+        pair(done=False, can_commit=1.0),
+        pair(done=False, commit=1, can_commit=0.0),
         pair(done=True),
     ]
     valid = _inspect_pairs(valid_pairs, 4, 1)
@@ -230,8 +232,9 @@ def test_stage5_demo_pair_inspection_enforces_one_legal_commit() -> None:
     assert valid["illegal_commit_count"] == 0
 
     invalid_pairs = [
+        pair(done=False, can_commit=0.0),
+        pair(done=False, commit=1, can_commit=1.0),
         pair(done=False, commit=1, can_commit=0.0),
-        pair(done=False, commit=1),
         pair(done=True),
     ]
     invalid = _inspect_pairs(invalid_pairs, 4, 1)

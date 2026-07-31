@@ -40,11 +40,12 @@
       "future generator impact",
       "outcome"
     ],
-    "reference_400_shot_metrics": {
+    "pre_single_commit_reference_400_shot_metrics": {
       "save_rate": 0.5725,
       "glove_contact_rate": 0.735,
       "high_shot_save_rate": 0.7028985507246377
-    }
+    },
+    "single_commit_reference_status": "pending-demonstration-rerun"
   },
   "demonstration": {
     "contract_id": "goalkeeper-control-v2-reactive-demo-v1",
@@ -54,6 +55,12 @@
     "master_seed": 20260723,
     "output": "results/demonstrations/goalkeeper-control-v2-reactive-demo-v1-20k",
     "status": "pending"
+  },
+  "recording_contract": {
+    "maximum_accepted_commits_per_attempt": 1,
+    "commit_mask_latched_after_first_acceptance": true,
+    "stored_action_alignment": "preceding-decision-observation-and-mask",
+    "status": "remediation-verified-rerecording-pending"
   },
   "diagnostic": {
     "trainer_config": "configs/training/goalkeeper-control-v2-bc-diagnostic.yaml",
@@ -66,7 +73,7 @@
   },
   "verification": {
     "unity_editmode": {
-      "passed": 66,
+      "passed": 67,
       "failed": 0
     },
     "unity_stage5_playmode": {

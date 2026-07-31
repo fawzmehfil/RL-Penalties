@@ -207,6 +207,8 @@ def validate_demonstrations(
         "observation_shapes": observation_shapes,
         "continuous_actions": continuous_actions,
         "discrete_branches": discrete_branches,
+        "stored_action_alignment":
+            "preceding-decision-observation-and-mask",
         "demonstration_files": file_entries,
         "metadata_steps": int(metadata_steps),
         "decision_steps": stats["decision_steps"],
@@ -253,6 +255,7 @@ def _inspect_pairs(
     illegal_commit_count = 0
     nonfinite_action_count = 0
     out_of_range_action_count = 0
+    previous_commit_allowed: bool | None = None
     for pair in pairs:
         info = pair.agent_info
         if bool(info.done):
@@ -260,6 +263,7 @@ def _inspect_pairs(
             if commits_in_episode != expected_commits_per_episode:
                 episodes_with_wrong_commit_count += 1
             commits_in_episode = 0
+            previous_commit_allowed = None
             continue
 
         continuous = list(pair.action_info.continuous_actions)
@@ -279,12 +283,9 @@ def _inspect_pairs(
         if commit == 1:
             commit_actions += 1
             commits_in_episode += 1
-            observation = _vector_observation(info)
-            if (
-                len(observation) <= CAN_COMMIT_OBSERVATION_INDEX
-                or observation[CAN_COMMIT_OBSERVATION_INDEX] < 0.5
-            ):
+            if previous_commit_allowed is not True:
                 illegal_commit_count += 1
+        previous_commit_allowed = _commit_allowed_for_observation(info)
 
     if commits_in_episode != 0:
         episodes_with_wrong_commit_count += 1
@@ -322,6 +323,18 @@ def _inspect_pairs(
         "out_of_range_action_count": out_of_range_action_count,
         "continuous_action_coverage": coverage,
     }
+
+
+def _commit_allowed_for_observation(info: Any) -> bool:
+    action_mask = list(getattr(info, "action_mask", ()))
+    if len(action_mask) >= 2:
+        return not bool(action_mask[1])
+
+    observation = _vector_observation(info)
+    return (
+        len(observation) > CAN_COMMIT_OBSERVATION_INDEX
+        and observation[CAN_COMMIT_OBSERVATION_INDEX] >= 0.5
+    )
 
 
 def _vector_observation(info: Any) -> list[float]:
