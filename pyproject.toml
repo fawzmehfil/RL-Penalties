@@ -12,6 +12,7 @@ dependencies = [
   "mlagents==1.1.0",
   "mlagents-envs==1.1.0",
   "numpy==1.23.5",
+  "onnx==1.15.0",
   "onnxruntime==1.15.1",
   "setuptools==80.9.0",
   "torch==2.1.2",

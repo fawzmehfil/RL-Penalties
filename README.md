@@ -920,11 +920,56 @@ demonstration recording it aborts on a disk-full error, below 5 GiB free, or
 inspection rather than silently continuing.
 
 Raw `.demo` files, checkpoints, and evaluation CSVs remain ignored under
-`results/`. If the diagnostic passes, the next promotion run trains three
-2-million-step seeds using
-`configs/training/goalkeeper-control-v2-bc-ppo.yaml`. If deterministic
-inactivity remains, training length is not increased; the next investigation
+`results/`. The diagnostic did not pass, so the three-seed 2-million-step
+promotion config remains unused. Training length is not increased; Stage 5.6
 separates movement/aim/reach learning from commit timing.
+
+### Stage 5.6 split supervision
+
+The completed Stage 5.5 diagnostic did remain deterministically inactive. Its
+best checkpoint saved 7.5% and committed on 0% of the fixed 400 shots, despite
+the teacher dataset passing at 55.04% saves, 74.03% glove contact, and 64.98%
+high-shot saves. The demonstrations contain 674,690 aligned decisions but only
+20,000 commits, so Stage 5.6 no longer asks one loss to learn the four
+continuous interception controls and the rare timing decision together.
+
+`goalkeeper-control-v2-split-supervision-v1` preserves the 35-float
+observation, four continuous actions, commit branch `[2]`, motor, arms,
+physics, reward, and canonical shot set. It trains two offline supervised
+models:
+
+- `goalkeeper-interception-v1` predicts movement, aim, and reach from
+  pre-commit demonstration rows.
+- `goalkeeper-commit-timing-v1` reads only commit availability, ball-flight
+  time, and visible time-to-plane and predicts wait versus commit.
+
+ML-Agents stores each executed action with the following observation. The
+extractor therefore shifts every action back to the preceding observation and
+mask, includes the final pre-terminal action, and splits complete episodes
+into exactly 16,000 training, 2,000 validation, and 2,000 test shots. The real
+dataset has 10,584 shots where the teacher commits on the first usable
+decision. Those shots have no same-episode wait; their balanced negative is
+selected deterministically from another legal wait in the same arena and
+split, and the manifest reports this fallback count.
+
+The first evaluation runs ONNX in Python while Unity executes the unchanged
+motor, arm IK, collisions, shots, and telemetry. It stops in order at:
+
+1. held-out offline gates for both models;
+2. a `16 x 4` Unity integration smoke test;
+3. 400 shots with learned interception and teacher timing;
+4. 400 shots with both learned models.
+
+Run the complete evidence-first handoff with the Unity editor closed:
+
+```bash
+scripts/run_stage5_split_supervision_handoff.sh 1
+```
+
+The command never starts PPO. Any failed gate writes available compact
+evidence and exits without retrying or increasing training length. A passing
+combined gate authorizes planning Stage 5.6B native inference and short PPO
+refinement; it does not launch that work automatically.
 
 ## Later milestones
 

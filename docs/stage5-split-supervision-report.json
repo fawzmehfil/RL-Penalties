@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "stage": 5.6,
+  "status": "implementation-verified-supervised-run-pending",
+  "supervision_contract_id": "goalkeeper-control-v2-split-supervision-v1",
+  "source_demonstration_contract_id": "goalkeeper-control-v2-reactive-demo-v1",
+  "behavior_name": "GoalkeeperControl-v2",
+  "observation_spec_id": "control-state-v2",
+  "action_spec_id": "goalkeeper-hybrid-v1",
+  "offline": null,
+  "smoke_unity_gate": null,
+  "interception_unity_gate": null,
+  "combined_unity_gate": null,
+  "implementation_verification": {
+    "real_demonstration_extraction": "passed",
+    "source_manifest_sha256": "b2ddce2ae4a0b9618e1319b26822d7d9a8de46f21a5bb054ed046e0bf75d388c",
+    "split_assignment_sha256": "29f69004236ca0f20f916d6a82a8ba1f5260e4b19f03fdf0542e737220301dc7",
+    "total_episodes": 20000,
+    "total_decision_rows": 674690,
+    "first_decision_commits": 10584,
+    "python_regressions": "74 passed",
+    "onnx_runtime_parity": "passed",
+    "shell_syntax": "passed"
+  },
+  "promotion": {
+    "authorized": false,
+    "next_step": "run scripts/run_stage5_split_supervision_handoff.sh 1"
+  }
+}

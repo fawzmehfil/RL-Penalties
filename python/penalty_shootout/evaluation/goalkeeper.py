@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import platform
@@ -396,6 +397,153 @@ class ReactiveReachV1Policy(HybridGoalkeeperPolicy):
             continuous[row] = command
             commit[row] = int(should_commit)
         return continuous, self._sanitize_commit(commit, action_mask)
+
+
+class SplitSupervisedPolicy(HybridGoalkeeperPolicy):
+    policy_type = "supervised"
+
+    def __init__(
+        self,
+        manifest_path: Path,
+        *,
+        teacher_timing: bool = False,
+    ) -> None:
+        import onnxruntime as ort
+
+        self.manifest_path = manifest_path.expanduser().resolve()
+        manifest = json.loads(
+            self.manifest_path.read_text(encoding="utf-8")
+        )
+        if manifest.get("status") != "passed":
+            raise RuntimeError(
+                f"split supervision manifest did not pass: {manifest_path}"
+            )
+        expected = {
+            "behavior_name": CONTROL_V2_BEHAVIOR_NAME,
+            "observation_spec_id": "control-state-v2",
+            "action_spec_id": "goalkeeper-hybrid-v1",
+        }
+        for key, value in expected.items():
+            if manifest.get(key) != value:
+                raise RuntimeError(
+                    f"split supervision {key} {manifest.get(key)!r} != "
+                    f"{value!r}"
+                )
+        models = manifest.get("models", {})
+        self._interception_path = self._validated_model_path(
+            models.get("interception", {}),
+        )
+        self._interception_session = ort.InferenceSession(
+            str(self._interception_path),
+            providers=["CPUExecutionProvider"],
+        )
+        self._teacher_timing = teacher_timing
+        self._timing_session = None
+        if not teacher_timing:
+            self._timing_path = self._validated_model_path(
+                models.get("timing", {}),
+            )
+            self._timing_session = ort.InferenceSession(
+                str(self._timing_path),
+                providers=["CPUExecutionProvider"],
+            )
+        threshold = float(manifest.get("commit_threshold", -1.0))
+        if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
+            raise RuntimeError("split supervision commit threshold is invalid")
+        self._commit_threshold = threshold
+        self._committed_agent_ids: set[int] = set()
+        policy_id = (
+            "interception_teacher_timing"
+            if teacher_timing
+            else "split_supervised"
+        )
+        self.name = f"{policy_id}:{self.manifest_path.parent.name}"
+
+    def _validated_model_path(self, entry: dict[str, Any]) -> Path:
+        relative = entry.get("path")
+        expected_hash = entry.get("sha256")
+        if not relative or not expected_hash:
+            raise RuntimeError("split supervision model entry is incomplete")
+        path = (self.manifest_path.parent / str(relative)).resolve()
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if digest != expected_hash:
+            raise RuntimeError(f"split supervision model hash changed: {path}")
+        return path
+
+    def reset(self) -> None:
+        self._committed_agent_ids.clear()
+
+    def reset_agents(self, agent_ids: np.ndarray) -> None:
+        for agent_id in np.asarray(agent_ids, dtype=np.int64).reshape(-1):
+            self._committed_agent_ids.discard(int(agent_id))
+
+    def hybrid_actions(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        observations = np.asarray(observations, dtype=np.float32)
+        continuous = np.asarray(
+            self._interception_session.run(
+                ["continuous_actions"],
+                {"obs_0": observations},
+            )[0],
+            dtype=np.float32,
+        )
+        continuous = np.clip(continuous, -1.0, 1.0).reshape(
+            len(observations),
+            CONTROL_CONTINUOUS_ACTIONS,
+        )
+        if self._teacher_timing:
+            candidates = np.asarray(
+                [
+                    reactive_reach_command_v1(observation)[1]
+                    for observation in observations
+                ],
+                dtype=bool,
+            )
+        else:
+            if self._timing_session is None:
+                raise RuntimeError("split timing session is unavailable")
+            logits = np.asarray(
+                self._timing_session.run(
+                    ["commit_logit"],
+                    {"obs_0": observations},
+                )[0],
+                dtype=np.float32,
+            ).reshape(-1)
+            probabilities = 1.0 / (
+                1.0 + np.exp(-np.clip(logits, -60.0, 60.0))
+            )
+            candidates = probabilities >= self._commit_threshold
+
+        normalized_ids = (
+            np.arange(len(observations), dtype=np.int64)
+            if agent_ids is None
+            else np.asarray(agent_ids, dtype=np.int64).reshape(-1)
+        )
+        if len(normalized_ids) != len(observations):
+            raise ValueError("split policy agent IDs do not match observations")
+        commits = np.zeros(len(observations), dtype=np.int32)
+        disabled = (
+            None
+            if action_mask is None
+            else np.asarray(action_mask, dtype=bool)
+        )
+        for row, agent_id_value in enumerate(normalized_ids):
+            agent_id = int(agent_id_value)
+            legal = disabled is None or not bool(disabled[row, 1])
+            if (
+                bool(candidates[row])
+                and legal
+                and agent_id not in self._committed_agent_ids
+            ):
+                commits[row] = 1
+                self._committed_agent_ids.add(agent_id)
+        return continuous, self._sanitize_commit(commits, action_mask)
 
 
 def reactive_reach_command_v1(
@@ -865,6 +1013,23 @@ def make_policy(
         return RandomHybridV1Policy(seed)
     if spec in {"reactive_reach", "reactive_reach_v1"}:
         return ReactiveReachV1Policy()
+    if spec.startswith("interception_teacher_timing:"):
+        manifest_path = Path(
+            spec.split(":", maxsplit=1)[1]
+        ).expanduser().resolve()
+        if not manifest_path.exists():
+            raise FileNotFoundError(manifest_path)
+        return SplitSupervisedPolicy(
+            manifest_path,
+            teacher_timing=True,
+        )
+    if spec.startswith("split_supervised:"):
+        manifest_path = Path(
+            spec.split(":", maxsplit=1)[1]
+        ).expanduser().resolve()
+        if not manifest_path.exists():
+            raise FileNotFoundError(manifest_path)
+        return SplitSupervisedPolicy(manifest_path)
     if spec == "reactive_side":
         return ReactiveReachV1Policy() if is_control else ReactiveSidePolicy()
     if spec == "linear_intercept":
@@ -2414,7 +2579,8 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Policy spec: stand_center, random_legal, reactive_side, "
             "linear_intercept, stand_center_v1, random_hybrid_v1, "
-            "reactive_reach_v1, or onnx:path"
+            "reactive_reach_v1, interception_teacher_timing:manifest, "
+            "split_supervised:manifest, or onnx:path"
         ),
     )
     parser.add_argument("--attempts-per-arena", type=int)
