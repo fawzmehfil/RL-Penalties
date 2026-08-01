@@ -24,7 +24,7 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 5.5 imitation bootstrap ready
+## Current status: Stage 5.6 native inference passed
 
 Stages 0-4 established and evaluated the deterministic environment, the first
 trainable nine-action goalkeeper, fixed 20,000-shot benchmarks, and
@@ -54,12 +54,14 @@ bias, and disables duplicate observation normalization. Its 250,000-step
 diagnostic proved that the scheduler is exact, but the best deterministic
 checkpoint saved only 5.75% and selected no commit on all 400 evaluation
 shots. The Stage 3 seed `001` model remains the main clean goalkeeper until
-this richer control gate is passed. Stage 5.5 now records the validated
-visible-state `reactive_reach_v1` controller as ML-Agents demonstrations,
-strictly validates the resulting dataset, and uses behavioral cloning to
-initialize `GoalkeeperControl-v2` before PPO fine-tuning. The implementation
-is ready; the canonical 20,000-attempt demonstration recording and 500,000-step
-diagnostic have not yet been run.
+this richer control gate is passed. Stage 5.5 recorded and validated 20,000
+visible-state teacher demonstrations, but its combined behavioral-cloning plus
+PPO policy still collapsed to 0% commit. Stage 5.6 fixed the task architecture:
+one supervised model learns interception and arm reach, while a second balanced
+model learns commit timing. The phase-aware split controller passed its fixed
+400-shot gate at 57.25% saves, 72.5% glove contact, 67.39% high-shot saves, and
+100% commit. Stage 5.6B packages those exact models in Unity and passed native
+runtime parity at 58.0% saves with no lifecycle or safety errors.
 
 Stage 0 established the physics and tooling foundation before goalkeeper
 training:
@@ -982,6 +984,60 @@ The command never starts PPO. Any failed gate writes available compact
 evidence and exits without retrying or increasing training length. A passing
 combined gate authorizes planning Stage 5.6B native inference and short PPO
 refinement; it does not launch that work automatically.
+
+#### Stage 5.6A confirmed fix
+
+The phase-aware v2 correction passed every offline, smoke, interception, and
+combined gate. On the fixed 400 shots it achieved:
+
+| Metric | Split supervised v2 |
+|---|---:|
+| Save rate | 57.25% |
+| Commit rate | 100.0% |
+| Glove contact rate | 72.50% |
+| Glove save rate | 50.00% |
+| High-shot save rate | 67.39% |
+| Mean first-commit aim error | 0.052 m |
+| Mean peak reach | 0.991 |
+
+The cause and correction are now evidence-backed. The v1 interception model
+was trained only through the commit decision, while Unity continued consuming
+aim and reach on every in-dive decision for midair glove correction. Supervising
+aim and reach after commit reduced held-out post-commit aim MAE from
+`0.290/0.373` to `0.009/0.012` and restored teacher-level Unity behavior.
+
+#### Stage 5.6B native Unity inference
+
+`goalkeeper-control-v2-split-native-v1` packages the selected interception and
+timing ONNX models as Git LFS assets and runs both with
+`Unity.InferenceEngine` on CPU. It preserves `GoalkeeperControl-v2`, the
+35-float observation, the hybrid action contract, motor, arm IK, masks,
+physics, and deferred request/consume lifecycle.
+
+The evaluator sends the Python model's action as a shadow reference while
+Unity independently computes and executes the native action. The fixed
+400-shot gate recorded 13,522 native decisions, maximum continuous-action
+error `8.05e-7`, zero commit mismatches, and zero invalid outputs. Native Unity
+saved 58.0% versus Python's 57.25%, with identical episode keys and all parity,
+behavioral, and safety checks passing.
+
+Reproduce the import, tests, build, 64-shot smoke, and 400-shot gate with:
+
+```bash
+scripts/run_stage5_native_inference_handoff.sh
+```
+
+The handoff also creates
+`builds/macos/PenaltyShootoutStage5Native.app`. That player uses
+`HeuristicOnly` agents with native inference enabled by default, so the
+goalkeeper runs without a Python evaluator or trainer. It is a deployment
+validation build, not the final Stage 9 playable presentation.
+
+The handoff never starts PPO. Directly refining two custom split ONNX networks
+through the stock ML-Agents PPO trainer is not a valid continuation of the
+passing architecture. Any future refinement must use a separately versioned,
+bounded residual or distillation contract and is limited to 250,000 diagnostic
+steps before another promotion decision.
 
 ## Later milestones
 

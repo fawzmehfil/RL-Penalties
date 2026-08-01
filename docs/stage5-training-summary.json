@@ -1,7 +1,7 @@
 {
   "schema_version": 7,
   "stage": 5,
-  "status": "supervised-gate-passed",
+  "status": "native-gate-passed",
   "behavior_name": "GoalkeeperControl-v2",
   "observation_spec_id": "control-state-v2",
   "action_spec_id": "goalkeeper-hybrid-v1",
@@ -182,5 +182,52 @@
     "combined_unity_gate_passed": true,
     "promotion_authorized": true
   },
-  "selected_checkpoint": null
+  "selected_checkpoint": null,
+  "native_inference": {
+    "contract_id": "goalkeeper-control-v2-split-native-v1",
+    "status": "native-gate-passed",
+    "evaluation_run_id": "gk-control-v2-native-split-v1-gate-400",
+    "attempts_per_policy": 400,
+    "native_metrics": {
+      "save_rate": 0.58,
+      "glove_contact_rate": 0.725,
+      "high_shot_save_rate": 0.6884057971014492,
+      "commit_rate": 1.0,
+      "maximum_action_error": 8.046627044677734e-07,
+      "commit_mismatches": 0,
+      "invalid_outputs": 0,
+      "native_evaluations": 13522
+    },
+    "checks": {
+      "attempts_complete": true,
+      "same_fixed_episode_keys": true,
+      "native_inference_executed": true,
+      "continuous_action_parity": true,
+      "commit_action_parity": true,
+      "valid_native_outputs": true,
+      "save_rate_parity": true,
+      "glove_contact_parity": true,
+      "high_shot_parity": true,
+      "minimum_commit_rate": true,
+      "minimum_save_rate": true,
+      "minimum_glove_contact_rate": true,
+      "minimum_high_shot_save_rate": true,
+      "lifecycle_and_safety": true
+    },
+    "ppo_refinement": {
+      "authorized": true,
+      "automatic_launch": false,
+      "maximum_initial_budget_steps": 250000,
+      "decision": "A separate bounded refinement design may proceed."
+    }
+  },
+  "selected_controller": {
+    "policy_id": "goalkeeper-control-v2-split-native-v1",
+    "interception_model_id": "goalkeeper-interception-v2",
+    "timing_model_id": "goalkeeper-commit-timing-v1",
+    "deployment": "native-unity-inference",
+    "save_rate_400": 0.58,
+    "glove_contact_rate_400": 0.725,
+    "high_shot_save_rate_400": 0.6884057971014492
+  }
 }

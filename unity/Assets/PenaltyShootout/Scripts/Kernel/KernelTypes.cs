@@ -172,6 +172,10 @@ namespace PenaltyShootout.Kernel
         public int PolicyDecisionDiscardedCount;
         public int PolicyDecisionDuplicateRequestCount;
         public int PolicyDecisionMissingActionCount;
+        public int NativeInferenceEvaluationCount;
+        public float NativeInferenceMaximumActionError;
+        public int NativeInferenceCommitMismatchCount;
+        public int NativeInferenceInvalidOutputCount;
         public int ControlMoveCommandCount;
         public int ControlReachCommandCount;
         public float[] ControlAbsoluteActionSums;

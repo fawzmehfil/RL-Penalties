@@ -290,6 +290,14 @@ namespace PenaltyShootout.MLAgents
                     result.PolicyDecisionDuplicateRequestCount,
                 policy_decision_missing_action_count =
                     result.PolicyDecisionMissingActionCount,
+                native_inference_evaluation_count =
+                    result.NativeInferenceEvaluationCount,
+                native_inference_maximum_action_error =
+                    result.NativeInferenceMaximumActionError,
+                native_inference_commit_mismatch_count =
+                    result.NativeInferenceCommitMismatchCount,
+                native_inference_invalid_output_count =
+                    result.NativeInferenceInvalidOutputCount,
             };
         }
 
@@ -400,6 +408,10 @@ namespace PenaltyShootout.MLAgents
             public int policy_decision_discarded_count;
             public int policy_decision_duplicate_request_count;
             public int policy_decision_missing_action_count;
+            public int native_inference_evaluation_count;
+            public float native_inference_maximum_action_error;
+            public int native_inference_commit_mismatch_count;
+            public int native_inference_invalid_output_count;
         }
 
         [Serializable]

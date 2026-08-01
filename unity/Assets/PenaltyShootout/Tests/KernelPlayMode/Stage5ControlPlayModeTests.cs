@@ -108,6 +108,10 @@ namespace PenaltyShootout.Kernel.Tests
                 PolicyDecisionDiscardedCount = 1,
                 PolicyDecisionDuplicateRequestCount = 0,
                 PolicyDecisionMissingActionCount = 0,
+                NativeInferenceEvaluationCount = 6,
+                NativeInferenceMaximumActionError = 0.00001f,
+                NativeInferenceCommitMismatchCount = 0,
+                NativeInferenceInvalidOutputCount = 0,
             };
             var json = GoalkeeperBenchmarkTelemetry.CreateJson(
                 result,
@@ -177,6 +181,15 @@ namespace PenaltyShootout.Kernel.Tests
             StringAssert.Contains(
                 "\"policy_decision_discarded_count\":1",
                 json);
+            StringAssert.Contains(
+                "\"native_inference_evaluation_count\":6",
+                json);
+            StringAssert.Contains(
+                "\"native_inference_maximum_action_error\":",
+                json);
+            StringAssert.Contains(
+                "\"native_inference_commit_mismatch_count\":0",
+                json);
         }
 
         [UnityTest]
@@ -229,6 +242,21 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(
                 agent.GetComponent<Unity.MLAgents.DecisionRequester>(),
                 Is.Null);
+            var nativePolicy =
+                agent.GetComponent<GoalkeeperSplitInferencePolicyV1>();
+            Assert.That(nativePolicy, Is.Not.Null);
+            Assert.That(nativePolicy.InterceptionModel, Is.Not.Null);
+            Assert.That(nativePolicy.TimingModel, Is.Not.Null);
+            Assert.That(agent.NativeSplitInferenceByDefault, Is.False);
+            Assert.That(
+                nativePolicy.CommitThreshold,
+                Is.EqualTo(
+                    GoalkeeperSplitInferencePolicyV1
+                        .DefaultCommitThreshold)
+                    .Within(0.000001f));
+            Assert.That(
+                GoalkeeperSplitInferencePolicyV1.Sigmoid(0f),
+                Is.EqualTo(0.5f).Within(0.000001f));
 
             var waitFrames = 0;
             while (template.LastResult == null && waitFrames < 300)

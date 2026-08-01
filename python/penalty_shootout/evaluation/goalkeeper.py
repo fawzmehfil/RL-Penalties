@@ -126,6 +126,7 @@ class BenchmarkConfig:
 class GoalkeeperPolicy:
     name = "policy"
     policy_type = "scripted"
+    requires_native_split_inference = False
 
     def act_batch(
         self,
@@ -544,6 +545,15 @@ class SplitSupervisedPolicy(HybridGoalkeeperPolicy):
                 commits[row] = 1
                 self._committed_agent_ids.add(agent_id)
         return continuous, self._sanitize_commit(commits, action_mask)
+
+
+class NativeSplitInferencePolicy(SplitSupervisedPolicy):
+    policy_type = "native_inference"
+    requires_native_split_inference = True
+
+    def __init__(self, manifest_path: Path) -> None:
+        super().__init__(manifest_path)
+        self.name = f"native_split_v1:{self.manifest_path.parent.name}"
 
 
 def reactive_reach_command_v1(
@@ -1030,6 +1040,13 @@ def make_policy(
         if not manifest_path.exists():
             raise FileNotFoundError(manifest_path)
         return SplitSupervisedPolicy(manifest_path)
+    if spec.startswith("native_split_v1:"):
+        manifest_path = Path(
+            spec.split(":", maxsplit=1)[1]
+        ).expanduser().resolve()
+        if not manifest_path.exists():
+            raise FileNotFoundError(manifest_path)
+        return NativeSplitInferencePolicy(manifest_path)
     if spec == "reactive_side":
         return ReactiveReachV1Policy() if is_control else ReactiveSidePolicy()
     if spec == "linear_intercept":
@@ -1059,6 +1076,10 @@ def run_policy(
     parameters.set_float_parameter("stage2.lesson", float(config.stage2_lesson))
     for key, value in sorted(config.environment_parameters.items()):
         parameters.set_float_parameter(key, float(value))
+    parameters.set_float_parameter(
+        "stage5.native_split_inference",
+        1.0 if policy.requires_native_split_inference else 0.0,
+    )
     additional_args = [
         "-batchmode",
         "-nographics",
@@ -1282,12 +1303,26 @@ def aggregate_policy(
     ]
 
     expected_total = config.arena_count * attempts_per_arena
+    episode_key_digest = hashlib.sha256(
+        json.dumps(
+            sorted(
+                (
+                    int(item.get("arena_id", -1)),
+                    int(item.get("attempt_id", index)),
+                    str(item.get("seed", "")),
+                )
+                for index, item in enumerate(episodes)
+            ),
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
     report = {
         "policy": policy.name,
         "policy_type": policy.policy_type,
         "attempts": total,
         "expected_attempts": expected_total,
         "complete": total == expected_total,
+        "episode_key_digest": episode_key_digest,
         "outcomes": dict(sorted(outcomes.items())),
         "save_rate": rate(saves, total),
         "goal_rate": rate(goals, total),
@@ -1563,6 +1598,43 @@ def aggregate_policy(
                 "policy_decision_missing_action_count": sum(
                     int(item.get("policy_decision_missing_action_count", 0))
                     for item in episodes
+                ),
+                "native_inference_evaluation_count": sum(
+                    int(item.get("native_inference_evaluation_count", 0))
+                    for item in episodes
+                ),
+                "native_inference_maximum_action_error": max(
+                    (
+                        float(
+                            item.get(
+                                "native_inference_maximum_action_error",
+                                0.0,
+                            )
+                        )
+                        for item in episodes
+                    ),
+                    default=0.0,
+                ),
+                "native_inference_commit_mismatch_count": sum(
+                    int(
+                        item.get(
+                            "native_inference_commit_mismatch_count",
+                            0,
+                        )
+                    )
+                    for item in episodes
+                ),
+                "native_inference_invalid_output_count": max(
+                    (
+                        int(
+                            item.get(
+                                "native_inference_invalid_output_count",
+                                0,
+                            )
+                        )
+                        for item in episodes
+                    ),
+                    default=0,
                 ),
                 "saturated_shot_save_rate": rate(
                     sum(
@@ -2526,6 +2598,18 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                             ],
                         "policy_action_override_count":
                             policy["policy_action_override_count"],
+                        "native_inference_evaluation_count":
+                            policy["native_inference_evaluation_count"],
+                        "native_inference_maximum_action_error":
+                            policy["native_inference_maximum_action_error"],
+                        "native_inference_commit_mismatch_count":
+                            policy[
+                                "native_inference_commit_mismatch_count"
+                            ],
+                        "native_inference_invalid_output_count":
+                            policy[
+                                "native_inference_invalid_output_count"
+                            ],
                         "saturated_shot_save_rate":
                             policy["saturated_shot_save_rate"],
                         "glove_save_rate":
@@ -2580,7 +2664,8 @@ def parse_args() -> argparse.Namespace:
             "Policy spec: stand_center, random_legal, reactive_side, "
             "linear_intercept, stand_center_v1, random_hybrid_v1, "
             "reactive_reach_v1, interception_teacher_timing:manifest, "
-            "split_supervised:manifest, or onnx:path"
+            "split_supervised:manifest, native_split_v1:manifest, or "
+            "onnx:path"
         ),
     )
     parser.add_argument("--attempts-per-arena", type=int)

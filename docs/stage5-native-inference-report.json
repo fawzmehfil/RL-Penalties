@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "stage": "5.6B",
+  "status": "native-gate-passed",
+  "inference_contract_id": "goalkeeper-control-v2-split-native-v1",
+  "source_supervision_contract_id": "goalkeeper-control-v2-split-supervision-v2",
+  "evaluation_run_id": "gk-control-v2-native-split-v1-gate-400",
+  "attempts_per_policy": 400,
+  "packaged_model_hashes": {
+    "interception": "ad95050acb5032abffd005e9d5ddf78b8e1c362d79a5d9871b05c50a342b20b0",
+    "timing": "26c3a80b375574a4e1c02b97183e2ab390736eae76879296ad3daaf85492850b"
+  },
+  "python_reference": {
+    "save_rate": 0.5725,
+    "glove_contact_rate": 0.725,
+    "high_shot_save_rate": 0.6739130434782609,
+    "commit_rate": 1.0
+  },
+  "native_unity": {
+    "save_rate": 0.58,
+    "glove_contact_rate": 0.725,
+    "high_shot_save_rate": 0.6884057971014492,
+    "commit_rate": 1.0,
+    "maximum_action_error": 8.046627044677734e-07,
+    "commit_mismatches": 0,
+    "invalid_outputs": 0,
+    "native_evaluations": 13522
+  },
+  "checks": {
+    "attempts_complete": true,
+    "same_fixed_episode_keys": true,
+    "native_inference_executed": true,
+    "continuous_action_parity": true,
+    "commit_action_parity": true,
+    "valid_native_outputs": true,
+    "save_rate_parity": true,
+    "glove_contact_parity": true,
+    "high_shot_parity": true,
+    "minimum_commit_rate": true,
+    "minimum_save_rate": true,
+    "minimum_glove_contact_rate": true,
+    "minimum_high_shot_save_rate": true,
+    "lifecycle_and_safety": true
+  },
+  "failed_checks": [],
+  "ppo_refinement": {
+    "authorized": true,
+    "automatic_launch": false,
+    "maximum_initial_budget_steps": 250000,
+    "decision": "A separate bounded refinement design may proceed."
+  }
+}

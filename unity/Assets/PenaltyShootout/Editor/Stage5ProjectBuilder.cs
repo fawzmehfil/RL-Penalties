@@ -6,6 +6,7 @@ using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Demonstrations;
 using Unity.MLAgents.Policies;
+using Unity.InferenceEngine;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -27,6 +28,12 @@ namespace PenaltyShootout.Stage0.Editor
             "Assets/PenaltyShootout/Prefabs/Stage5ControlArena.prefab";
         public const string MotorConfigPath =
             "Assets/PenaltyShootout/Config/GoalkeeperControlMotorProfile.asset";
+        public const string SplitInterceptionModelPath =
+            "Assets/PenaltyShootout/Models/Stage5Split/" +
+            "goalkeeper-interception-v2.onnx";
+        public const string SplitTimingModelPath =
+            "Assets/PenaltyShootout/Models/Stage5Split/" +
+            "goalkeeper-commit-timing-v1.onnx";
 
         private const int TrainingArenaCount = 16;
         private const float TrainingArenaSpacing = 30f;
@@ -63,6 +70,18 @@ namespace PenaltyShootout.Stage0.Editor
                     Application.dataPath,
                     "../../builds/macos/PenaltyShootoutStage5.app"));
             BuildHeadless(BuildTarget.StandaloneOSX, output);
+        }
+
+        [MenuItem("Penalty Shootout/Stage 5/Build macOS Native Inference")]
+        public static void BuildMacNativeInference()
+        {
+            PrepareProject();
+            var output = Path.GetFullPath(
+                Path.Combine(
+                    Application.dataPath,
+                    "../../builds/macos/" +
+                    "PenaltyShootoutStage5Native.app"));
+            BuildNativeInference(BuildTarget.StandaloneOSX, output);
         }
 
         [MenuItem("Penalty Shootout/Stage 5/Build Linux Headless")]
@@ -193,7 +212,31 @@ namespace PenaltyShootout.Stage0.Editor
                 GoalkeeperControlSpace.ContinuousActionCount,
                 new[] { GoalkeeperControlSpace.CommitBranchSize });
 
+            var interceptionModel =
+                AssetDatabase.LoadAssetAtPath<ModelAsset>(
+                    SplitInterceptionModelPath);
+            var timingModel =
+                AssetDatabase.LoadAssetAtPath<ModelAsset>(
+                    SplitTimingModelPath);
+            if (interceptionModel == null || timingModel == null)
+            {
+                throw new InvalidOperationException(
+                    "Stage 5.6B selected ONNX models failed to import.");
+            }
+
+            var nativePolicy =
+                agentObject.GetComponent<
+                    GoalkeeperSplitInferencePolicyV1>() ??
+                agentObject.AddComponent<
+                    GoalkeeperSplitInferencePolicyV1>();
+            nativePolicy.Configure(
+                interceptionModel,
+                timingModel,
+                GoalkeeperSplitInferencePolicyV1.DefaultCommitThreshold);
+
             agent.Controller = controller;
+            agent.NativeSplitPolicy = nativePolicy;
+            agent.NativeSplitInferenceByDefault = false;
             agent.MaxStep = 0;
             foreach (var requester in
                      agentObject.GetComponents<DecisionRequester>())
@@ -677,6 +720,58 @@ namespace PenaltyShootout.Stage0.Editor
             }
         }
 
+        private static void BuildNativeInference(
+            BuildTarget target,
+            string output)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            var sceneFile = Path.GetFullPath(
+                Path.Combine(
+                    Application.dataPath,
+                    "..",
+                    TrainingScenePath));
+            var originalSceneBytes = File.ReadAllBytes(sceneFile);
+            var scene = EditorSceneManager.OpenScene(
+                TrainingScenePath,
+                OpenSceneMode.Single);
+            SetSceneBehaviorType(BehaviorType.HeuristicOnly);
+            SetNativeInferenceDefault(true);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            try
+            {
+                var options = new BuildPlayerOptions
+                {
+                    scenes = new[] { TrainingScenePath },
+                    locationPathName = output,
+                    target = target,
+                    targetGroup = BuildTargetGroup.Standalone,
+                    subtarget = (int)StandaloneBuildSubtarget.Player,
+                    options = BuildOptions.Development,
+                };
+                var report = BuildPipeline.BuildPlayer(options);
+                if (report.summary.result != BuildResult.Succeeded)
+                {
+                    throw new BuildFailedException(
+                        $"Native inference {target} build failed: " +
+                        $"{report.summary.result}, " +
+                        $"{report.summary.totalErrors} errors.");
+                }
+            }
+            finally
+            {
+                EditorSceneManager.NewScene(
+                    NewSceneSetup.EmptyScene,
+                    NewSceneMode.Single);
+                File.WriteAllBytes(sceneFile, originalSceneBytes);
+                AssetDatabase.ImportAsset(
+                    TrainingScenePath,
+                    ImportAssetOptions.ForceSynchronousImport |
+                    ImportAssetOptions.ForceUpdate);
+            }
+        }
+
         private static void SetSceneBehaviorType(BehaviorType behaviorType)
         {
             foreach (var agent in
@@ -690,6 +785,18 @@ namespace PenaltyShootout.Stage0.Editor
                     PrefabUtility.RecordPrefabInstancePropertyModifications(
                         behavior);
                 }
+            }
+        }
+
+        private static void SetNativeInferenceDefault(bool enabled)
+        {
+            foreach (var agent in
+                     UnityEngine.Object.FindObjectsByType<
+                         GoalkeeperControlAgent>(FindObjectsSortMode.None))
+            {
+                agent.NativeSplitInferenceByDefault = enabled;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(
+                    agent);
             }
         }
     }

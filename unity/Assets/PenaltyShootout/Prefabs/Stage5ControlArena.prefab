@@ -2005,6 +2005,7 @@ GameObject:
   - component: {fileID: 2603570053216968627}
   - component: {fileID: 8269851551454084174}
   - component: {fileID: 919584473989523736}
+  - component: {fileID: 8346446783446011915}
   m_Layer: 0
   m_Name: GoalkeeperControlAgent
   m_TagString: Untagged
@@ -2077,6 +2078,23 @@ MonoBehaviour:
   controller: {fileID: 3822235362379611057}
   heuristicMode: 0
   reactiveTeacherCommitHorizon: 0.62
+  nativeSplitPolicy: {fileID: 8346446783446011915}
+  nativeSplitInferenceByDefault: 0
+--- !u!114 &8346446783446011915
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6920735711125522900}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e89ada10afa4e4bd1aef69466c83c1c3, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  interceptionModel: {fileID: 5022602860645237092, guid: 092678c43fed8461c8a49eed3a3fe30c, type: 3}
+  timingModel: {fileID: 5022602860645237092, guid: 50398114789224fbcb088e38b607a316, type: 3}
+  commitThreshold: 0.47
 --- !u!1 &7527199597756995609
 GameObject:
   m_ObjectHideFlags: 0

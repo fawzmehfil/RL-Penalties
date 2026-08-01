@@ -4,7 +4,8 @@
   "references": [
     "PenaltyShootout.Core",
     "PenaltyShootout.MLAgents",
-    "Unity.ML-Agents"
+    "Unity.ML-Agents",
+    "Unity.InferenceEngine"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

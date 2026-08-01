@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "inference_contract_id": "goalkeeper-control-v2-split-native-v1",
+  "source_supervision_contract_id": "goalkeeper-control-v2-split-supervision-v2",
+  "behavior_name": "GoalkeeperControl-v2",
+  "observation_spec_id": "control-state-v2",
+  "action_spec_id": "goalkeeper-hybrid-v1",
+  "motor_profile_id": "keeper-control-v1",
+  "observation_size": 35,
+  "continuous_actions": 4,
+  "discrete_branches": [2],
+  "backend": "Unity.InferenceEngine.CPU",
+  "commit_threshold": 0.47,
+  "models": {
+    "interception": {
+      "model_id": "goalkeeper-interception-v2",
+      "asset": "Assets/PenaltyShootout/Models/Stage5Split/goalkeeper-interception-v2.onnx",
+      "sha256": "ad95050acb5032abffd005e9d5ddf78b8e1c362d79a5d9871b05c50a342b20b0",
+      "input": "obs_0",
+      "output": "continuous_actions"
+    },
+    "timing": {
+      "model_id": "goalkeeper-commit-timing-v1",
+      "asset": "Assets/PenaltyShootout/Models/Stage5Split/goalkeeper-commit-timing-v1.onnx",
+      "sha256": "26c3a80b375574a4e1c02b97183e2ab390736eae76879296ad3daaf85492850b",
+      "input": "obs_0",
+      "output": "commit_logit",
+      "output_transform": "sigmoid"
+    }
+  },
+  "runtime_rules": {
+    "apply_commit_action_mask": true,
+    "maximum_commits_per_attempt": 1,
+    "reset_latch_on_attempt_start": true,
+    "fallback_on_invalid_output": "fail-closed-abort-and-report",
+    "python_transport_actions_are_ignored_when_enabled": true
+  },
+  "promotion_gates": {
+    "maximum_native_python_action_error": 0.0001,
+    "maximum_save_rate_delta": 0.02,
+    "maximum_glove_contact_rate_delta": 0.02,
+    "maximum_high_shot_save_rate_delta": 0.03,
+    "minimum_commit_rate": 0.85,
+    "minimum_save_rate": 0.35,
+    "minimum_glove_contact_rate": 0.4,
+    "minimum_high_shot_save_rate": 0.3,
+    "safety_counters_must_be_zero": true
+  },
+  "ppo_refinement": {
+    "authorized": false,
+    "reason": "Native parity and the fixed 400-shot promotion gate must pass first.",
+    "maximum_initial_budget_steps": 250000,
+    "automatic_launch": false
+  }
+}

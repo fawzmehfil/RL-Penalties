@@ -1,3 +1,4 @@
+using System;
 using PenaltyShootout.Kernel;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
@@ -22,6 +23,12 @@ namespace PenaltyShootout.MLAgents
         [Range(0.1f, 1f)]
         private float reactiveTeacherCommitHorizon =
             GoalkeeperReactiveControlPolicyV1.DefaultCommitHorizon;
+
+        [SerializeField]
+        private GoalkeeperSplitInferencePolicyV1 nativeSplitPolicy;
+
+        [SerializeField]
+        private bool nativeSplitInferenceByDefault;
 
         private GoalkeeperControlCommand pendingCommand =
             GoalkeeperControlCommand.Neutral;
@@ -61,6 +68,12 @@ namespace PenaltyShootout.MLAgents
         private int policyDecisionDiscardedCount;
         private int policyDecisionDuplicateRequestCount;
         private int policyDecisionMissingActionCount;
+        private bool nativeSplitInferenceEnabled;
+        private int nativeInferenceEvaluationCount;
+        private float nativeInferenceMaximumActionError;
+        private int nativeInferenceCommitMismatchCount;
+        private readonly float[] nativeObservations =
+            new float[KernelConstants.GoalkeeperControlV2ObservationSize];
 
         public PenaltyAreaController Controller
         {
@@ -72,6 +85,21 @@ namespace PenaltyShootout.MLAgents
         {
             get => heuristicMode;
             set => heuristicMode = value;
+        }
+
+        public GoalkeeperSplitInferencePolicyV1 NativeSplitPolicy
+        {
+            get => nativeSplitPolicy;
+            set => nativeSplitPolicy = value;
+        }
+
+        public bool NativeSplitInferenceEnabled =>
+            nativeSplitInferenceEnabled;
+
+        public bool NativeSplitInferenceByDefault
+        {
+            get => nativeSplitInferenceByDefault;
+            set => nativeSplitInferenceByDefault = value;
         }
 
         public bool UsesDeferredDecisionScheduling
@@ -91,6 +119,12 @@ namespace PenaltyShootout.MLAgents
             if (controller == null)
             {
                 controller = GetComponentInParent<PenaltyAreaController>();
+            }
+
+            if (nativeSplitPolicy == null)
+            {
+                nativeSplitPolicy =
+                    GetComponent<GoalkeeperSplitInferencePolicyV1>();
             }
         }
 
@@ -136,6 +170,7 @@ namespace PenaltyShootout.MLAgents
             bufferedCommit = false;
             heuristicAimX = 0f;
             heuristicAimY = 0f;
+            nativeSplitPolicy?.ResetAttempt();
             ResetAttemptTrainingTelemetry();
             if (!UsesDeferredDecisionScheduling)
             {
@@ -161,21 +196,31 @@ namespace PenaltyShootout.MLAgents
 
         public override void OnActionReceived(ActionBuffers actions)
         {
-            var command = GoalkeeperControlCommand.Neutral;
-            var continuous = actions.ContinuousActions;
-            if (continuous.Length >= GoalkeeperControlSpace.ContinuousActionCount)
+            var transportCommand = ReadTransportCommand(actions);
+            var command = transportCommand;
+            if (nativeSplitInferenceEnabled)
             {
-                command.MoveX = continuous[0];
-                command.AimX = continuous[1];
-                command.AimY = continuous[2];
-                command.Reach = continuous[3];
-            }
+                if (nativeSplitPolicy == null ||
+                    !TryCollectNativeObservations() ||
+                    !nativeSplitPolicy.TryEvaluate(
+                        nativeObservations,
+                        currentMask,
+                        out command,
+                        out _))
+                {
+                    throw new InvalidOperationException(
+                        "Stage 5.6B native split inference failed closed.");
+                }
 
-            var discrete = actions.DiscreteActions;
-            command.Commit =
-                discrete.Length > 0 &&
-                discrete[0] == 1 &&
-                currentMask.CanCommit;
+                nativeInferenceEvaluationCount++;
+                nativeInferenceMaximumActionError = Mathf.Max(
+                    nativeInferenceMaximumActionError,
+                    MaximumContinuousError(command, transportCommand));
+                if (command.Commit != transportCommand.Commit)
+                {
+                    nativeInferenceCommitMismatchCount++;
+                }
+            }
             pendingCommand = command.Sanitized(out _);
             hasPendingCommand = true;
         }
@@ -431,6 +476,7 @@ namespace PenaltyShootout.MLAgents
             currentMask = new GoalkeeperControlActionMask(false);
             hasPendingCommand = false;
             bufferedCommit = false;
+            nativeSplitPolicy?.ResetAttempt();
             ResetAttemptTrainingTelemetry();
         }
 
@@ -493,6 +539,16 @@ namespace PenaltyShootout.MLAgents
                 policyDecisionDuplicateRequestCount;
             result.PolicyDecisionMissingActionCount =
                 policyDecisionMissingActionCount;
+            result.NativeInferenceEvaluationCount =
+                nativeInferenceEvaluationCount;
+            result.NativeInferenceMaximumActionError =
+                nativeInferenceMaximumActionError;
+            result.NativeInferenceCommitMismatchCount =
+                nativeInferenceCommitMismatchCount;
+            result.NativeInferenceInvalidOutputCount =
+                nativeSplitPolicy == null
+                    ? 0
+                    : nativeSplitPolicy.InvalidOutputCount;
             var sparseReward =
                 GoalkeeperTrainingContracts.SparseReward(result.Outcome);
             var trainingReward =
@@ -519,6 +575,17 @@ namespace PenaltyShootout.MLAgents
             }
 
             var parameters = Academy.Instance.EnvironmentParameters;
+            nativeSplitInferenceEnabled =
+                nativeSplitInferenceByDefault ||
+                CommandLineEnablesNativeInference() ||
+                parameters.GetWithDefault(
+                    "stage5.native_split_inference",
+                    0f) >= 0.5f;
+            if (nativeSplitInferenceEnabled && nativeSplitPolicy == null)
+            {
+                throw new InvalidOperationException(
+                    "Native split inference is enabled without a packaged policy.");
+            }
             stage5Lesson = Mathf.Clamp(
                 Mathf.RoundToInt(
                     parameters.GetWithDefault("stage5.lesson", 4f)),
@@ -583,6 +650,70 @@ namespace PenaltyShootout.MLAgents
                 parameters.GetWithDefault(
                     "stage5.launch_delay_max",
                     shots.MaximumLaunchDelay);
+        }
+
+        private bool TryCollectNativeObservations()
+        {
+            var index = 0;
+            GoalkeeperTrainingContracts.WriteControlStateV2(
+                controller,
+                value =>
+                {
+                    if (index < nativeObservations.Length)
+                    {
+                        nativeObservations[index] = value;
+                    }
+
+                    index++;
+                });
+            return index == nativeObservations.Length;
+        }
+
+        private static bool CommandLineEnablesNativeInference()
+        {
+            foreach (var argument in Environment.GetCommandLineArgs())
+            {
+                if (argument ==
+                    GoalkeeperSplitInferencePolicyV1.EnableArgument)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private GoalkeeperControlCommand ReadTransportCommand(
+            ActionBuffers actions)
+        {
+            var command = GoalkeeperControlCommand.Neutral;
+            var continuous = actions.ContinuousActions;
+            if (continuous.Length >=
+                GoalkeeperControlSpace.ContinuousActionCount)
+            {
+                command.MoveX = continuous[0];
+                command.AimX = continuous[1];
+                command.AimY = continuous[2];
+                command.Reach = continuous[3];
+            }
+
+            var discrete = actions.DiscreteActions;
+            command.Commit =
+                discrete.Length > 0 &&
+                discrete[0] == 1 &&
+                currentMask.CanCommit;
+            return command.Sanitized(out _);
+        }
+
+        private static float MaximumContinuousError(
+            GoalkeeperControlCommand left,
+            GoalkeeperControlCommand right)
+        {
+            return Mathf.Max(
+                Mathf.Abs(left.MoveX - right.MoveX),
+                Mathf.Abs(left.AimX - right.AimX),
+                Mathf.Abs(left.AimY - right.AimY),
+                Mathf.Abs(left.Reach - right.Reach));
         }
 
         private static void ApplyLessonDefaults(
@@ -868,6 +999,9 @@ namespace PenaltyShootout.MLAgents
             policyDecisionDiscardedCount = 0;
             policyDecisionDuplicateRequestCount = 0;
             policyDecisionMissingActionCount = 0;
+            nativeInferenceEvaluationCount = 0;
+            nativeInferenceMaximumActionError = 0f;
+            nativeInferenceCommitMismatchCount = 0;
         }
     }
 }
