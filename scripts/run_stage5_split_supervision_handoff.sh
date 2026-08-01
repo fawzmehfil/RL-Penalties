@@ -13,14 +13,14 @@ SEED="${1:-1}"
 [[ "$SEED" =~ ^[0-9]+$ ]] || fail "Seed must be a non-negative integer"
 printf -v SEED_LABEL "%03d" "$SEED"
 
-CONTRACT="$PROJECT_ROOT/configs/supervision/goalkeeper-control-v2-split-supervision-v1.json"
+CONTRACT="$PROJECT_ROOT/configs/supervision/goalkeeper-control-v2-split-supervision-v2.json"
 DEMO_DIR="$PROJECT_ROOT/results/demonstrations/goalkeeper-control-v2-reactive-demo-v1-20k"
-OUTPUT_DIR="$PROJECT_ROOT/results/supervision/goalkeeper-control-v2-split-v1/seed-$SEED_LABEL"
+OUTPUT_DIR="$PROJECT_ROOT/results/supervision/goalkeeper-control-v2-split-v2/seed-$SEED_LABEL"
 MODEL_MANIFEST="$OUTPUT_DIR/model-manifest.json"
 BUILD="$PROJECT_ROOT/builds/macos/PenaltyShootoutStage5.app"
 BENCHMARK="$PROJECT_ROOT/configs/benchmarks/goalkeeper-control-v2-bc-id-20k.json"
 NO_BC_CHECKPOINT="$PROJECT_ROOT/results/gk-control-v2-lifecycle-ballistics_seed-001/GoalkeeperControl-v2/GoalkeeperControl-v2-149997.onnx"
-RUN_PREFIX="gk-control-v2-split-supervision_seed-$SEED_LABEL"
+RUN_PREFIX="gk-control-v2-split-supervision-v2_seed-$SEED_LABEL"
 SMOKE_RUN_ID="$RUN_PREFIX-smoke-64"
 INTERCEPTION_RUN_ID="$RUN_PREFIX-interception-gate-400"
 COMBINED_RUN_ID="$RUN_PREFIX-combined-gate-400"
@@ -60,7 +60,7 @@ if busy:
     raise SystemExit(f"Stage 5.6 worker ports are busy: {busy}")
 PY
 
-echo "Stage 5.6A: validating demonstrations and training split supervised models"
+echo "Stage 5.6A v2: validating demonstrations and training phase-aware split supervised models"
 if ! arch -x86_64 .venv/bin/python \
   -m penalty_shootout.training.stage5_split_supervision offline \
   --contract "$CONTRACT" \
@@ -70,6 +70,7 @@ if ! arch -x86_64 .venv/bin/python \
   if [[ -f "$MODEL_MANIFEST" ]]; then
     arch -x86_64 .venv/bin/python \
       -m penalty_shootout.training.stage5_split_evidence \
+      --contract "$CONTRACT" \
       --model-manifest "$MODEL_MANIFEST" \
       --require-stage offline || true
   fi
@@ -78,10 +79,11 @@ fi
 
 arch -x86_64 .venv/bin/python \
   -m penalty_shootout.training.stage5_split_evidence \
+  --contract "$CONTRACT" \
   --model-manifest "$MODEL_MANIFEST" \
   --require-stage offline
 
-echo "Stage 5.6A: running 16 x 4 composite-policy Unity smoke gate"
+echo "Stage 5.6A v2: running 16 x 4 composite-policy Unity smoke gate"
 arch -x86_64 .venv/bin/python \
   -m penalty_shootout.evaluation.goalkeeper \
   --benchmark "$BENCHMARK" \
@@ -94,11 +96,12 @@ arch -x86_64 .venv/bin/python \
 
 arch -x86_64 .venv/bin/python \
   -m penalty_shootout.training.stage5_split_evidence \
+  --contract "$CONTRACT" \
   --model-manifest "$MODEL_MANIFEST" \
   --smoke-report "$SMOKE_REPORT" \
   --require-stage smoke
 
-echo "Stage 5.6A: running Model A with teacher timing on 400 fixed shots"
+echo "Stage 5.6A v2: running Model A with teacher timing on 400 fixed shots"
 arch -x86_64 .venv/bin/python \
   -m penalty_shootout.evaluation.goalkeeper \
   --benchmark "$BENCHMARK" \
@@ -111,11 +114,12 @@ arch -x86_64 .venv/bin/python \
 
 arch -x86_64 .venv/bin/python \
   -m penalty_shootout.training.stage5_split_evidence \
+  --contract "$CONTRACT" \
   --model-manifest "$MODEL_MANIFEST" \
   --interception-report "$INTERCEPTION_REPORT" \
   --require-stage interception
 
-echo "Stage 5.6A: running combined learned policy and comparisons on 400 fixed shots"
+echo "Stage 5.6A v2: running combined learned policy and comparisons on 400 fixed shots"
 arch -x86_64 .venv/bin/python \
   -m penalty_shootout.evaluation.goalkeeper \
   --benchmark "$BENCHMARK" \
@@ -131,6 +135,7 @@ arch -x86_64 .venv/bin/python \
 
 arch -x86_64 .venv/bin/python \
   -m penalty_shootout.training.stage5_split_evidence \
+  --contract "$CONTRACT" \
   --model-manifest "$MODEL_MANIFEST" \
   --combined-report "$COMBINED_REPORT" \
   --require-stage combined

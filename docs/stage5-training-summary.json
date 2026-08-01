@@ -1,7 +1,7 @@
 {
   "schema_version": 7,
   "stage": 5,
-  "status": "split-supervision-implementation-verified",
+  "status": "supervised-gate-passed",
   "behavior_name": "GoalkeeperControl-v2",
   "observation_spec_id": "control-state-v2",
   "action_spec_id": "goalkeeper-hybrid-v1",
@@ -154,21 +154,33 @@
     "stored_action_alignment": "preceding-decision-observation-and-mask",
     "status": "diagnostic-completed-failed"
   },
+  "split_supervision_history": [
+    {
+      "contract_id": "goalkeeper-control-v2-split-supervision-v1",
+      "source_demonstration_contract_id": "goalkeeper-control-v2-reactive-demo-v1",
+      "interception_model_id": "goalkeeper-interception-v1",
+      "timing_model_id": "goalkeeper-commit-timing-v1",
+      "status": "interception-unity-gate-failed",
+      "training_seed": 1,
+      "offline_gate_passed": true,
+      "smoke_unity_gate_passed": true,
+      "interception_unity_gate_passed": false,
+      "combined_unity_gate_passed": null,
+      "promotion_authorized": false
+    }
+  ],
   "split_supervision": {
-    "contract_id": "goalkeeper-control-v2-split-supervision-v1",
+    "contract_id": "goalkeeper-control-v2-split-supervision-v2",
     "source_demonstration_contract_id": "goalkeeper-control-v2-reactive-demo-v1",
-    "interception_model_id": "goalkeeper-interception-v1",
+    "interception_model_id": "goalkeeper-interception-v2",
     "timing_model_id": "goalkeeper-commit-timing-v1",
-    "episode_split": {
-      "train": 16000,
-      "validation": 2000,
-      "test": 2000
-    },
-    "split_assignment_sha256": "29f69004236ca0f20f916d6a82a8ba1f5260e4b19f03fdf0542e737220301dc7",
-    "first_decision_commits": 10584,
-    "handoff_script": "scripts/run_stage5_split_supervision_handoff.sh",
-    "status": "implementation-verified-supervised-run-pending",
-    "promotion_authorized": false
+    "status": "supervised-gate-passed",
+    "training_seed": 1,
+    "offline_gate_passed": true,
+    "smoke_unity_gate_passed": true,
+    "interception_unity_gate_passed": true,
+    "combined_unity_gate_passed": true,
+    "promotion_authorized": true
   },
   "selected_checkpoint": null
 }

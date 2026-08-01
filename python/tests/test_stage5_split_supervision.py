@@ -7,6 +7,7 @@ import torch
 
 from penalty_shootout.evaluation.goalkeeper import SplitSupervisedPolicy
 from penalty_shootout.training.stage5_split_evidence import (
+    _report_for_attempt,
     combined_unity_gate,
     interception_unity_gate,
     smoke_unity_gate,
@@ -15,10 +16,18 @@ from penalty_shootout.training.stage5_split_supervision import (
     AlignedEpisode,
     CommitTimingModel,
     InterceptionModel,
+    INTERCEPTION_PHASE_COMMIT,
+    INTERCEPTION_PHASE_POST_COMMIT,
+    INTERCEPTION_PHASE_PRE_COMMIT,
+    _interception_loss,
+    _train_interception_network,
     balanced_timing_rows,
     _export_onnx,
+    interception_phase_ids,
+    interception_sequence_metrics,
     offline_gate,
     realign_demo_pairs,
+    sample_phase_balanced_rows,
     split_episode_keys,
     timing_sequence_metrics,
 )
@@ -26,10 +35,7 @@ from penalty_shootout.training.stage5_split_supervision import (
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATH = (
-    ROOT
-    / "configs"
-    / "supervision"
-    / "goalkeeper-control-v2-split-supervision-v1.json"
+    ROOT / "configs" / "supervision" / "goalkeeper-control-v2-split-supervision-v2.json"
 )
 
 
@@ -49,11 +55,7 @@ def _info(
     return SimpleNamespace(
         done=done,
         action_mask=[False, not can_commit],
-        observations=[
-            SimpleNamespace(
-                float_data=SimpleNamespace(data=observation)
-            )
-        ],
+        observations=[SimpleNamespace(float_data=SimpleNamespace(data=observation))],
     )
 
 
@@ -127,7 +129,7 @@ def test_split_supervision_contract_is_decision_complete() -> None:
     contract = load_contract()
 
     assert contract["supervision_contract_id"] == (
-        "goalkeeper-control-v2-split-supervision-v1"
+        "goalkeeper-control-v2-split-supervision-v2"
     )
     assert contract["observation_size"] == 35
     assert contract["continuous_actions"] == 4
@@ -139,6 +141,14 @@ def test_split_supervision_contract_is_decision_complete() -> None:
         "test_per_arena": 125,
     }
     assert contract["timing_model"]["observation_indices"] == [29, 31, 32]
+    assert contract["interception_model"]["training_rows"] == (
+        "phase-balanced-full-episode"
+    )
+    assert contract["interception_model"]["post_commit_channels"] == [
+        "aim_x",
+        "aim_y",
+        "reach",
+    ]
 
 
 def test_demo_realigns_action_to_preceding_observation_and_terminal_action() -> None:
@@ -187,8 +197,7 @@ def test_episode_split_is_exact_reproducible_and_has_no_leakage() -> None:
     for arena_id in range(16):
         counts = {
             split: sum(
-                key[0] == arena_id and value == split
-                for key, value in first.items()
+                key[0] == arena_id and value == split for key, value in first.items()
             )
             for split in ("train", "validation", "test")
         }
@@ -213,6 +222,118 @@ def test_balanced_timing_rows_use_same_arena_fallback_for_first_commit() -> None
         "wait_rows": 2,
         "same_episode_wait_rows": 1,
         "same_arena_fallback_wait_rows": 1,
+    }
+
+
+def test_interception_phases_cover_episodes_and_sample_equally() -> None:
+    values = {
+        "observations": np.zeros((8, 35), dtype=np.float32),
+        "episode_offsets": np.asarray([0, 4, 8], dtype=np.int64),
+        "teacher_commit_indices": np.asarray([1, 2], dtype=np.int16),
+    }
+
+    phases = interception_phase_ids(values)
+    sampled = sample_phase_balanced_rows(
+        phases,
+        rows_per_phase=2,
+        generator=torch.Generator().manual_seed(1),
+    )
+
+    np.testing.assert_array_equal(
+        phases,
+        [
+            INTERCEPTION_PHASE_PRE_COMMIT,
+            INTERCEPTION_PHASE_COMMIT,
+            INTERCEPTION_PHASE_POST_COMMIT,
+            INTERCEPTION_PHASE_POST_COMMIT,
+            INTERCEPTION_PHASE_PRE_COMMIT,
+            INTERCEPTION_PHASE_PRE_COMMIT,
+            INTERCEPTION_PHASE_COMMIT,
+            INTERCEPTION_PHASE_POST_COMMIT,
+        ],
+    )
+    assert {phase: int(np.sum(phases[sampled] == phase)) for phase in range(3)} == {
+        0: 2,
+        1: 2,
+        2: 2,
+    }
+
+
+def test_post_commit_loss_ignores_move_but_supervises_aim_and_reach() -> None:
+    phases = torch.tensor(
+        [INTERCEPTION_PHASE_POST_COMMIT],
+        dtype=torch.int8,
+    )
+    predictions = torch.zeros((1, 4), dtype=torch.float32)
+    move_only_target = torch.tensor(
+        [[1.0, 0.0, 0.0, 0.0]],
+        dtype=torch.float32,
+    )
+    aim_target = torch.tensor(
+        [[0.0, 1.0, -1.0, 1.0]],
+        dtype=torch.float32,
+    )
+
+    assert float(_interception_loss(predictions, move_only_target, phases)) == 0.0
+    assert float(_interception_loss(predictions, aim_target, phases)) > 0.0
+
+
+def test_phase_aware_interception_training_uses_every_phase() -> None:
+    observations = np.linspace(
+        -1.0,
+        1.0,
+        num=18 * 35,
+        dtype=np.float32,
+    ).reshape(18, 35)
+    actions = np.tanh(observations[:, :4]).astype(np.float32)
+    values = {
+        "observations": observations,
+        "continuous_actions": actions,
+        "episode_offsets": np.arange(0, 19, 3, dtype=np.int64),
+        "teacher_commit_indices": np.ones(6, dtype=np.int16),
+    }
+
+    training = _train_interception_network(
+        InterceptionModel(),
+        values,
+        values,
+        learning_rate=0.001,
+        batch_size=4,
+        maximum_epochs=2,
+        patience=2,
+        seed=1,
+    )
+
+    assert training["epochs_run"] == 2
+    assert training["rows_per_phase_per_epoch"] == 6
+    assert training["train_phase_rows"] == {
+        "pre_commit": 6,
+        "commit": 6,
+        "post_commit": 6,
+    }
+
+
+def test_interception_metrics_expose_post_commit_drift() -> None:
+    values = {
+        "observations": np.zeros((4, 35), dtype=np.float32),
+        "continuous_actions": np.zeros((4, 4), dtype=np.float32),
+        "episode_offsets": np.asarray([0, 4], dtype=np.int64),
+        "teacher_commit_indices": np.asarray([1], dtype=np.int16),
+    }
+    predictions = np.zeros((4, 4), dtype=np.float32)
+    predictions[2:, 1] = 0.5
+    predictions[2:, 2] = -0.5
+
+    metrics = interception_sequence_metrics(values, predictions)
+
+    assert metrics["aim_x_mae"] == 0.0
+    assert metrics["aim_y_mae"] == 0.0
+    assert metrics["post_commit"]["aim_x_mae"] == 0.5
+    assert metrics["post_commit"]["aim_y_mae"] == 0.5
+    assert metrics["phase_rows"] == {
+        "pre_commit": 1,
+        "commit": 1,
+        "post_commit": 2,
     }
 
 
@@ -275,6 +396,14 @@ def test_offline_gate_reports_the_exact_failed_component() -> None:
         "reach_mae": 0.02,
         "finite": True,
         "bounded": True,
+        "all_rows_finite": True,
+        "all_rows_bounded": True,
+        "post_commit": {
+            "aim_x_mae": 0.05,
+            "aim_y_mae": 0.05,
+            "physical_aim_error_m": 0.1,
+            "reach_mae": 0.02,
+        },
     }
     timing = {
         "commit_coverage": 0.0,
@@ -371,15 +500,48 @@ def test_stage5_split_evidence_gates_are_staged() -> None:
     assert combined_gate["passed"] is True
 
 
+def test_new_contract_archives_failed_attempt_before_resetting_gates() -> None:
+    contract = load_contract()
+    prior = {
+        "schema_version": 2,
+        "stage": 5.6,
+        "attempt_id": "goalkeeper-control-v2-split-supervision-v1-seed-001",
+        "supervision_contract_id": ("goalkeeper-control-v2-split-supervision-v1"),
+        "status": "interception-unity-gate-failed",
+        "offline": {"status": "passed"},
+        "smoke_unity_gate": {"passed": True},
+        "interception_unity_gate": {"passed": False},
+        "combined_unity_gate": None,
+        "diagnosis": {"status": "confirmed"},
+        "promotion": {"authorized": False},
+    }
+
+    current = _report_for_attempt(
+        prior,
+        contract,
+        {"training_seed": 1},
+    )
+
+    assert current["attempt_id"] == (
+        "goalkeeper-control-v2-split-supervision-v2-seed-001"
+    )
+    assert current["offline"] is None
+    assert current["smoke_unity_gate"] is None
+    assert current["interception_unity_gate"] is None
+    assert current["attempt_history"][0]["status"] == ("interception-unity-gate-failed")
+    assert current["attempt_history"][0]["diagnosis"] == {"status": "confirmed"}
+
+
 def test_handoff_has_hard_stops_and_never_launches_ppo() -> None:
-    script = (
-        ROOT / "scripts" / "run_stage5_split_supervision_handoff.sh"
-    ).read_text(encoding="utf-8")
+    script = (ROOT / "scripts" / "run_stage5_split_supervision_handoff.sh").read_text(
+        encoding="utf-8"
+    )
 
     assert "--require-stage offline" in script
     assert "--require-stage smoke" in script
     assert "--require-stage interception" in script
     assert "--require-stage combined" in script
+    assert script.count('--contract "$CONTRACT"') == 6
     assert ".venv/bin/mlagents-learn" not in script
     assert "configs/training" not in script
     assert "PPO was not started" in script

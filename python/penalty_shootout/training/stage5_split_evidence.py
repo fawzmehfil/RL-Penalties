@@ -7,8 +7,7 @@ from typing import Any
 
 
 DEFAULT_CONTRACT = Path(
-    "configs/supervision/"
-    "goalkeeper-control-v2-split-supervision-v1.json"
+    "configs/supervision/goalkeeper-control-v2-split-supervision-v2.json"
 )
 DEFAULT_REPORT = Path("docs/stage5-split-supervision-report.json")
 DEFAULT_SUMMARY = Path("docs/stage5-training-summary.json")
@@ -44,10 +43,67 @@ def _policy(report: dict[str, Any], prefix: str) -> dict[str, Any]:
         if str(policy.get("policy", "")).startswith(prefix)
     ]
     if len(matches) != 1:
-        raise ValueError(
-            f"expected one {prefix!r} policy, found {len(matches)}"
-        )
+        raise ValueError(f"expected one {prefix!r} policy, found {len(matches)}")
     return matches[0]
+
+
+def _attempt_snapshot(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "attempt_id": report.get("attempt_id"),
+        "supervision_contract_id": report.get("supervision_contract_id"),
+        "status": report.get("status"),
+        "offline": report.get("offline"),
+        "smoke_unity_gate": report.get("smoke_unity_gate"),
+        "interception_unity_gate": report.get("interception_unity_gate"),
+        "combined_unity_gate": report.get("combined_unity_gate"),
+        "diagnosis": report.get("diagnosis"),
+        "promotion": report.get("promotion"),
+    }
+
+
+def _report_for_attempt(
+    report: dict[str, Any],
+    contract: dict[str, Any],
+    model_manifest: dict[str, Any],
+) -> dict[str, Any]:
+    attempt_id = (
+        f"{contract['supervision_contract_id']}-"
+        f"seed-{int(model_manifest['training_seed']):03d}"
+    )
+    if (
+        report.get("supervision_contract_id") == contract["supervision_contract_id"]
+        and report.get("attempt_id") == attempt_id
+    ):
+        return report
+    history = list(report.get("attempt_history", []))
+    if report.get("status"):
+        history.append(_attempt_snapshot(report))
+    return {
+        "schema_version": 2,
+        "stage": 5.6,
+        "attempt_id": attempt_id,
+        "status": "offline-gate-pending",
+        "supervision_contract_id": contract["supervision_contract_id"],
+        "source_demonstration_contract_id": contract[
+            "source_demonstration_contract_id"
+        ],
+        "behavior_name": contract["behavior_name"],
+        "observation_spec_id": contract["observation_spec_id"],
+        "action_spec_id": contract["action_spec_id"],
+        "offline": None,
+        "smoke_unity_gate": None,
+        "interception_unity_gate": None,
+        "combined_unity_gate": None,
+        "attempt_history": history,
+        "implementation_verification": report.get(
+            "implementation_verification",
+            {},
+        ),
+        "promotion": {
+            "authorized": False,
+            "next_step": "evaluate the phase-aware offline gate",
+        },
+    }
 
 
 def _lifecycle_and_safety(policy: dict[str, Any]) -> dict[str, bool]:
@@ -61,12 +117,10 @@ def _lifecycle_and_safety(policy: dict[str, Any]) -> dict[str, bool]:
         "timeouts": int(policy.get("timeout_rate", {}).get("successes", -1)) == 0,
         "action_masks": int(policy.get("action_mask_violations", -1)) == 0,
         "command_clamps": int(policy.get("control_command_clamp_count", -1)) == 0,
-        "duplicates": int(
-            policy.get("policy_decision_duplicate_request_count", -1)
-        ) == 0,
-        "missing_actions": int(
-            policy.get("policy_decision_missing_action_count", -1)
-        ) == 0,
+        "duplicates": int(policy.get("policy_decision_duplicate_request_count", -1))
+        == 0,
+        "missing_actions": int(policy.get("policy_decision_missing_action_count", -1))
+        == 0,
         "requests_balanced": requests == consumed + discarded,
         "commands_balanced": consumed == accepted,
     }
@@ -78,9 +132,7 @@ def interception_unity_gate(
 ) -> dict[str, Any]:
     teacher = _policy(evaluation, "reactive_reach_v1")
     learned = _policy(evaluation, "interception_teacher_timing:")
-    fraction = float(
-        contract["unity_gates"]["interception_teacher_fraction"]
-    )
+    fraction = float(contract["unity_gates"]["interception_teacher_fraction"])
     teacher_metrics = {
         "save_rate": _rate(teacher, "save_rate"),
         "glove_contact_rate": _rate(teacher, "glove_contact_rate"),
@@ -112,15 +164,9 @@ def interception_unity_gate(
         "high_shot_save_rate": learned_metrics["high_shot_save_rate"]
         >= fraction * teacher_metrics["high_shot_save_rate"],
         "aim_error": learned_metrics["first_commit_aim_error_m"]
-        <= float(
-            contract["unity_gates"][
-                "interception_maximum_aim_error_m"
-            ]
-        ),
+        <= float(contract["unity_gates"]["interception_maximum_aim_error_m"]),
         "peak_reach": learned_metrics["peak_reach_extension"]
-        >= float(
-            contract["unity_gates"]["interception_minimum_peak_reach"]
-        ),
+        >= float(contract["unity_gates"]["interception_minimum_peak_reach"]),
         **_lifecycle_and_safety(learned),
     }
     return {
@@ -218,16 +264,26 @@ def record_split_evidence(
 ) -> dict[str, Any]:
     contract = load_json(contract_path)
     model_manifest = load_json(model_manifest_path)
-    report = load_json(report_path)
+    for key in (
+        "supervision_contract_id",
+        "behavior_name",
+        "observation_spec_id",
+        "action_spec_id",
+    ):
+        if model_manifest.get(key) != contract.get(key):
+            raise ValueError(
+                f"model manifest {key} does not match the evidence contract"
+            )
+    report = _report_for_attempt(
+        load_json(report_path),
+        contract,
+        model_manifest,
+    )
     offline = {
         "status": model_manifest.get("status"),
         "training_seed": model_manifest.get("training_seed"),
-        "dataset_manifest_sha256": model_manifest.get(
-            "dataset_manifest_sha256"
-        ),
-        "split_assignment_sha256": model_manifest.get(
-            "split_assignment_sha256"
-        ),
+        "dataset_manifest_sha256": model_manifest.get("dataset_manifest_sha256"),
+        "split_assignment_sha256": model_manifest.get("split_assignment_sha256"),
         "commit_threshold": model_manifest.get("commit_threshold"),
         "models": model_manifest.get("models"),
         "training": model_manifest.get("training"),
@@ -235,9 +291,7 @@ def record_split_evidence(
     }
     report["offline"] = offline
     if smoke_report_path is not None:
-        report["smoke_unity_gate"] = smoke_unity_gate(
-            load_json(smoke_report_path)
-        )
+        report["smoke_unity_gate"] = smoke_unity_gate(load_json(smoke_report_path))
     if interception_report_path is not None:
         report["interception_unity_gate"] = interception_unity_gate(
             load_json(interception_report_path),
@@ -271,7 +325,9 @@ def record_split_evidence(
         next_step = "run the interception model with teacher timing on 400 shots"
     elif not interception.get("passed", False):
         status = "interception-unity-gate-failed"
-        next_step = "inspect interception or evaluator integration; PPO is not authorized"
+        next_step = (
+            "inspect interception or evaluator integration; PPO is not authorized"
+        )
     elif combined is None:
         status = "interception-passed-combined-gate-pending"
         next_step = "run the combined split policy on 400 fixed shots"
@@ -292,9 +348,22 @@ def record_split_evidence(
     )
 
     summary = load_json(summary_path)
+    current_summary = summary.get("split_supervision")
+    if (
+        current_summary
+        and current_summary.get("contract_id") != contract["supervision_contract_id"]
+    ):
+        history = list(summary.get("split_supervision_history", []))
+        history.append(current_summary)
+        summary["split_supervision_history"] = history
     summary["status"] = status
     summary["split_supervision"] = {
         "contract_id": contract["supervision_contract_id"],
+        "source_demonstration_contract_id": contract[
+            "source_demonstration_contract_id"
+        ],
+        "interception_model_id": contract["interception_model"]["model_id"],
+        "timing_model_id": contract["timing_model"]["model_id"],
         "status": status,
         "training_seed": model_manifest.get("training_seed"),
         "offline_gate_passed": offline_passed,
@@ -357,9 +426,7 @@ def main() -> int:
             .get("gate", {})
             .get("passed", False)
         ),
-        "smoke": bool(
-            (report.get("smoke_unity_gate") or {}).get("passed", False)
-        ),
+        "smoke": bool((report.get("smoke_unity_gate") or {}).get("passed", False)),
         "interception": bool(
             (report.get("interception_unity_gate") or {}).get(
                 "passed",

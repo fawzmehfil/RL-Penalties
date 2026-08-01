@@ -933,15 +933,27 @@ high-shot saves. The demonstrations contain 674,690 aligned decisions but only
 20,000 commits, so Stage 5.6 no longer asks one loss to learn the four
 continuous interception controls and the rare timing decision together.
 
-`goalkeeper-control-v2-split-supervision-v1` preserves the 35-float
+`goalkeeper-control-v2-split-supervision-v2` preserves the 35-float
 observation, four continuous actions, commit branch `[2]`, motor, arms,
 physics, reward, and canonical shot set. It trains two offline supervised
 models:
 
-- `goalkeeper-interception-v1` predicts movement, aim, and reach from
-  pre-commit demonstration rows.
+- `goalkeeper-interception-v2` predicts movement, aim, and reach before and at
+  commit, then continues learning aim and reach while the committed dive is in
+  progress.
 - `goalkeeper-commit-timing-v1` reads only commit availability, ball-flight
   time, and visible time-to-plane and predicts wait versus commit.
+
+The first split attempt trained interception only through the commit row. It
+passed that incomplete offline gate but saved 42.5% against the teacher's
+57.25%, with 42.5% glove contact against 73.25%. Runtime inspection proved
+that committed dives continue reading `activeCommand` aim values for glove
+correction. Held-out post-commit aim MAE was `0.290` horizontally and `0.373`
+vertically, versus `0.007` and `0.008` through commit. Version 2 corrects this
+specific contract error with equal pre-commit, commit, and post-commit phase
+sampling. Post-commit movement is ignored because the root trajectory is
+already latched, while aim and reach remain supervised and independently
+gated offline.
 
 ML-Agents stores each executed action with the following observation. The
 extractor therefore shifts every action back to the preceding observation and

@@ -1,16 +1,528 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "stage": 5.6,
-  "status": "implementation-verified-supervised-run-pending",
-  "supervision_contract_id": "goalkeeper-control-v2-split-supervision-v1",
+  "attempt_id": "goalkeeper-control-v2-split-supervision-v2-seed-001",
+  "status": "supervised-gate-passed",
+  "supervision_contract_id": "goalkeeper-control-v2-split-supervision-v2",
   "source_demonstration_contract_id": "goalkeeper-control-v2-reactive-demo-v1",
   "behavior_name": "GoalkeeperControl-v2",
   "observation_spec_id": "control-state-v2",
   "action_spec_id": "goalkeeper-hybrid-v1",
-  "offline": null,
-  "smoke_unity_gate": null,
-  "interception_unity_gate": null,
-  "combined_unity_gate": null,
+  "offline": {
+    "status": "passed",
+    "training_seed": 1,
+    "dataset_manifest_sha256": "3975cfc060565ff31208b34f6af27a52ba62d96c8068ac67b4bf03b80e4e8e68",
+    "split_assignment_sha256": "29f69004236ca0f20f916d6a82a8ba1f5260e4b19f03fdf0542e737220301dc7",
+    "commit_threshold": 0.4700000000000001,
+    "models": {
+      "interception": {
+        "model_id": "goalkeeper-interception-v2",
+        "path": "models/goalkeeper-interception-v2.onnx",
+        "sha256": "ad95050acb5032abffd005e9d5ddf78b8e1c362d79a5d9871b05c50a342b20b0",
+        "input": "obs_0",
+        "output": "continuous_actions",
+        "pytorch_path": "models/goalkeeper-interception-v2.pt",
+        "onnx_parity_max_absolute_error": 5.960464477539063E-8
+      },
+      "timing": {
+        "model_id": "goalkeeper-commit-timing-v1",
+        "path": "models/goalkeeper-commit-timing-v1.onnx",
+        "sha256": "26c3a80b375574a4e1c02b97183e2ab390736eae76879296ad3daaf85492850b",
+        "input": "obs_0",
+        "output": "commit_logit",
+        "output_transform": "sigmoid",
+        "feature_indices": [
+          29,
+          31,
+          32
+        ],
+        "pytorch_path": "models/goalkeeper-commit-timing-v1.pt",
+        "onnx_parity_max_absolute_error": 0.0
+      }
+    },
+    "training": {
+      "interception": {
+        "best_epoch": 99,
+        "epochs_run": 100,
+        "best_validation_loss": 0.000043331263441359624,
+        "final_train_loss": 0.00004585501123801805,
+        "phase_sampling": "equal-rows-per-phase-per-epoch",
+        "rows_per_phase_per_epoch": 16000,
+        "post_commit_supervised_channels": [
+          "aim_x",
+          "aim_y",
+          "reach"
+        ],
+        "train_phase_rows": {
+          "pre_commit": 29230,
+          "commit": 16000,
+          "post_commit": 494988
+        },
+        "validation_phase_rows": {
+          "pre_commit": 3529,
+          "commit": 2000,
+          "post_commit": 61783
+        }
+      },
+      "timing": {
+        "best_epoch": 100,
+        "epochs_run": 100,
+        "best_validation_loss": 0.024270888417959213,
+        "final_train_loss": 0.026580044507980346
+      },
+      "timing_sampling": {
+        "commit_rows": 16000,
+        "wait_rows": 16000,
+        "same_episode_wait_rows": 7557,
+        "same_arena_fallback_wait_rows": 8443
+      },
+      "timing_validation_sampling": {
+        "commit_rows": 2000,
+        "wait_rows": 2000,
+        "same_episode_wait_rows": 919,
+        "same_arena_fallback_wait_rows": 1081
+      }
+    },
+    "evaluation": {
+      "interception_test": {
+        "move_mae": 0.006106926128268242,
+        "aim_x_mae": 0.003072013845667243,
+        "aim_y_mae": 0.005956125911325216,
+        "reach_mae": 0.0003358926041983068,
+        "physical_aim_error_m": 0.014133472926914692,
+        "finite": true,
+        "bounded": true,
+        "rows": 5671,
+        "phase_contract": {
+          "pre_commit_channels": [
+            "move_x",
+            "aim_x",
+            "aim_y",
+            "reach"
+          ],
+          "commit_channels": [
+            "move_x",
+            "aim_x",
+            "aim_y",
+            "reach"
+          ],
+          "post_commit_channels": [
+            "aim_x",
+            "aim_y",
+            "reach"
+          ]
+        },
+        "phase_rows": {
+          "pre_commit": 3671,
+          "commit": 2000,
+          "post_commit": 61489
+        },
+        "pre_commit_through_commit": {
+          "move_mae": 0.006106926128268242,
+          "aim_x_mae": 0.003072013845667243,
+          "aim_y_mae": 0.005956125911325216,
+          "reach_mae": 0.0003358926041983068,
+          "physical_aim_error_m": 0.014133472926914692,
+          "finite": true,
+          "bounded": true,
+          "rows": 5671
+        },
+        "post_commit": {
+          "move_mae": 0.33913150429725647,
+          "aim_x_mae": 0.008933917619287968,
+          "aim_y_mae": 0.01229383796453476,
+          "reach_mae": 0.0006644389941357076,
+          "physical_aim_error_m": 0.037585847079753876,
+          "finite": true,
+          "bounded": true,
+          "rows": 61489
+        },
+        "all_rows_finite": true,
+        "all_rows_bounded": true
+      },
+      "timing_validation": {
+        "episodes": 2000,
+        "predicted_commits": 2000,
+        "commit_coverage": 1.0,
+        "within_one_decision_rate": 1.0,
+        "premature_rate": 0.0,
+        "late_rate": 0.0,
+        "mean_absolute_decision_error": 0.014,
+        "raw_masked_positive_rows": 52736,
+        "masked_predictions": 0,
+        "repeated_commits": 0,
+        "threshold": 0.4700000000000001
+      },
+      "timing_test": {
+        "episodes": 2000,
+        "predicted_commits": 2000,
+        "commit_coverage": 1.0,
+        "within_one_decision_rate": 1.0,
+        "premature_rate": 0.0,
+        "late_rate": 0.0,
+        "mean_absolute_decision_error": 0.0095,
+        "raw_masked_positive_rows": 52859,
+        "masked_predictions": 0,
+        "repeated_commits": 0,
+        "threshold": 0.4700000000000001
+      },
+      "gate": {
+        "passed": true,
+        "checks": {
+          "move_mae": true,
+          "aim_x_mae": true,
+          "aim_y_mae": true,
+          "physical_aim_error": true,
+          "reach_mae": true,
+          "post_commit_aim_x_mae": true,
+          "post_commit_aim_y_mae": true,
+          "post_commit_physical_aim_error": true,
+          "post_commit_reach_mae": true,
+          "finite_outputs": true,
+          "bounded_outputs": true,
+          "commit_coverage": true,
+          "commit_timing": true,
+          "premature_rate": true,
+          "late_rate": true,
+          "masked_predictions": true,
+          "repeated_commits": true
+        },
+        "failed_checks": []
+      }
+    }
+  },
+  "smoke_unity_gate": {
+    "passed": true,
+    "evaluation_run_id": "gk-control-v2-split-supervision-v2_seed-001-smoke-64",
+    "checks": {
+      "interception_teacher_timing_attempts": true,
+      "interception_teacher_timing_complete": true,
+      "interception_teacher_timing_invalids": true,
+      "interception_teacher_timing_timeouts": true,
+      "interception_teacher_timing_action_masks": true,
+      "interception_teacher_timing_command_clamps": true,
+      "interception_teacher_timing_duplicates": true,
+      "interception_teacher_timing_missing_actions": true,
+      "interception_teacher_timing_requests_balanced": true,
+      "interception_teacher_timing_commands_balanced": true,
+      "split_supervised_attempts": true,
+      "split_supervised_complete": true,
+      "split_supervised_invalids": true,
+      "split_supervised_timeouts": true,
+      "split_supervised_action_masks": true,
+      "split_supervised_command_clamps": true,
+      "split_supervised_duplicates": true,
+      "split_supervised_missing_actions": true,
+      "split_supervised_requests_balanced": true,
+      "split_supervised_commands_balanced": true
+    },
+    "failed_checks": []
+  },
+  "interception_unity_gate": {
+    "passed": true,
+    "evaluation_run_id": "gk-control-v2-split-supervision-v2_seed-001-interception-gate-400",
+    "teacher_fraction_required": 0.8,
+    "teacher": {
+      "save_rate": 0.5725,
+      "glove_contact_rate": 0.7325,
+      "high_shot_save_rate": 0.7028985507246377
+    },
+    "interception_model": {
+      "save_rate": 0.5775,
+      "glove_contact_rate": 0.725,
+      "high_shot_save_rate": 0.6811594202898551,
+      "first_commit_aim_error_m": 0.0521235196923657,
+      "peak_reach_extension": 0.9910327588021756
+    },
+    "checks": {
+      "attempts": true,
+      "teacher_attempts": true,
+      "teacher_behavioral_gate": true,
+      "save_rate": true,
+      "glove_contact_rate": true,
+      "high_shot_save_rate": true,
+      "aim_error": true,
+      "peak_reach": true,
+      "complete": true,
+      "invalids": true,
+      "timeouts": true,
+      "action_masks": true,
+      "command_clamps": true,
+      "duplicates": true,
+      "missing_actions": true,
+      "requests_balanced": true,
+      "commands_balanced": true
+    },
+    "failed_checks": []
+  },
+  "combined_unity_gate": {
+    "passed": true,
+    "evaluation_run_id": "gk-control-v2-split-supervision-v2_seed-001-combined-gate-400",
+    "policy": "split_supervised:seed-001",
+    "metrics": {
+      "attempts": 400,
+      "commit_rate": 1.0,
+      "save_rate": 0.5725,
+      "glove_contact_rate": 0.725,
+      "glove_save_rate": 0.5,
+      "high_shot_save_rate": 0.6739130434782609,
+      "first_commit_aim_error_m": 0.05223067315311941,
+      "peak_reach_extension": 0.9910327406227588
+    },
+    "complete_behavioral_gate": {
+      "passed": true,
+      "control_version": 2,
+      "profile": "imitation-v1",
+      "checks_passed": 17,
+      "checks_total": 17,
+      "failed_checks": [],
+      "thresholds": {
+        "minimum_save_rate": 0.35,
+        "minimum_glove_contact_rate": 0.4,
+        "minimum_glove_save_rate": 0.2,
+        "minimum_peak_reach_extension_mean": 0.65,
+        "minimum_high_shot_save_rate": 0.3,
+        "maximum_first_commit_aim_error_m": 0.75,
+        "maximum_immediate_commit_rate": 0.1,
+        "maximum_premature_commit_rate": 0.15,
+        "maximum_late_commit_rate": 0.15,
+        "minimum_timely_commit_rate": 0.7,
+        "maximum_first_commit_reach_shortfall": 0.2,
+        "maximum_policy_action_override_count": 0,
+        "maximum_command_clamp_count": 0,
+        "maximum_invalids": 0,
+        "maximum_timeouts": 0,
+        "maximum_action_mask_violations": 0,
+        "minimum_commit_rate": 0.85
+      }
+    },
+    "checks": {
+      "attempts": true,
+      "commit_rate": true,
+      "save_rate": true,
+      "glove_contact_rate": true,
+      "glove_save_rate": true,
+      "high_shot_save_rate": true,
+      "aim_error": true,
+      "peak_reach": true,
+      "complete_behavioral_gate": true,
+      "complete": true,
+      "invalids": true,
+      "timeouts": true,
+      "action_masks": true,
+      "command_clamps": true,
+      "duplicates": true,
+      "missing_actions": true,
+      "requests_balanced": true,
+      "commands_balanced": true
+    },
+    "failed_checks": []
+  },
+  "attempt_history": [
+    {
+      "attempt_id": "goalkeeper-control-v2-split-supervision-v1-seed-001",
+      "supervision_contract_id": "goalkeeper-control-v2-split-supervision-v1",
+      "status": "interception-unity-gate-failed",
+      "offline": {
+        "status": "passed",
+        "training_seed": 1,
+        "dataset_manifest_sha256": "ac93f1ce25f0fce54901fd75966f05ddf2c38f6bfde3a7a75973c0a545fc3105",
+        "split_assignment_sha256": "29f69004236ca0f20f916d6a82a8ba1f5260e4b19f03fdf0542e737220301dc7",
+        "commit_threshold": 0.4700000000000001,
+        "models": {
+          "interception": {
+            "model_id": "goalkeeper-interception-v1",
+            "path": "models/goalkeeper-interception-v1.onnx",
+            "sha256": "7ea219e62d0112a5795dec485e6d0b82679f0c46b71e8d038a25e67d5d570624",
+            "input": "obs_0",
+            "output": "continuous_actions",
+            "pytorch_path": "models/goalkeeper-interception-v1.pt",
+            "onnx_parity_max_absolute_error": 1.1920928955078125E-7
+          },
+          "timing": {
+            "model_id": "goalkeeper-commit-timing-v1",
+            "path": "models/goalkeeper-commit-timing-v1.onnx",
+            "sha256": "26c3a80b375574a4e1c02b97183e2ab390736eae76879296ad3daaf85492850b",
+            "input": "obs_0",
+            "output": "commit_logit",
+            "output_transform": "sigmoid",
+            "feature_indices": [
+              29,
+              31,
+              32
+            ],
+            "pytorch_path": "models/goalkeeper-commit-timing-v1.pt",
+            "onnx_parity_max_absolute_error": 0.0
+          }
+        },
+        "training": {
+          "interception": {
+            "best_epoch": 100,
+            "epochs_run": 100,
+            "best_validation_loss": 0.000048788078856887296,
+            "final_train_loss": 0.00005139448415465638
+          },
+          "timing": {
+            "best_epoch": 100,
+            "epochs_run": 100,
+            "best_validation_loss": 0.024270888417959213,
+            "final_train_loss": 0.026580044507980346
+          },
+          "timing_sampling": {
+            "commit_rows": 16000,
+            "wait_rows": 16000,
+            "same_episode_wait_rows": 7557,
+            "same_arena_fallback_wait_rows": 8443
+          },
+          "timing_validation_sampling": {
+            "commit_rows": 2000,
+            "wait_rows": 2000,
+            "same_episode_wait_rows": 919,
+            "same_arena_fallback_wait_rows": 1081
+          }
+        },
+        "evaluation": {
+          "interception_test": {
+            "move_mae": 0.00754550751298666,
+            "aim_x_mae": 0.006782464683055878,
+            "aim_y_mae": 0.008304252289235592,
+            "reach_mae": 0.0004629973554983735,
+            "physical_aim_error_m": 0.027649980038404465,
+            "finite": true,
+            "bounded": true,
+            "rows": 5671
+          },
+          "timing_validation": {
+            "episodes": 2000,
+            "predicted_commits": 2000,
+            "commit_coverage": 1.0,
+            "within_one_decision_rate": 1.0,
+            "premature_rate": 0.0,
+            "late_rate": 0.0,
+            "mean_absolute_decision_error": 0.014,
+            "raw_masked_positive_rows": 52736,
+            "masked_predictions": 0,
+            "repeated_commits": 0,
+            "threshold": 0.4700000000000001
+          },
+          "timing_test": {
+            "episodes": 2000,
+            "predicted_commits": 2000,
+            "commit_coverage": 1.0,
+            "within_one_decision_rate": 1.0,
+            "premature_rate": 0.0,
+            "late_rate": 0.0,
+            "mean_absolute_decision_error": 0.0095,
+            "raw_masked_positive_rows": 52859,
+            "masked_predictions": 0,
+            "repeated_commits": 0,
+            "threshold": 0.4700000000000001
+          },
+          "gate": {
+            "passed": true,
+            "checks": {
+              "move_mae": true,
+              "aim_x_mae": true,
+              "aim_y_mae": true,
+              "physical_aim_error": true,
+              "reach_mae": true,
+              "finite_outputs": true,
+              "bounded_outputs": true,
+              "commit_coverage": true,
+              "commit_timing": true,
+              "premature_rate": true,
+              "late_rate": true,
+              "masked_predictions": true,
+              "repeated_commits": true
+            },
+            "failed_checks": []
+          }
+        }
+      },
+      "smoke_unity_gate": {
+        "passed": true,
+        "evaluation_run_id": "gk-control-v2-split-supervision_seed-001-smoke-64",
+        "checks": {
+          "interception_teacher_timing_attempts": true,
+          "interception_teacher_timing_complete": true,
+          "interception_teacher_timing_invalids": true,
+          "interception_teacher_timing_timeouts": true,
+          "interception_teacher_timing_action_masks": true,
+          "interception_teacher_timing_command_clamps": true,
+          "interception_teacher_timing_duplicates": true,
+          "interception_teacher_timing_missing_actions": true,
+          "interception_teacher_timing_requests_balanced": true,
+          "interception_teacher_timing_commands_balanced": true,
+          "split_supervised_attempts": true,
+          "split_supervised_complete": true,
+          "split_supervised_invalids": true,
+          "split_supervised_timeouts": true,
+          "split_supervised_action_masks": true,
+          "split_supervised_command_clamps": true,
+          "split_supervised_duplicates": true,
+          "split_supervised_missing_actions": true,
+          "split_supervised_requests_balanced": true,
+          "split_supervised_commands_balanced": true
+        },
+        "failed_checks": []
+      },
+      "interception_unity_gate": {
+        "passed": false,
+        "evaluation_run_id": "gk-control-v2-split-supervision_seed-001-interception-gate-400",
+        "teacher_fraction_required": 0.8,
+        "teacher": {
+          "save_rate": 0.5725,
+          "glove_contact_rate": 0.7325,
+          "high_shot_save_rate": 0.7028985507246377
+        },
+        "interception_model": {
+          "save_rate": 0.425,
+          "glove_contact_rate": 0.425,
+          "high_shot_save_rate": 0.47101449275362317,
+          "first_commit_aim_error_m": 0.06282430885134134,
+          "peak_reach_extension": 0.9905301938951016
+        },
+        "checks": {
+          "attempts": true,
+          "teacher_attempts": true,
+          "teacher_behavioral_gate": true,
+          "save_rate": false,
+          "glove_contact_rate": false,
+          "high_shot_save_rate": false,
+          "aim_error": true,
+          "peak_reach": true,
+          "complete": true,
+          "invalids": true,
+          "timeouts": true,
+          "action_masks": true,
+          "command_clamps": true,
+          "duplicates": true,
+          "missing_actions": true,
+          "requests_balanced": true,
+          "commands_balanced": true
+        },
+        "failed_checks": [
+          "save_rate",
+          "glove_contact_rate",
+          "high_shot_save_rate"
+        ]
+      },
+      "combined_unity_gate": null,
+      "diagnosis": {
+        "status": "confirmed",
+        "failed_assumption": "post-commit continuous actions are not causally relevant",
+        "motor_evidence": "activeCommand aim continues driving in-dive arm correction",
+        "pre_commit_through_commit_aim_x_mae": 0.006782464683055878,
+        "pre_commit_through_commit_aim_y_mae": 0.008304252289235592,
+        "post_commit_aim_x_mae": 0.2902296483516693,
+        "post_commit_aim_y_mae": 0.37260884046554565
+      },
+      "promotion": {
+        "authorized": false,
+        "next_step": "inspect interception or evaluator integration; PPO is not authorized"
+      }
+    }
+  ],
   "implementation_verification": {
     "real_demonstration_extraction": "passed",
     "source_manifest_sha256": "b2ddce2ae4a0b9618e1319b26822d7d9a8de46f21a5bb054ed046e0bf75d388c",
@@ -18,12 +530,13 @@
     "total_episodes": 20000,
     "total_decision_rows": 674690,
     "first_decision_commits": 10584,
-    "python_regressions": "74 passed",
+    "python_regressions": "79 passed",
     "onnx_runtime_parity": "passed",
-    "shell_syntax": "passed"
+    "shell_syntax": "passed",
+    "phase_aware_gate_rejects_v1": "passed"
   },
   "promotion": {
-    "authorized": false,
-    "next_step": "run scripts/run_stage5_split_supervision_handoff.sh 1"
+    "authorized": true,
+    "next_step": "plan Stage 5.6B native inference and short PPO refinement"
   }
 }

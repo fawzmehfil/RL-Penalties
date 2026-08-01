@@ -9,22 +9,21 @@ import os
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import onnxruntime as ort
 import torch
 from mlagents.trainers.demo_loader import load_demonstration
 from torch import nn
+from torch.nn import functional as F
 
 
 DEFAULT_CONTRACT = Path(
-    "configs/supervision/"
-    "goalkeeper-control-v2-split-supervision-v1.json"
+    "configs/supervision/goalkeeper-control-v2-split-supervision-v2.json"
 )
 DEFAULT_DEMO_DIR = Path(
-    "results/demonstrations/"
-    "goalkeeper-control-v2-reactive-demo-v1-20k"
+    "results/demonstrations/goalkeeper-control-v2-reactive-demo-v1-20k"
 )
 OBSERVATION_SIZE = 35
 CONTINUOUS_ACTIONS = 4
@@ -32,6 +31,14 @@ CAN_COMMIT_INDEX = 29
 TIMING_FEATURE_INDICES = (29, 31, 32)
 TARGET_X_EXTENT = 3.55
 TARGET_Y_RANGE = 2.22
+INTERCEPTION_PHASE_PRE_COMMIT = 0
+INTERCEPTION_PHASE_COMMIT = 1
+INTERCEPTION_PHASE_POST_COMMIT = 2
+INTERCEPTION_PHASE_NAMES = (
+    "pre_commit",
+    "commit",
+    "post_commit",
+)
 
 
 @dataclass(frozen=True)
@@ -51,9 +58,7 @@ class AlignedEpisode:
     def commit_index(self) -> int:
         matches = np.flatnonzero(self.commit_actions == 1)
         if len(matches) != 1:
-            raise ValueError(
-                f"episode {self.key} has {len(matches)} commits"
-            )
+            raise ValueError(f"episode {self.key} has {len(matches)} commits")
         return int(matches[0])
 
 
@@ -129,9 +134,7 @@ def validate_source_manifest(
         )
     manifest = load_json(manifest_path)
     expected_identity = {
-        "demonstration_contract_id": contract[
-            "source_demonstration_contract_id"
-        ],
+        "demonstration_contract_id": contract["source_demonstration_contract_id"],
         "behavior_name": contract["behavior_name"],
         "observation_spec_id": contract["observation_spec_id"],
         "action_spec_id": contract["action_spec_id"],
@@ -142,8 +145,7 @@ def validate_source_manifest(
     for key, expected in expected_identity.items():
         if manifest.get(key) != expected:
             raise ValueError(
-                f"source manifest {key} {manifest.get(key)!r} != "
-                f"{expected!r}"
+                f"source manifest {key} {manifest.get(key)!r} != {expected!r}"
             )
     if manifest.get("observation_shapes") != [[contract["observation_size"]]]:
         raise ValueError("source observation shape does not match contract")
@@ -153,9 +155,8 @@ def validate_source_manifest(
         raise ValueError("source continuous action count does not match")
     if manifest.get("discrete_branches") != contract["discrete_branches"]:
         raise ValueError("source discrete branches do not match")
-    expected_episodes = (
-        int(contract["arena_count"])
-        * int(contract["episodes_per_arena"])
+    expected_episodes = int(contract["arena_count"]) * int(
+        contract["episodes_per_arena"]
     )
     if int(manifest.get("terminal_episodes", -1)) != expected_episodes:
         raise ValueError("source episode count does not match contract")
@@ -233,9 +234,7 @@ def realign_demo_pairs(
                     f"unexpected continuous action shape {continuous.shape}"
                 )
             if discrete.shape != (1,) or int(discrete[0]) not in (0, 1):
-                raise ValueError(
-                    f"unexpected discrete action {discrete.tolist()}"
-                )
+                raise ValueError(f"unexpected discrete action {discrete.tolist()}")
             if not np.isfinite(continuous).all():
                 raise ValueError("demonstration contains non-finite action")
             if np.any(np.abs(continuous) > 1.000001):
@@ -296,8 +295,7 @@ def load_aligned_episodes(
         path = demo_dir / f"GKCtrlV2A{arena_id:03d}.demo"
         behavior_spec, pairs, _ = load_demonstration(str(path))
         observation_shapes = [
-            list(spec.shape)
-            for spec in behavior_spec.observation_specs
+            list(spec.shape) for spec in behavior_spec.observation_specs
         ]
         if observation_shapes != [[int(contract["observation_size"])]]:
             raise ValueError(f"{path.name} observation spec changed")
@@ -308,9 +306,7 @@ def load_aligned_episodes(
             raise ValueError(f"{path.name} discrete action spec changed")
         arena_episodes = realign_demo_pairs(pairs, arena_id)
         if len(arena_episodes) != int(contract["episodes_per_arena"]):
-            raise ValueError(
-                f"arena {arena_id} has {len(arena_episodes)} episodes"
-            )
+            raise ValueError(f"arena {arena_id} has {len(arena_episodes)} episodes")
         episodes.extend(arena_episodes)
     return episodes
 
@@ -337,7 +333,7 @@ def split_episode_keys(
         permutation = rng.permutation(len(arena_episodes))
         cursor = 0
         for split_name in ("train", "validation", "test"):
-            for index in permutation[cursor:cursor + expected[split_name]]:
+            for index in permutation[cursor : cursor + expected[split_name]]:
                 assignments[arena_episodes[int(index)].key] = split_name
             cursor += expected[split_name]
     if len(assignments) != len(episodes):
@@ -386,9 +382,7 @@ def _write_split_dataset(
         "sha256": sha256_file(path),
         "episodes": len(ordered),
         "decision_rows": offsets[-1],
-        "first_decision_commits": sum(
-            episode.commit_index == 0 for episode in ordered
-        ),
+        "first_decision_commits": sum(episode.commit_index == 0 for episode in ordered),
     }
 
 
@@ -414,8 +408,7 @@ def extract_dataset(
             existing.get("status") != "passed"
             or existing.get("supervision_contract_id")
             != contract["supervision_contract_id"]
-            or existing.get("source_manifest_sha256")
-            != source_manifest_sha
+            or existing.get("source_manifest_sha256") != source_manifest_sha
         ):
             raise ValueError("existing dataset manifest is not reusable")
         for entry in existing.get("dataset_files", {}).values():
@@ -433,9 +426,7 @@ def extract_dataset(
     assignments = split_episode_keys(episodes, contract)
     grouped = {
         split_name: [
-            episode
-            for episode in episodes
-            if assignments[episode.key] == split_name
+            episode for episode in episodes if assignments[episode.key] == split_name
         ]
         for split_name in ("train", "validation", "test")
     }
@@ -443,9 +434,7 @@ def extract_dataset(
         f"{arena_id}:{ordinal}:{assignments[(arena_id, ordinal)]}"
         for arena_id, ordinal in sorted(assignments)
     ]
-    split_sha = hashlib.sha256(
-        "\n".join(split_rows).encode("ascii")
-    ).hexdigest()
+    split_sha = hashlib.sha256("\n".join(split_rows).encode("ascii")).hexdigest()
     files = {
         name: _write_split_dataset(output_dir / f"{name}.npz", values)
         for name, values in grouped.items()
@@ -465,15 +454,11 @@ def extract_dataset(
         "alignment": contract["alignment"],
         "split_seed": int(contract["split_seed"]),
         "split_assignment_sha256": split_sha,
-        "episode_counts": {
-            name: len(values) for name, values in grouped.items()
-        },
+        "episode_counts": {name: len(values) for name, values in grouped.items()},
         "dataset_files": files,
         "total_episodes": len(episodes),
         "total_decision_rows": sum(len(item.observations) for item in episodes),
-        "first_decision_commits": sum(
-            item.commit_index == 0 for item in episodes
-        ),
+        "first_decision_commits": sum(item.commit_index == 0 for item in episodes),
     }
     dataset_manifest_path.write_text(
         json.dumps(manifest, indent=2) + "\n",
@@ -519,12 +504,8 @@ def _train_network(
 ) -> dict[str, Any]:
     train_inputs = torch.from_numpy(train_x.astype(np.float32, copy=False))
     train_targets = torch.from_numpy(train_y.astype(np.float32, copy=False))
-    validation_inputs = torch.from_numpy(
-        validation_x.astype(np.float32, copy=False)
-    )
-    validation_targets = torch.from_numpy(
-        validation_y.astype(np.float32, copy=False)
-    )
+    validation_inputs = torch.from_numpy(validation_x.astype(np.float32, copy=False))
+    validation_targets = torch.from_numpy(validation_y.astype(np.float32, copy=False))
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     generator = torch.Generator().manual_seed(seed)
     best_state = copy.deepcopy(model.state_dict())
@@ -538,7 +519,7 @@ def _train_network(
         permutation = torch.randperm(len(train_inputs), generator=generator)
         total_loss = 0.0
         for start in range(0, len(permutation), batch_size):
-            indexes = permutation[start:start + batch_size]
+            indexes = permutation[start : start + batch_size]
             predictions = model(train_inputs[indexes])
             loss = loss_function(predictions, train_targets[indexes])
             optimizer.zero_grad(set_to_none=True)
@@ -579,16 +560,185 @@ def _train_network(
     }
 
 
-def _precommit_rows(values: dict[str, np.ndarray]) -> np.ndarray:
-    selected: list[np.ndarray] = []
+def interception_phase_ids(values: dict[str, np.ndarray]) -> np.ndarray:
+    phases = np.full(
+        len(values["observations"]),
+        -1,
+        dtype=np.int8,
+    )
     offsets = values["episode_offsets"]
     commits = values["teacher_commit_indices"]
     for episode_index, commit_index in enumerate(commits):
         start = int(offsets[episode_index])
-        selected.append(
-            np.arange(start, start + int(commit_index) + 1, dtype=np.int64)
+        end = int(offsets[episode_index + 1])
+        commit = start + int(commit_index)
+        if commit < start or commit >= end:
+            raise ValueError("teacher commit index is outside its episode")
+        phases[start:commit] = INTERCEPTION_PHASE_PRE_COMMIT
+        phases[commit] = INTERCEPTION_PHASE_COMMIT
+        phases[commit + 1 : end] = INTERCEPTION_PHASE_POST_COMMIT
+    if np.any(phases < 0):
+        raise ValueError("interception phase assignment has uncovered rows")
+    return phases
+
+
+def sample_phase_balanced_rows(
+    phases: np.ndarray,
+    rows_per_phase: int,
+    generator: torch.Generator,
+) -> np.ndarray:
+    if rows_per_phase <= 0:
+        raise ValueError("rows_per_phase must be positive")
+    selected: list[np.ndarray] = []
+    for phase in range(len(INTERCEPTION_PHASE_NAMES)):
+        available = np.flatnonzero(phases == phase)
+        if not len(available):
+            raise ValueError(
+                f"interception phase {INTERCEPTION_PHASE_NAMES[phase]} has no rows"
+            )
+        if len(available) >= rows_per_phase:
+            indexes = torch.randperm(
+                len(available),
+                generator=generator,
+            )[:rows_per_phase].numpy()
+        else:
+            indexes = torch.randint(
+                len(available),
+                (rows_per_phase,),
+                generator=generator,
+            ).numpy()
+        selected.append(available[indexes])
+    return np.concatenate(selected).astype(np.int64, copy=False)
+
+
+def _interception_loss(
+    predictions: torch.Tensor,
+    targets: torch.Tensor,
+    phases: torch.Tensor,
+) -> torch.Tensor:
+    element_loss = F.smooth_l1_loss(
+        predictions,
+        targets,
+        reduction="none",
+    )
+    channel_mask = torch.ones_like(element_loss)
+    post_commit = phases == INTERCEPTION_PHASE_POST_COMMIT
+    channel_mask[post_commit, 0] = 0.0
+    return (element_loss * channel_mask).sum() / channel_mask.sum()
+
+
+def _train_interception_network(
+    model: nn.Module,
+    train_values: dict[str, np.ndarray],
+    validation_values: dict[str, np.ndarray],
+    *,
+    learning_rate: float,
+    batch_size: int,
+    maximum_epochs: int,
+    patience: int,
+    seed: int,
+) -> dict[str, Any]:
+    train_inputs = torch.from_numpy(
+        train_values["observations"].astype(np.float32, copy=False)
+    )
+    train_targets = torch.from_numpy(
+        train_values["continuous_actions"].astype(np.float32, copy=False)
+    )
+    validation_inputs = torch.from_numpy(
+        validation_values["observations"].astype(np.float32, copy=False)
+    )
+    validation_targets = torch.from_numpy(
+        validation_values["continuous_actions"].astype(np.float32, copy=False)
+    )
+    train_phases_numpy = interception_phase_ids(train_values)
+    validation_phases_numpy = interception_phase_ids(validation_values)
+    train_phases = torch.from_numpy(train_phases_numpy)
+    validation_phases = torch.from_numpy(validation_phases_numpy)
+    train_counts = {
+        name: int(np.sum(train_phases_numpy == phase))
+        for phase, name in enumerate(INTERCEPTION_PHASE_NAMES)
+    }
+    validation_counts = {
+        name: int(np.sum(validation_phases_numpy == phase))
+        for phase, name in enumerate(INTERCEPTION_PHASE_NAMES)
+    }
+    rows_per_phase = train_counts["commit"]
+    validation_rows_per_phase = validation_counts["commit"]
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    generator = torch.Generator().manual_seed(seed)
+    validation_generator = torch.Generator().manual_seed(seed + 1_000_003)
+    validation_indexes_numpy = sample_phase_balanced_rows(
+        validation_phases_numpy,
+        validation_rows_per_phase,
+        validation_generator,
+    )
+    validation_indexes = torch.from_numpy(validation_indexes_numpy)
+    best_state = copy.deepcopy(model.state_dict())
+    best_loss = math.inf
+    best_epoch = 0
+    epochs_without_improvement = 0
+    history: list[dict[str, float]] = []
+
+    for epoch in range(1, maximum_epochs + 1):
+        sampled_numpy = sample_phase_balanced_rows(
+            train_phases_numpy,
+            rows_per_phase,
+            generator,
         )
-    return np.concatenate(selected)
+        sampled = torch.from_numpy(sampled_numpy)
+        permutation = sampled[torch.randperm(len(sampled), generator=generator)]
+        model.train()
+        total_loss = 0.0
+        for start in range(0, len(permutation), batch_size):
+            indexes = permutation[start : start + batch_size]
+            predictions = model(train_inputs[indexes])
+            loss = _interception_loss(
+                predictions,
+                train_targets[indexes],
+                train_phases[indexes],
+            )
+            optimizer.zero_grad(set_to_none=True)
+            loss.backward()
+            optimizer.step()
+            total_loss += float(loss.detach()) * len(indexes)
+        model.eval()
+        with torch.no_grad():
+            validation_loss = float(
+                _interception_loss(
+                    model(validation_inputs[validation_indexes]),
+                    validation_targets[validation_indexes],
+                    validation_phases[validation_indexes],
+                )
+            )
+        train_loss = total_loss / len(permutation)
+        history.append(
+            {
+                "epoch": float(epoch),
+                "train_loss": train_loss,
+                "validation_loss": validation_loss,
+            }
+        )
+        if validation_loss < best_loss - 1e-8:
+            best_loss = validation_loss
+            best_epoch = epoch
+            best_state = copy.deepcopy(model.state_dict())
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+            if epochs_without_improvement >= patience:
+                break
+    model.load_state_dict(best_state)
+    return {
+        "best_epoch": best_epoch,
+        "epochs_run": len(history),
+        "best_validation_loss": best_loss,
+        "final_train_loss": history[-1]["train_loss"],
+        "phase_sampling": "equal-rows-per-phase-per-epoch",
+        "rows_per_phase_per_epoch": rows_per_phase,
+        "post_commit_supervised_channels": ["aim_x", "aim_y", "reach"],
+        "train_phase_rows": train_counts,
+        "validation_phase_rows": validation_counts,
+    }
 
 
 def balanced_timing_rows(
@@ -682,6 +832,42 @@ def interception_metrics(
     }
 
 
+def interception_sequence_metrics(
+    values: dict[str, np.ndarray],
+    predictions: np.ndarray,
+) -> dict[str, Any]:
+    phases = interception_phase_ids(values)
+    targets = values["continuous_actions"]
+    pre_and_commit = phases != INTERCEPTION_PHASE_POST_COMMIT
+    post_commit = phases == INTERCEPTION_PHASE_POST_COMMIT
+    if not np.any(pre_and_commit) or not np.any(post_commit):
+        raise ValueError("interception evaluation requires every phase")
+    pre_metrics = interception_metrics(
+        predictions[pre_and_commit],
+        targets[pre_and_commit],
+    )
+    post_metrics = interception_metrics(
+        predictions[post_commit],
+        targets[post_commit],
+    )
+    return {
+        **pre_metrics,
+        "phase_contract": {
+            "pre_commit_channels": ["move_x", "aim_x", "aim_y", "reach"],
+            "commit_channels": ["move_x", "aim_x", "aim_y", "reach"],
+            "post_commit_channels": ["aim_x", "aim_y", "reach"],
+        },
+        "phase_rows": {
+            name: int(np.sum(phases == phase))
+            for phase, name in enumerate(INTERCEPTION_PHASE_NAMES)
+        },
+        "pre_commit_through_commit": pre_metrics,
+        "post_commit": post_metrics,
+        "all_rows_finite": bool(np.isfinite(predictions).all()),
+        "all_rows_bounded": bool(np.all(np.abs(predictions) <= 1.000001)),
+    }
+
+
 def timing_sequence_metrics(
     values: dict[str, np.ndarray],
     probabilities: np.ndarray,
@@ -703,8 +889,7 @@ def timing_sequence_metrics(
         start = int(offsets[episode_index])
         end = int(offsets[episode_index + 1])
         local_hits = np.flatnonzero(
-            (probabilities[start:end] >= threshold)
-            & allowed[start:end].astype(bool)
+            (probabilities[start:end] >= threshold) & allowed[start:end].astype(bool)
         )
         if not len(local_hits):
             continue
@@ -741,9 +926,9 @@ def offline_gate(
     timing: dict[str, Any],
     thresholds: dict[str, Any],
 ) -> dict[str, Any]:
+    post_commit = interception["post_commit"]
     checks = {
-        "move_mae": interception["move_mae"]
-        <= float(thresholds["maximum_move_mae"]),
+        "move_mae": interception["move_mae"] <= float(thresholds["maximum_move_mae"]),
         "aim_x_mae": interception["aim_x_mae"]
         <= float(thresholds["maximum_aim_x_mae"]),
         "aim_y_mae": interception["aim_y_mae"]
@@ -752,16 +937,23 @@ def offline_gate(
         <= float(thresholds["maximum_physical_aim_error_m"]),
         "reach_mae": interception["reach_mae"]
         <= float(thresholds["maximum_reach_mae"]),
-        "finite_outputs": bool(interception["finite"]),
-        "bounded_outputs": bool(interception["bounded"]),
+        "post_commit_aim_x_mae": post_commit["aim_x_mae"]
+        <= float(thresholds["maximum_post_commit_aim_x_mae"]),
+        "post_commit_aim_y_mae": post_commit["aim_y_mae"]
+        <= float(thresholds["maximum_post_commit_aim_y_mae"]),
+        "post_commit_physical_aim_error": post_commit["physical_aim_error_m"]
+        <= float(thresholds["maximum_post_commit_physical_aim_error_m"]),
+        "post_commit_reach_mae": post_commit["reach_mae"]
+        <= float(thresholds["maximum_post_commit_reach_mae"]),
+        "finite_outputs": bool(interception["all_rows_finite"]),
+        "bounded_outputs": bool(interception["all_rows_bounded"]),
         "commit_coverage": timing["commit_coverage"]
         >= float(thresholds["minimum_commit_coverage"]),
         "commit_timing": timing["within_one_decision_rate"]
         >= float(thresholds["minimum_within_one_decision_rate"]),
         "premature_rate": timing["premature_rate"]
         <= float(thresholds["maximum_premature_rate"]),
-        "late_rate": timing["late_rate"]
-        <= float(thresholds["maximum_late_rate"]),
+        "late_rate": timing["late_rate"] <= float(thresholds["maximum_late_rate"]),
         "masked_predictions": timing["masked_predictions"]
         <= int(thresholds["maximum_masked_predictions"]),
         "repeated_commits": timing["repeated_commits"]
@@ -798,8 +990,7 @@ def select_timing_threshold(
             >= gates["minimum_within_one_decision_rate"]
             and item["premature_rate"] <= gates["maximum_premature_rate"]
             and item["late_rate"] <= gates["maximum_late_rate"]
-            and item["masked_predictions"]
-            <= gates["maximum_masked_predictions"]
+            and item["masked_predictions"] <= gates["maximum_masked_predictions"]
         )
 
     passing = [item for item in candidates if passes(item)]
@@ -823,7 +1014,7 @@ def _predict(model: nn.Module, observations: np.ndarray) -> np.ndarray:
     with torch.no_grad():
         for start in range(0, len(observations), 4096):
             batch = torch.from_numpy(
-                observations[start:start + 4096].astype(
+                observations[start : start + 4096].astype(
                     np.float32,
                     copy=False,
                 )
@@ -881,30 +1072,24 @@ def train_split_models(
     test = _load_split(output_dir, dataset_manifest, "test")
 
     interception = InterceptionModel()
-    train_rows = _precommit_rows(train)
-    validation_rows = _precommit_rows(validation)
-    test_rows = _precommit_rows(test)
     interception_settings = contract["interception_model"]
-    interception_training = _train_network(
+    interception_training = _train_interception_network(
         interception,
-        train["observations"][train_rows],
-        train["continuous_actions"][train_rows],
-        validation["observations"][validation_rows],
-        validation["continuous_actions"][validation_rows],
+        train,
+        validation,
         learning_rate=float(interception_settings["learning_rate"]),
         batch_size=int(interception_settings["batch_size"]),
         maximum_epochs=int(interception_settings["maximum_epochs"]),
         patience=int(interception_settings["early_stopping_patience"]),
         seed=seed,
-        loss_function=nn.SmoothL1Loss(),
     )
     interception_test_predictions = _predict(
         interception,
-        test["observations"][test_rows],
+        test["observations"],
     )
-    interception_test = interception_metrics(
+    interception_test = interception_sequence_metrics(
+        test,
         interception_test_predictions,
-        test["continuous_actions"][test_rows],
     )
 
     timing = CommitTimingModel(contract["timing_model"]["observation_indices"])
@@ -951,10 +1136,12 @@ def train_split_models(
 
     model_dir = output_dir / "models"
     model_dir.mkdir(parents=True, exist_ok=False)
-    interception_pt = model_dir / "goalkeeper-interception-v1.pt"
-    timing_pt = model_dir / "goalkeeper-commit-timing-v1.pt"
-    interception_onnx = model_dir / "goalkeeper-interception-v1.onnx"
-    timing_onnx = model_dir / "goalkeeper-commit-timing-v1.onnx"
+    interception_stem = str(interception_settings["model_id"])
+    timing_stem = str(timing_settings["model_id"])
+    interception_pt = model_dir / f"{interception_stem}.pt"
+    timing_pt = model_dir / f"{timing_stem}.pt"
+    interception_onnx = model_dir / f"{interception_stem}.onnx"
+    timing_onnx = model_dir / f"{timing_stem}.onnx"
     torch.save(interception.state_dict(), interception_pt)
     torch.save(timing.state_dict(), timing_pt)
     interception_parity = _export_onnx(
@@ -977,9 +1164,7 @@ def train_split_models(
         "action_spec_id": contract["action_spec_id"],
         "training_seed": int(seed),
         "dataset_manifest_sha256": sha256_file(dataset_manifest_path),
-        "split_assignment_sha256": dataset_manifest[
-            "split_assignment_sha256"
-        ],
+        "split_assignment_sha256": dataset_manifest["split_assignment_sha256"],
         "commit_threshold": commit_threshold,
         "models": {
             "interception": {
