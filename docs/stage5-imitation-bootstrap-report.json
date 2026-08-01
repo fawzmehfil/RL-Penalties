@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "stage": 5.5,
-  "status": "implementation-verified-demonstration-and-training-pending",
+  "status": "diagnostic-completed-failed",
   "problem": {
     "no_bc_run_id": "gk-control-v2-lifecycle-ballistics_seed-001",
     "best_checkpoint": "GoalkeeperControl-v2-149997.onnx",
@@ -54,7 +54,131 @@
     "total_attempts": 20000,
     "master_seed": 20260723,
     "output": "results/demonstrations/goalkeeper-control-v2-reactive-demo-v1-20k",
-    "status": "pending"
+    "status": "passed",
+    "manifest_sha256": "b2ddce2ae4a0b9618e1319b26822d7d9a8de46f21a5bb054ed046e0bf75d388c",
+    "terminal_episodes": 20000,
+    "decision_steps": 674690,
+    "commit_actions": 20000,
+    "continuous_action_coverage": {
+      "move_x": {
+        "minimum": -1.0,
+        "maximum": 1.0,
+        "mean": 0.010983098638906718,
+        "standard_deviation": 0.7894419489368304
+      },
+      "aim_x": {
+        "minimum": -1.0,
+        "maximum": 1.0,
+        "mean": 0.011417139702303385,
+        "standard_deviation": 0.6501874849463558
+      },
+      "aim_y": {
+        "minimum": -1.0,
+        "maximum": 1.0,
+        "mean": -0.2946887905407324,
+        "standard_deviation": 0.6812332927533074
+      },
+      "reach": {
+        "minimum": 0.0,
+        "maximum": 1.0,
+        "mean": 0.9703567564362893,
+        "standard_deviation": 0.1696010662547063
+      }
+    },
+    "teacher_quality": {
+      "total_attempts": 20000,
+      "save_rate": 0.5504000186920166,
+      "glove_contact_rate": 0.7402499914169312,
+      "high_shot_save_rate": 0.6498412489891052,
+      "invalids": 0,
+      "timeouts": 0,
+      "action_mask_violations": 0,
+      "control_command_clamps": 0,
+      "policy_decision_duplicate_requests": 0,
+      "policy_decision_missing_actions": 0
+    },
+    "demonstration_files": [
+      {
+        "path": "GKCtrlV2A000.demo",
+        "bytes": 9087332,
+        "sha256": "5b063c1b5d8b2e9a93f12898aaf11bf0c798a47ee2bd5a0994ae4424709d33d7"
+      },
+      {
+        "path": "GKCtrlV2A001.demo",
+        "bytes": 9179736,
+        "sha256": "ad86097380f0956f704355f5c3e36dea323d643e42bb866f0216956fb83df759"
+      },
+      {
+        "path": "GKCtrlV2A002.demo",
+        "bytes": 9214398,
+        "sha256": "c687f7d3dadf1796b195cc74b542babd1999de20b95b2c5e078ad2dcec3eb540"
+      },
+      {
+        "path": "GKCtrlV2A003.demo",
+        "bytes": 9025406,
+        "sha256": "cc22051a189e1d4a57df098dd9c5ec8649cdcf2d1819b5457e2c46b2d6dbd9fd"
+      },
+      {
+        "path": "GKCtrlV2A004.demo",
+        "bytes": 9028556,
+        "sha256": "565ded609160ab154cf16a959bdec46159d631523d5c1e222edc785801d2a93f"
+      },
+      {
+        "path": "GKCtrlV2A005.demo",
+        "bytes": 8987396,
+        "sha256": "0d0b6c6879e1567f3c1301b2c63fb1253688c8f07a1799815d63c179d553987a"
+      },
+      {
+        "path": "GKCtrlV2A006.demo",
+        "bytes": 8989450,
+        "sha256": "8d90a14ec023bd7197868e080859c5f0795e193f656f40fc5722bc621104208a"
+      },
+      {
+        "path": "GKCtrlV2A007.demo",
+        "bytes": 9187946,
+        "sha256": "2ea8527e0aed5cae2d8b79961eca4830064e572d47670618227d4cbd4753b53d"
+      },
+      {
+        "path": "GKCtrlV2A008.demo",
+        "bytes": 9154136,
+        "sha256": "32f4214ea564fc798cb455c9449a376effafaae1c0e72a9b6014ef4b5584ceb0"
+      },
+      {
+        "path": "GKCtrlV2A009.demo",
+        "bytes": 9101426,
+        "sha256": "aaaf7d1b3d8d866e870968f989aaf9d89480eb682db77f9eab0934b51ebdc57f"
+      },
+      {
+        "path": "GKCtrlV2A010.demo",
+        "bytes": 9047036,
+        "sha256": "48fa3b01215493533ba2346b0670ebbc98259c3f77492556d8b89915d00115f5"
+      },
+      {
+        "path": "GKCtrlV2A011.demo",
+        "bytes": 9099112,
+        "sha256": "09029ae7dd080b7133b3490a1fd2b42ac84f5bec9018a5a5284375e75465b7a7"
+      },
+      {
+        "path": "GKCtrlV2A012.demo",
+        "bytes": 9061526,
+        "sha256": "604d7078c9643161c287ac4798bd38c0190cec162edd2563ac8cf5819ecb2c84"
+      },
+      {
+        "path": "GKCtrlV2A013.demo",
+        "bytes": 9180386,
+        "sha256": "d5321dca3d29995db7530ee217d76e5fb814d2046ff1709668aac6ccb78a5511"
+      },
+      {
+        "path": "GKCtrlV2A014.demo",
+        "bytes": 9220472,
+        "sha256": "a306a62a98aae1cbe65d7b97178de8c6830ea5e5e6280f3299151f4682b3be19"
+      },
+      {
+        "path": "GKCtrlV2A015.demo",
+        "bytes": 9375686,
+        "sha256": "feff03b0f92a31677bf22f007c51fd808c8cf0d154f847f4a41d06b566fe166b"
+      }
+    ]
   },
   "recording_contract": {
     "maximum_accepted_commits_per_attempt": 1,
@@ -69,7 +193,849 @@
     "behavioral_cloning_steps": 300000,
     "checkpoint_interval": 50000,
     "fixed_evaluation_attempts": 400,
-    "status": "pending"
+    "status": "failed",
+    "training_run_id": "gk-control-v2-bc-bootstrap_seed-001",
+    "seed": 1,
+    "evaluation_run_id": "gk-control-v2-bc-bootstrap_seed-001-checkpoint-screen-400-resume-20260731-160730",
+    "evaluation_attempts": 400,
+    "selected_checkpoint": "onnx:GoalkeeperControl-v2-349989",
+    "selection": {
+      "selected_policy": "onnx:GoalkeeperControl-v2-349989",
+      "passed": false,
+      "reason": "best available checkpoint; diagnostic gate not passed",
+      "checks_passed": 11,
+      "checks_total": 17,
+      "failed_checks": [
+        "save_rate",
+        "glove_contact_rate",
+        "glove_save_rate",
+        "peak_reach_extension",
+        "high_shot_save_rate",
+        "commit_rate"
+      ]
+    },
+    "policies": [
+      {
+        "policy": "stand_center_v1",
+        "policy_type": "scripted",
+        "attempts": 400,
+        "save_rate": 0.045,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.035,
+        "glove_save_rate": 0.0175,
+        "high_shot_save_rate": 0.014492753623188406,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 7336,
+          "consumed": 6936,
+          "discarded": 400,
+          "accepted": 6936,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "random_hybrid_v1",
+        "policy_type": "scripted",
+        "attempts": 400,
+        "save_rate": 0.05,
+        "commit_rate": 0.81,
+        "glove_contact_rate": 0.0225,
+        "glove_save_rate": 0.0125,
+        "high_shot_save_rate": 0.021739130434782608,
+        "first_commit_aim_error_m": 2.6878831892736437,
+        "peak_reach_extension_mean": 0.6121775597683154,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 7435,
+          "consumed": 7035,
+          "discarded": 400,
+          "accepted": 7035,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 10,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "first_commit_aim_error",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "reactive_reach_v1",
+        "policy_type": "scripted",
+        "attempts": 400,
+        "save_rate": 0.5725,
+        "commit_rate": 1.0,
+        "glove_contact_rate": 0.7325,
+        "glove_save_rate": 0.485,
+        "high_shot_save_rate": 0.7028985507246377,
+        "first_commit_aim_error_m": 0.06874712403704543,
+        "peak_reach_extension_mean": 0.9900343497097492,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 13853,
+          "consumed": 13453,
+          "discarded": 400,
+          "accepted": 13453,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": true,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 17,
+          "checks_total": 17,
+          "failed_checks": [],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "onnx:GoalkeeperControl-v2-149997",
+        "policy_type": "onnx",
+        "attempts": 400,
+        "save_rate": 0.055,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.0425,
+        "glove_save_rate": 0.0175,
+        "high_shot_save_rate": 0.014492753623188406,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 7518,
+          "consumed": 7118,
+          "discarded": 400,
+          "accepted": 7118,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "onnx:GoalkeeperControl-v2-49935",
+        "policy_type": "onnx",
+        "attempts": 400,
+        "save_rate": 0.05,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.045,
+        "glove_save_rate": 0.02,
+        "high_shot_save_rate": 0.014492753623188406,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 7561,
+          "consumed": 7161,
+          "discarded": 400,
+          "accepted": 7161,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "onnx:GoalkeeperControl-v2-99967",
+        "policy_type": "onnx",
+        "attempts": 400,
+        "save_rate": 0.0625,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.0475,
+        "glove_save_rate": 0.025,
+        "high_shot_save_rate": 0.021739130434782608,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 7808,
+          "consumed": 7408,
+          "discarded": 400,
+          "accepted": 7408,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "onnx:GoalkeeperControl-v2-149988",
+        "policy_type": "onnx",
+        "attempts": 400,
+        "save_rate": 0.065,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.0475,
+        "glove_save_rate": 0.025,
+        "high_shot_save_rate": 0.021739130434782608,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 7760,
+          "consumed": 7360,
+          "discarded": 400,
+          "accepted": 7360,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "onnx:GoalkeeperControl-v2-199984",
+        "policy_type": "onnx",
+        "attempts": 400,
+        "save_rate": 0.0625,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.0575,
+        "glove_save_rate": 0.03,
+        "high_shot_save_rate": 0.021739130434782608,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 7678,
+          "consumed": 7278,
+          "discarded": 400,
+          "accepted": 7278,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "onnx:GoalkeeperControl-v2-249993",
+        "policy_type": "onnx",
+        "attempts": 400,
+        "save_rate": 0.0575,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.055,
+        "glove_save_rate": 0.0225,
+        "high_shot_save_rate": 0.021739130434782608,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 7805,
+          "consumed": 7405,
+          "discarded": 400,
+          "accepted": 7405,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "onnx:GoalkeeperControl-v2-299948",
+        "policy_type": "onnx",
+        "attempts": 400,
+        "save_rate": 0.0725,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.0525,
+        "glove_save_rate": 0.0275,
+        "high_shot_save_rate": 0.014492753623188406,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 7946,
+          "consumed": 7546,
+          "discarded": 400,
+          "accepted": 7546,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "onnx:GoalkeeperControl-v2-349989",
+        "policy_type": "onnx",
+        "attempts": 400,
+        "save_rate": 0.075,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.0525,
+        "glove_save_rate": 0.03,
+        "high_shot_save_rate": 0.021739130434782608,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 8047,
+          "consumed": 7647,
+          "discarded": 400,
+          "accepted": 7647,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "onnx:GoalkeeperControl-v2-399991",
+        "policy_type": "onnx",
+        "attempts": 400,
+        "save_rate": 0.0725,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.0575,
+        "glove_save_rate": 0.035,
+        "high_shot_save_rate": 0.021739130434782608,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 7891,
+          "consumed": 7491,
+          "discarded": 400,
+          "accepted": 7491,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "onnx:GoalkeeperControl-v2-449987",
+        "policy_type": "onnx",
+        "attempts": 400,
+        "save_rate": 0.0725,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.055,
+        "glove_save_rate": 0.035,
+        "high_shot_save_rate": 0.021739130434782608,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 8057,
+          "consumed": 7657,
+          "discarded": 400,
+          "accepted": 7657,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      },
+      {
+        "policy": "onnx:GoalkeeperControl-v2-499991",
+        "policy_type": "onnx",
+        "attempts": 400,
+        "save_rate": 0.0725,
+        "commit_rate": 0.0,
+        "glove_contact_rate": 0.0525,
+        "glove_save_rate": 0.03,
+        "high_shot_save_rate": 0.021739130434782608,
+        "first_commit_aim_error_m": 0.0,
+        "peak_reach_extension_mean": 0.0,
+        "invalids": 0,
+        "timeouts": 0,
+        "action_mask_violations": 0,
+        "control_command_clamps": 0,
+        "decision_lifecycle": {
+          "requests": 8062,
+          "consumed": 7662,
+          "discarded": 400,
+          "accepted": 7662,
+          "duplicate_requests": 0,
+          "missing_actions": 0,
+          "balanced": true
+        },
+        "gate": {
+          "passed": false,
+          "control_version": 2,
+          "profile": "imitation-v1",
+          "checks_passed": 11,
+          "checks_total": 17,
+          "failed_checks": [
+            "save_rate",
+            "glove_contact_rate",
+            "glove_save_rate",
+            "peak_reach_extension",
+            "high_shot_save_rate",
+            "commit_rate"
+          ],
+          "thresholds": {
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_glove_save_rate": 0.2,
+            "minimum_peak_reach_extension_mean": 0.65,
+            "minimum_high_shot_save_rate": 0.3,
+            "maximum_first_commit_aim_error_m": 0.75,
+            "maximum_immediate_commit_rate": 0.1,
+            "maximum_premature_commit_rate": 0.15,
+            "maximum_late_commit_rate": 0.15,
+            "minimum_timely_commit_rate": 0.7,
+            "maximum_first_commit_reach_shortfall": 0.2,
+            "maximum_policy_action_override_count": 0,
+            "maximum_command_clamp_count": 0,
+            "maximum_invalids": 0,
+            "maximum_timeouts": 0,
+            "maximum_action_mask_violations": 0,
+            "minimum_commit_rate": 0.85
+          }
+        }
+      }
+    ]
   },
   "verification": {
     "unity_editmode": {

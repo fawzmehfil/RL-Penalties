@@ -1,7 +1,7 @@
 {
   "schema_version": 6,
   "stage": 5,
-  "status": "imitation-bootstrap-implementation-verified",
+  "status": "imitation-diagnostic-failed",
   "behavior_name": "GoalkeeperControl-v2",
   "observation_spec_id": "control-state-v2",
   "action_spec_id": "goalkeeper-hybrid-v1",
@@ -109,6 +109,26 @@
       "action_mask_violations": 0,
       "decision_lifecycle_passed": true,
       "passed": false
+    },
+    {
+      "run_id": "gk-control-v2-bc-bootstrap_seed-001",
+      "seed": 1,
+      "steps": 500000,
+      "training_reward_spec_id": "goalkeeper-control-result-v2",
+      "demonstration_contract_id": "goalkeeper-control-v2-reactive-demo-v1",
+      "evaluation_run_id": "gk-control-v2-bc-bootstrap_seed-001-checkpoint-screen-400-resume-20260731-160730",
+      "evaluation_attempts": 400,
+      "best_checkpoint": "onnx:GoalkeeperControl-v2-349989",
+      "save_rate": 0.075,
+      "commit_rate": 0.0,
+      "glove_contact_rate": 0.0525,
+      "glove_save_rate": 0.03,
+      "high_shot_save_rate": 0.021739130434782608,
+      "peak_reach_extension_mean": 0.0,
+      "invalids": 0,
+      "timeouts": 0,
+      "action_mask_violations": 0,
+      "passed": false
     }
   ],
   "control_v2_remediation": {
@@ -132,7 +152,7 @@
     "evaluation_script": "scripts/run_stage5_control_v2_bc_evaluation.sh",
     "maximum_accepted_commits_per_attempt": 1,
     "stored_action_alignment": "preceding-decision-observation-and-mask",
-    "status": "implementation-verified-demonstration-and-training-pending"
+    "status": "diagnostic-completed-failed"
   },
   "selected_checkpoint": null
 }
