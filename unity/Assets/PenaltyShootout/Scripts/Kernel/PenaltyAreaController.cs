@@ -16,6 +16,12 @@ namespace PenaltyShootout.Kernel
         private ShotDistributionConfig shotConfiguration;
 
         [SerializeField]
+        private HumanShotDistributionConfigV1 humanShotConfiguration;
+
+        [SerializeField]
+        private PlayerShotPhysicsConfigV1 playerShotPhysicsConfiguration;
+
+        [SerializeField]
         private GoalkeeperMotorConfig motorConfiguration;
 
         [SerializeField]
@@ -76,6 +82,8 @@ namespace PenaltyShootout.Kernel
         private readonly AttemptOutcomeLatch outcomeLatch = new AttemptOutcomeLatch();
         private readonly ContactHistory contactHistory = new ContactHistory();
         private readonly List<Vector3> trajectoryPoints = new List<Vector3>(256);
+        private readonly GoalkeeperBallVisibleSnapshotV1[] ballVisibleHistory =
+            new GoalkeeperBallVisibleSnapshotV1[128];
 
         private IGoalkeeperActionSource resolvedActionSource;
         private IGoalkeeperControlSourceV1 resolvedControlSource;
@@ -91,6 +99,9 @@ namespace PenaltyShootout.Kernel
         private int resetTicks;
         private int physicsTick;
         private int decisionIndex;
+        private int ballVisibleHistoryCount;
+        private int ballVisibleHistoryWriteIndex;
+        private int gameplayObservationDelayTicks;
         private int nextDeferredControlDecisionTick;
         private int actionMaskViolations;
         private bool launchIssued;
@@ -139,6 +150,27 @@ namespace PenaltyShootout.Kernel
         {
             get => shotConfiguration;
             set => shotConfiguration = value;
+        }
+
+        public HumanShotDistributionConfigV1 HumanShotConfiguration
+        {
+            get => humanShotConfiguration;
+            set => humanShotConfiguration = value;
+        }
+
+        public PlayerShotPhysicsConfigV1 PlayerShotPhysicsConfiguration
+        {
+            get => playerShotPhysicsConfiguration;
+            set => playerShotPhysicsConfiguration = value;
+        }
+
+        public bool UsesHumanShots =>
+            scenarioController != null && scenarioController.UseHumanShots;
+
+        public int GameplayObservationDelayTicks
+        {
+            get => gameplayObservationDelayTicks;
+            set => gameplayObservationDelayTicks = Mathf.Clamp(value, 0, 127);
         }
 
         public GoalkeeperMotorConfig MotorConfiguration
@@ -352,6 +384,56 @@ namespace PenaltyShootout.Kernel
                 goalkeeperControlMotor.GetActionMask(),
                 hasSaveCommitment).CanCommit;
 
+        public bool TryGetDelayedBallVisibleSnapshot(
+            int delayTicks,
+            out GoalkeeperBallVisibleSnapshotV1 snapshot)
+        {
+            snapshot = default;
+            if (ballVisibleHistoryCount <= 0)
+            {
+                return false;
+            }
+
+            var clampedDelay = Mathf.Clamp(
+                delayTicks,
+                0,
+                ballVisibleHistoryCount - 1);
+            var index = ballVisibleHistoryWriteIndex - 1 - clampedDelay;
+            while (index < 0)
+            {
+                index += ballVisibleHistory.Length;
+            }
+            snapshot = ballVisibleHistory[index];
+            return true;
+        }
+
+        public bool TryEstimateGameplayVisibleGoalPlaneAim(
+            GoalkeeperControlVisibleStateSnapshot snapshot,
+            out float timeToPlane,
+            out Vector2 predictedAim)
+        {
+            if (UsesHumanShots && playerShotPhysicsConfiguration != null)
+            {
+                return GoalkeeperControlTrainingContracts
+                    .TryEstimateCurveAwareVisibleGoalPlaneAim(
+                        snapshot.BallLocalPosition,
+                        snapshot.BallLocalVelocity,
+                        snapshot.BallAngularVelocity,
+                        ToLocalDirection(Physics.gravity),
+                        environmentConfiguration.FixedTimestep,
+                        playerShotPhysicsConfiguration,
+                        out timeToPlane,
+                        out predictedAim);
+            }
+
+            return GoalkeeperControlTrainingContracts.TryEstimateVisibleGoalPlaneAim(
+                snapshot.BallLocalPosition,
+                snapshot.BallLocalVelocity,
+                ToLocalDirection(Physics.gravity),
+                out timeToPlane,
+                out predictedAim);
+        }
+
         private void Awake()
         {
             Initialize();
@@ -411,15 +493,33 @@ namespace PenaltyShootout.Kernel
 
         public bool ValidateDependencies(out string error)
         {
-            if (environmentConfiguration == null ||
-                shotConfiguration == null)
+            if (environmentConfiguration == null || scenarioController == null)
             {
-                error = "Environment and shot configuration assets are required.";
+                error = "Environment and scenario controller are required.";
                 return false;
             }
 
-            if (!environmentConfiguration.Validate(out error) ||
-                !shotConfiguration.Validate(out error))
+            if (!environmentConfiguration.Validate(out error))
+            {
+                return false;
+            }
+
+            if (scenarioController.UseHumanShots)
+            {
+                if (humanShotConfiguration == null ||
+                    playerShotPhysicsConfiguration == null ||
+                    !humanShotConfiguration.Validate(out error) ||
+                    !playerShotPhysicsConfiguration.Validate(out error))
+                {
+                    if (string.IsNullOrEmpty(error))
+                    {
+                        error = "Stage 6 shot configuration assets are required.";
+                    }
+                    return false;
+                }
+            }
+            else if (shotConfiguration == null ||
+                     !shotConfiguration.Validate(out error))
             {
                 return false;
             }
@@ -549,6 +649,7 @@ namespace PenaltyShootout.Kernel
             acceptedControlDecisionCount = 0;
             controlMoveCommandCount = 0;
             controlReachCommandCount = 0;
+            ResetBallVisibleHistory();
             Array.Clear(acceptedActionCounts, 0, acceptedActionCounts.Length);
             Array.Clear(
                 controlAbsoluteActionSums,
@@ -569,6 +670,9 @@ namespace PenaltyShootout.Kernel
             try
             {
                 scenarioController.Configuration = shotConfiguration;
+                scenarioController.HumanShotConfiguration = humanShotConfiguration;
+                scenarioController.PlayerShotPhysicsConfiguration =
+                    playerShotPhysicsConfiguration;
                 scenarioController.ArenaId = arenaId;
                 scenarioController.MasterSeed = masterSeed;
                 scenario = scenarioController.Sample(
@@ -583,9 +687,8 @@ namespace PenaltyShootout.Kernel
                 return;
             }
 
-            if (!ProceduralShotGenerator.ValidateOnTarget(
+            if (!scenarioController.ValidateScenario(
                     scenario,
-                    shotConfiguration,
                     out var scenarioError))
             {
                 Debug.LogError(scenarioError, this);
@@ -626,6 +729,11 @@ namespace PenaltyShootout.Kernel
             }
 
             previousBallLocal = KernelConstants.CanonicalLaunch;
+            PushBallVisibleSnapshot(
+                KernelConstants.CanonicalLaunch,
+                Vector3.zero,
+                Vector3.zero,
+                0f);
             AddTrajectoryPoint(ball.position);
             if (targetMarker != null)
             {
@@ -741,6 +849,15 @@ namespace PenaltyShootout.Kernel
             phaseTime = 0f;
             physicsTick = 0;
             decisionIndex = 0;
+            ResetBallVisibleHistory();
+            for (var index = 0; index <= gameplayObservationDelayTicks; index++)
+            {
+                PushBallVisibleSnapshot(
+                    KernelConstants.CanonicalLaunch,
+                    scenario.LaunchVelocityLocal,
+                    scenario.Spin,
+                    0f);
+            }
             if (UsesDeferredControlScheduling)
             {
                 RequestDeferredControlDecision();
@@ -757,6 +874,21 @@ namespace PenaltyShootout.Kernel
             attemptTime += deltaTime;
             phaseTime += deltaTime;
             ballFlightTime += deltaTime;
+            if (UsesHumanShots && playerShotPhysicsConfiguration != null)
+            {
+                var localVelocity = ToLocalDirection(ball.linearVelocity);
+                var localSpin = ball.angularVelocity;
+                var localAcceleration = PlayerShotFlightModelV1.MagnusAcceleration(
+                    localSpin,
+                    localVelocity,
+                    playerShotPhysicsConfiguration);
+                ball.AddForce(
+                    ToWorldDirection(localAcceleration),
+                    ForceMode.Acceleration);
+                ball.angularVelocity =
+                    localSpin * Mathf.Exp(
+                        -playerShotPhysicsConfiguration.SpinDecay * deltaTime);
+            }
             var hadGoalkeeperContact = contactHistory.GoalkeeperTouched;
             ballContactSensor.Drain(contactHistory, attemptTime);
             if (!hadGoalkeeperContact && contactHistory.GoalkeeperTouched)
@@ -765,6 +897,11 @@ namespace PenaltyShootout.Kernel
             }
 
             var currentLocal = ToLocal(ball.position);
+            PushBallVisibleSnapshot(
+                currentLocal,
+                ToLocalDirection(ball.linearVelocity),
+                ball.angularVelocity,
+                ballFlightTime);
             UpdateMinimumGloveDistance(currentLocal);
             AddTrajectoryPoint(ball.position);
             if (!KernelMath.IsFinite(currentLocal) ||
@@ -939,19 +1076,20 @@ namespace PenaltyShootout.Kernel
 
         private GoalkeeperControlDecisionContext CreateControlDecisionContext()
         {
-            var hasVisiblePrediction =
-                GoalkeeperControlTrainingContracts
-                    .TryEstimateVisibleGoalPlaneAim(
-                        BallLocalPosition,
-                        BallLocalVelocity,
-                        ToLocalDirection(Physics.gravity),
-                        out var visibleTimeToGoalPlane,
-                        out var visiblePredictedAim);
+            var visible = UsesHumanShots
+                ? GoalkeeperTrainingContracts.CaptureGameplayControlVisibleState(
+                    this,
+                    gameplayObservationDelayTicks)
+                : GoalkeeperTrainingContracts.CaptureControlVisibleState(this);
+            var hasVisiblePrediction = TryEstimateGameplayVisibleGoalPlaneAim(
+                visible,
+                out var visibleTimeToGoalPlane,
+                out var visiblePredictedAim);
             return new GoalkeeperControlDecisionContext(
                 attemptId,
                 decisionIndex,
                 physicsTick,
-                ballFlightTime,
+                visible.BallFlightTime,
                 visibleTimeToGoalPlane,
                 hasVisiblePrediction,
                 visiblePredictedAim);
@@ -1295,6 +1433,8 @@ namespace PenaltyShootout.Kernel
                 CommittedGloveForward = goalkeeperControlMotor == null
                     ? 0f
                     : goalkeeperControlMotor.CommittedGloveForward,
+                PlayerShot = scenario.PlayerShot,
+                ObservationDelayTicks = gameplayObservationDelayTicks,
             };
 
             if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)
@@ -1307,6 +1447,34 @@ namespace PenaltyShootout.Kernel
             }
 
             AttemptCompleted?.Invoke(lastResult);
+        }
+
+        private void ResetBallVisibleHistory()
+        {
+            ballVisibleHistoryCount = 0;
+            ballVisibleHistoryWriteIndex = 0;
+            Array.Clear(ballVisibleHistory, 0, ballVisibleHistory.Length);
+        }
+
+        private void PushBallVisibleSnapshot(
+            Vector3 localPosition,
+            Vector3 localVelocity,
+            Vector3 angularVelocity,
+            float visibleBallFlightTime)
+        {
+            ballVisibleHistory[ballVisibleHistoryWriteIndex] =
+                new GoalkeeperBallVisibleSnapshotV1
+                {
+                    LocalPosition = localPosition,
+                    LocalVelocity = localVelocity,
+                    AngularVelocity = angularVelocity,
+                    BallFlightTime = visibleBallFlightTime,
+                };
+            ballVisibleHistoryWriteIndex =
+                (ballVisibleHistoryWriteIndex + 1) % ballVisibleHistory.Length;
+            ballVisibleHistoryCount = Mathf.Min(
+                ballVisibleHistoryCount + 1,
+                ballVisibleHistory.Length);
         }
 
         private void ForceResolvingFromNonFlight()
@@ -1405,6 +1573,20 @@ namespace PenaltyShootout.Kernel
             GUILayout.Label($"Outcome: {CurrentOutcome}");
             GUILayout.Label($"Target: {scenario.TargetLocal:F3}");
             GUILayout.Label($"Flight time / delay: {scenario.FlightTime:F2}s / {scenario.LaunchDelay:F2}s");
+            if (scenario.ScenarioSuiteId == KernelConstants.HumanShotScenarioSuiteId)
+            {
+                var shot = scenario.PlayerShot;
+                GUILayout.Label(
+                    $"Shot: {shot.ShotStyle}  power {shot.Command.Power:F2}  " +
+                    $"speed {shot.LaunchSpeed:F1} m/s");
+                GUILayout.Label(
+                    $"Spin side/vertical: {shot.Command.SideSpin:F2} / " +
+                    $"{shot.Command.VerticalSpin:F2}  expected {shot.ExpectedTargetClass}");
+                GUILayout.Label(
+                    $"Predicted crossing: ({shot.PredictedUnopposedCrossingLocal.x:F2}, " +
+                    $"{shot.PredictedUnopposedCrossingLocal.y:F2})  " +
+                    $"solver error {shot.SolverCrossingError:F3} m");
+            }
             if (hybridControl)
             {
                 var command = goalkeeperControlMotor.ActiveCommand;

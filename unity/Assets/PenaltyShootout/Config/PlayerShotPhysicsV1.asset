@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 135083b66bdc4464a25bb50822c9e532, type: 3}
+  m_Name: PlayerShotPhysicsV1
+  m_EditorClassIdentifier:
+  PhysicsId: football-flight-v1
+  FixedTimestep: 0.02
+  MaximumSideSpin: 28
+  MaximumVerticalSpin: 18
+  MagnusCoefficient: 0.009
+  MaximumMagnusAcceleration: 5
+  SpinDecay: 0.15
+  MinimumFlightTime: 0.4
+  MaximumFlightTime: 0.78
+  SolverIterations: 8
+  SolverTargetTolerance: 0.03
+  MaximumAcceptedSolverError: 0.08
+  MaximumCurveDisplacement: 0.75

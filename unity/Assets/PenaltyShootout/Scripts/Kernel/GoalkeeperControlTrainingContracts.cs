@@ -160,6 +160,61 @@ namespace PenaltyShootout.Kernel
             return true;
         }
 
+        public static bool TryEstimateCurveAwareVisibleGoalPlaneAim(
+            Vector3 ballLocalPosition,
+            Vector3 ballLocalVelocity,
+            Vector3 ballAngularVelocity,
+            Vector3 gravity,
+            float fixedTimestep,
+            PlayerShotPhysicsConfigV1 configuration,
+            out float timeToPlane,
+            out Vector2 aim)
+        {
+            timeToPlane = -1f;
+            aim = Vector2.zero;
+            if (configuration == null ||
+                !KernelMath.IsFinite(ballLocalPosition) ||
+                !KernelMath.IsFinite(ballLocalVelocity) ||
+                !KernelMath.IsFinite(ballAngularVelocity) ||
+                !KernelMath.IsFinite(gravity) ||
+                ballLocalVelocity.z >= -0.1f || fixedTimestep <= 0f)
+            {
+                return false;
+            }
+
+            var position = ballLocalPosition;
+            var velocity = ballLocalVelocity;
+            var spin = ballAngularVelocity;
+            var previous = position;
+            for (var index = 1; index <= 128; index++)
+            {
+                PlayerShotFlightModelV1.Step(
+                    ref position,
+                    ref velocity,
+                    ref spin,
+                    gravity,
+                    fixedTimestep,
+                    configuration);
+                if (KernelGoalGeometry.TryIntersectPlane(
+                        previous,
+                        position,
+                        0f,
+                        out var crossing))
+                {
+                    timeToPlane = Mathf.Min(
+                        index * fixedTimestep,
+                        MaximumVisibleTimeToGoalPlane);
+                    aim = GoalkeeperControlSpace.LocalToAim(
+                        new Vector2(crossing.x, crossing.y));
+                    return KernelMath.IsFinite(aim.x) && KernelMath.IsFinite(aim.y);
+                }
+
+                previous = position;
+            }
+
+            return false;
+        }
+
         public static float VisibleAimErrorMeters(
             Vector2 policyAim,
             Vector2 visiblePredictedAim)

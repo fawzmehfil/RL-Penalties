@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c638ea40fa7a469bb39a87f3357d9e7c, type: 3}
+  m_Name: HumanShotDistributionV1
+  m_EditorClassIdentifier:
+  ScenarioSuiteId: human-shot-v1
+  MinimumLaunchDelay: 0.15
+  MaximumLaunchDelay: 0.45
+  PlacedWeight: 0.45
+  PowerWeight: 0.35
+  CurledWeight: 0.2
+  OnTargetWeight: 0.92
+  FrameWeight: 0.04
+  MissWideWeight: 0.025
+  MissHighWeight: 0.015
+  RareTailProbability: 0.03
+  ContactErrorCorrelation: 0.25
+  ContactErrorTruncationSigma: 2.5
+  MaximumCategoryAttempts: 32

@@ -34,6 +34,15 @@ namespace PenaltyShootout.Kernel
     }
 
     [Serializable]
+    public struct GoalkeeperBallVisibleSnapshotV1
+    {
+        public Vector3 LocalPosition;
+        public Vector3 LocalVelocity;
+        public Vector3 AngularVelocity;
+        public float BallFlightTime;
+    }
+
+    [Serializable]
     public struct GoalkeeperVisibleStateSnapshot
     {
         public Vector3 BallLocalPosition;
@@ -247,6 +256,50 @@ namespace PenaltyShootout.Kernel
                 AttemptTime = controller.AttemptTime,
                 BallFlightTime = controller.BallFlightTime,
             };
+        }
+
+        public static GoalkeeperControlVisibleStateSnapshot CaptureGameplayControlVisibleState(
+            PenaltyAreaController controller,
+            int delayTicks)
+        {
+            var snapshot = CaptureControlVisibleState(controller);
+            if (controller != null &&
+                controller.TryGetDelayedBallVisibleSnapshot(
+                    delayTicks,
+                    out var delayedBall))
+            {
+                snapshot.BallLocalPosition = delayedBall.LocalPosition;
+                snapshot.BallLocalVelocity = delayedBall.LocalVelocity;
+                snapshot.BallAngularVelocity = delayedBall.AngularVelocity;
+                snapshot.BallFlightTime = delayedBall.BallFlightTime;
+            }
+            return snapshot;
+        }
+
+        public static void WriteControlStateGameplayV1(
+            PenaltyAreaController controller,
+            int delayTicks,
+            Action<float> add)
+        {
+            var gravity = controller != null && controller.ArenaOrigin != null
+                ? controller.ArenaOrigin.InverseTransformDirection(Physics.gravity)
+                : Physics.gravity;
+            var snapshot = CaptureGameplayControlVisibleState(controller, delayTicks);
+            WriteControlVisibleState(snapshot, add);
+            var timeToPlane = -1f;
+            var predictedAim = Vector2.zero;
+            var hasPrediction = controller != null &&
+                controller.TryEstimateGameplayVisibleGoalPlaneAim(
+                    snapshot,
+                    out timeToPlane,
+                    out predictedAim);
+            add(hasPrediction
+                ? Mathf.Clamp01(
+                    timeToPlane /
+                    GoalkeeperControlTrainingContracts.MaximumVisibleTimeToGoalPlane)
+                : -1f);
+            add(hasPrediction ? Clamp(predictedAim.x) : 0f);
+            add(hasPrediction ? Clamp(predictedAim.y) : 0f);
         }
 
         public static GoalkeeperVisibleStateSnapshot PerturbVisibleState(

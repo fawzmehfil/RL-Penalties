@@ -10,6 +10,15 @@ namespace PenaltyShootout.Kernel
         private ShotDistributionConfig configuration;
 
         [SerializeField]
+        private HumanShotDistributionConfigV1 humanShotConfiguration;
+
+        [SerializeField]
+        private PlayerShotPhysicsConfigV1 playerShotPhysicsConfiguration;
+
+        [SerializeField]
+        private bool useHumanShots;
+
+        [SerializeField]
         private int arenaId;
 
         [SerializeField]
@@ -22,6 +31,24 @@ namespace PenaltyShootout.Kernel
         {
             get => configuration;
             set => configuration = value;
+        }
+
+        public HumanShotDistributionConfigV1 HumanShotConfiguration
+        {
+            get => humanShotConfiguration;
+            set => humanShotConfiguration = value;
+        }
+
+        public PlayerShotPhysicsConfigV1 PlayerShotPhysicsConfiguration
+        {
+            get => playerShotPhysicsConfiguration;
+            set => playerShotPhysicsConfiguration = value;
+        }
+
+        public bool UseHumanShots
+        {
+            get => useHumanShots;
+            set => useHumanShots = value;
         }
 
         public int ArenaId
@@ -41,18 +68,48 @@ namespace PenaltyShootout.Kernel
             Vector3 gravity,
             float fixedTimestep)
         {
-            if (configuration == null)
+            if (useHumanShots)
+            {
+                if (humanShotConfiguration == null ||
+                    playerShotPhysicsConfiguration == null)
+                {
+                    throw new InvalidOperationException(
+                        "Stage 6 shot configurations are missing.");
+                }
+            }
+            else if (configuration == null)
             {
                 throw new InvalidOperationException("Scenario configuration is missing.");
             }
 
             lastAttemptId = attemptId;
             lastSeed = Pcg32.DeriveSeed(masterSeed, arenaId, attemptId);
-            return ProceduralShotGenerator.Sample(
-                configuration,
-                lastSeed,
-                gravity,
-                fixedTimestep);
+            return useHumanShots
+                ? HumanShotGeneratorV1.Sample(
+                    humanShotConfiguration,
+                    playerShotPhysicsConfiguration,
+                    lastSeed,
+                    gravity,
+                    fixedTimestep)
+                : ProceduralShotGenerator.Sample(
+                    configuration,
+                    lastSeed,
+                    gravity,
+                    fixedTimestep);
+        }
+
+        public bool ValidateScenario(ScenarioInstance scenario, out string error)
+        {
+            return useHumanShots
+                ? HumanShotGeneratorV1.Validate(
+                    scenario,
+                    humanShotConfiguration,
+                    playerShotPhysicsConfiguration,
+                    out error)
+                : ProceduralShotGenerator.ValidateOnTarget(
+                    scenario,
+                    configuration,
+                    out error);
         }
 
         public void ResetForAttempt(long attemptId, ulong seed)
