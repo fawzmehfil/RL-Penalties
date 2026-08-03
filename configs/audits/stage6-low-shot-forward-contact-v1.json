@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "audit_id": "stage6-low-shot-forward-contact-v1",
+  "benchmark_id": "goalkeeper-control-v2-low-forward-contact-2k",
+  "expected_attempts_per_policy": 2000,
+  "native_policy_prefix": "native_split_v1:",
+  "teacher_policy_prefix": "reactive_reach_v1_h",
+  "teacher_commit_horizons_s": [
+    0.25,
+    0.35,
+    0.45,
+    0.55,
+    0.62
+  ],
+  "reference_evidence": "docs/stage5-native-inference-report.json",
+  "baseline_audit": "results/evaluations/stage6-low-shot-capability-v1-2k-warmup-fixed/capability-report.json",
+  "minimum_native_save_rate_improvement": 0.05,
+  "maximum_glove_contact_rate_regression": 0.02,
+  "maximum_native_gap_to_best_teacher": 0.05,
+  "maximum_low_gap_to_frozen_high_reference": 0.10,
+  "minimum_material_timing_spread": 0.05,
+  "expected_committed_glove_forward_m": 0.28,
+  "safety_counters_must_be_zero": true
+}

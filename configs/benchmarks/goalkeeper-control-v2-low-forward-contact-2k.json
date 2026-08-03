@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "goalkeeper-control-v2-low-forward-contact-2k",
+  "environment_id": "penalty-shootout-kernel-v1",
+  "behavior_name": "GoalkeeperControl-v2",
+  "observation_spec_id": "control-state-v2",
+  "reward_spec_id": "goalkeeper-sparse-v0",
+  "action_spec_id": "goalkeeper-hybrid-v1",
+  "motor_profile_id": "keeper-control-v1",
+  "scenario_suite_id": "on-target-v0",
+  "observation_shapes": [
+    [
+      35
+    ]
+  ],
+  "continuous_actions": 4,
+  "discrete_branches": [
+    2
+  ],
+  "arena_count": 16,
+  "attempts_per_arena": 125,
+  "warmup_attempts_per_arena": 1,
+  "total_attempts": 2000,
+  "stage2_lesson": 3,
+  "stage5_lesson": 4,
+  "master_seed": 20260802,
+  "primary_metric": "save_rate",
+  "suite_notes": "Controlled low-shot experiment preserving the committed gloves 0.28 m ahead of the goalkeeper root while leaving policy, timing, dive arc, observations, actions, rewards, and shot distribution unchanged.",
+  "environment_parameters": {
+    "stage5.lesson": 4,
+    "stage5.metrics_version": 5,
+    "stage5.reach_training_enabled": 0,
+    "stage5.target_x_min": -1,
+    "stage5.target_x_max": 1,
+    "stage5.target_y_min": 0,
+    "stage5.target_y_max": 0.32,
+    "stage6.committed_glove_forward_m": 0.28
+  },
+  "save_outcomes": [
+    "Saved",
+    "BlockedThenOut"
+  ],
+  "failure_outcomes": [
+    "Goal"
+  ]
+}

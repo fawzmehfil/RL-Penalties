@@ -1056,6 +1056,23 @@ playable demo:
   shot-control parameters and launch physics planned for Stage 9 so the
   playable mode is part of the training design rather than a late,
   incompatible input source.
+
+Stage 6 began with a lower-third capability audit because the frozen native
+controller saved 48.08% of low shots versus 68.82% of high shots. That fixed
+audit identified a shared motor/contact-geometry gap. The follow-up command
+rebuilds the Stage 5 player and evaluates one controlled correction: preserving
+the committed gloves 0.28 m ahead of the root. It evaluates 2,000 fixed low
+shots for five visible-state commit horizons and the native controller, records
+first-contact kinematics, and compares the native result with the preserved
+47.15% low-shot baseline:
+
+```bash
+scripts/run_stage6_low_shot_capability_audit.sh
+```
+
+This command does not train or modify the frozen Stage 5 model. The correction
+defaults off and is enabled only by the versioned benchmark parameter
+`stage6.committed_glove_forward_m`.
 - Stage 7: replay and analysis UI for heatmaps, per-quadrant results,
   trajectory review, and dive-choice inspection.
 - Stage 8: final model packaging, Unity inference import, model cards, and

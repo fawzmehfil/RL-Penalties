@@ -120,6 +120,7 @@ class BenchmarkConfig:
     stage5_lesson: int = 0
     motor_profile_id: str | None = None
     stage5_gate_profile: str = "control-v2"
+    warmup_attempts_per_arena: int = 0
     environment_parameters: dict[str, float] = field(default_factory=dict)
 
 
@@ -903,6 +904,9 @@ def load_benchmark_config(path: Path) -> BenchmarkConfig:
         stage5_gate_profile=str(
             raw.get("stage5_gate_profile", "control-v2")
         ),
+        warmup_attempts_per_arena=int(
+            raw.get("warmup_attempts_per_arena", 0)
+        ),
         environment_parameters={
             str(key): float(value)
             for key, value in raw.get("environment_parameters", {}).items()
@@ -996,6 +1000,8 @@ def validate_benchmark_config(config: BenchmarkConfig) -> None:
         )
     if config.arena_count <= 0 or config.attempts_per_arena <= 0:
         raise ValueError("arena_count and attempts_per_arena must be positive")
+    if config.warmup_attempts_per_arena < 0:
+        raise ValueError("warmup_attempts_per_arena must be non-negative")
     if config.total_attempts != config.arena_count * config.attempts_per_arena:
         raise ValueError("total_attempts must equal arena_count * attempts_per_arena")
     if config.stage2_lesson != 3:
@@ -1023,6 +1029,20 @@ def make_policy(
         return RandomHybridV1Policy(seed)
     if spec in {"reactive_reach", "reactive_reach_v1"}:
         return ReactiveReachV1Policy()
+    if spec.startswith("reactive_reach_v1:"):
+        try:
+            commit_horizon = float(spec.split(":", maxsplit=1)[1])
+        except ValueError as error:
+            raise ValueError(
+                f"Invalid reactive reach commit horizon: {spec}"
+            ) from error
+        if not math.isfinite(commit_horizon) or not 0.1 <= commit_horizon <= 1.5:
+            raise ValueError(
+                "Reactive reach commit horizon must be between 0.1 and 1.5 seconds"
+            )
+        policy = ReactiveReachV1Policy(commit_horizon=commit_horizon)
+        policy.name = f"reactive_reach_v1_h{commit_horizon:.2f}"
+        return policy
     if spec.startswith("interception_teacher_timing:"):
         manifest_path = Path(
             spec.split(":", maxsplit=1)[1]
@@ -1104,6 +1124,9 @@ def run_policy(
     per_arena: dict[int, int] = defaultdict(int)
     episodes: list[dict[str, Any]] = []
     seen_keys: set[tuple[int, int]] = set()
+    collection_attempts_per_arena = (
+        attempts_per_arena + config.warmup_attempts_per_arena
+    )
 
     try:
         env.reset()
@@ -1113,12 +1136,16 @@ def run_policy(
             drain_telemetry(
                 telemetry,
                 policy.name,
-                attempts_per_arena,
+                collection_attempts_per_arena,
                 per_arena,
                 seen_keys,
                 episodes,
             )
-            if quotas_met(per_arena, config.arena_count, attempts_per_arena):
+            if quotas_met(
+                per_arena,
+                config.arena_count,
+                collection_attempts_per_arena,
+            ):
                 break
 
             decision_steps, terminal_steps = env.get_steps(behavior_name)
@@ -1151,12 +1178,19 @@ def run_policy(
         drain_telemetry(
             telemetry,
             policy.name,
-            attempts_per_arena,
+            collection_attempts_per_arena,
             per_arena,
             seen_keys,
             episodes,
         )
-        return sorted(episodes, key=lambda item: (item["arena_id"], item["attempt_id"]))
+        retained = discard_warmup_attempts(
+            episodes,
+            config.warmup_attempts_per_arena,
+        )
+        return sorted(
+            retained,
+            key=lambda item: (item["arena_id"], item["attempt_id"]),
+        )
     finally:
         env.close()
 
@@ -1211,6 +1245,19 @@ def quotas_met(
     attempts_per_arena: int,
 ) -> bool:
     return all(per_arena.get(arena_id, 0) >= attempts_per_arena for arena_id in range(arena_count))
+
+
+def discard_warmup_attempts(
+    episodes: list[dict[str, Any]],
+    warmup_attempts_per_arena: int,
+) -> list[dict[str, Any]]:
+    if warmup_attempts_per_arena <= 0:
+        return episodes
+    return [
+        item
+        for item in episodes
+        if int(item["attempt_id"]) > warmup_attempts_per_arena
+    ]
 
 
 def aggregate_policy(
@@ -1507,6 +1554,56 @@ def aggregate_policy(
                 ),
                 "minimum_glove_ball_distance_m": numeric_summary(
                     minimum_glove_distances
+                ),
+                "committed_glove_forward_m": numeric_summary(
+                    [
+                        float(item.get("committed_glove_forward_m", 0.0))
+                        for item in episodes
+                    ]
+                ),
+                "first_contact_ball_velocity_y_mps": numeric_summary(
+                    [
+                        float(
+                            item["first_goalkeeper_contact_ball_velocity_local"]["y"]
+                        )
+                        for item in contacted_episodes
+                        if item.get("has_first_goalkeeper_contact_kinematics")
+                    ]
+                ),
+                "first_contact_ball_velocity_z_mps": numeric_summary(
+                    [
+                        float(
+                            item["first_goalkeeper_contact_ball_velocity_local"]["z"]
+                        )
+                        for item in contacted_episodes
+                        if item.get("has_first_goalkeeper_contact_kinematics")
+                    ]
+                ),
+                "first_contact_root_velocity_y_mps": numeric_summary(
+                    [
+                        float(
+                            item["first_goalkeeper_contact_root_velocity_local"]["y"]
+                        )
+                        for item in contacted_episodes
+                        if item.get("has_first_goalkeeper_contact_kinematics")
+                    ]
+                ),
+                "first_contact_impulse_magnitude": numeric_summary(
+                    [
+                        math.sqrt(
+                            sum(
+                                float(
+                                    item[
+                                        "first_goalkeeper_contact_impulse_local"
+                                    ][axis]
+                                )
+                                ** 2
+                                for axis in ("x", "y", "z")
+                            )
+                        )
+                        for item in contacted_episodes
+                        if item.get("has_first_goalkeeper_contact_kinematics")
+                    ]
                 ),
                 "control_command_clamp_count": sum(
                     int(item.get("control_command_clamp_count", 0))
@@ -2311,6 +2408,7 @@ def build_report(
         "python_architecture": platform.machine(),
         "arena_count": config.arena_count,
         "attempts_per_arena": attempts_per_arena,
+        "warmup_attempts_per_arena": config.warmup_attempts_per_arena,
         "total_attempts": config.arena_count * attempts_per_arena,
         "observation_shapes": [list(shape) for shape in config.observation_shapes],
         "continuous_actions": config.continuous_actions,
@@ -2663,7 +2761,8 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Policy spec: stand_center, random_legal, reactive_side, "
             "linear_intercept, stand_center_v1, random_hybrid_v1, "
-            "reactive_reach_v1, interception_teacher_timing:manifest, "
+            "reactive_reach_v1, reactive_reach_v1:commit_horizon, "
+            "interception_teacher_timing:manifest, "
             "split_supervised:manifest, native_split_v1:manifest, or "
             "onnx:path"
         ),
