@@ -20,6 +20,15 @@ namespace PenaltyShootout.Kernel
         public const string GoalkeeperPartialObservationSpecId = "state-po-v0";
         public const string GoalkeeperControlObservationSpecId = "control-state-v1";
         public const string GoalkeeperControlV2ObservationSpecId = "control-state-v2";
+        public const string GoalkeeperGameplayObservationSpecId =
+            "control-state-v2-gameplay-v1";
+        public const string PlayerShotContractId = "player-shot-v1";
+        public const string PlayerShotPhysicsId = "football-flight-v1";
+        public const string HumanShotScenarioSuiteId = "human-shot-v1";
+        public const string GoalkeeperForwardMotorContractId =
+            "keeper-control-forward-v1";
+        public const string Stage6PretrainingBenchmarkId =
+            "goalkeeper-control-v2-human-shot-v1-pretraining-2k";
         public const string GoalkeeperSparseRewardSpecId = "goalkeeper-sparse-v0";
         public const string GoalkeeperControlActionSpecId = "goalkeeper-hybrid-v1";
         public const string GoalkeeperControlMotorProfileId = "keeper-control-v1";

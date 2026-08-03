@@ -90,6 +90,7 @@ namespace PenaltyShootout.Kernel
         public float LaunchDelay;
         public Vector3 Spin;
         public Vector3 LaunchVelocityLocal;
+        public ResolvedPlayerShotV1 PlayerShot;
     }
 
     [Serializable]
@@ -202,6 +203,8 @@ namespace PenaltyShootout.Kernel
         public int[] ControlSaturationCounts;
         public float MinimumGloveBallDistance;
         public float CommittedGloveForward;
+        public ResolvedPlayerShotV1 PlayerShot;
+        public int ObservationDelayTicks;
     }
 
     public readonly struct GoalkeeperDecisionContext
