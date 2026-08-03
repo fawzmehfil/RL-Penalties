@@ -1059,20 +1059,29 @@ playable demo:
 
 Stage 6 began with a lower-third capability audit because the frozen native
 controller saved 48.08% of low shots versus 68.82% of high shots. That fixed
-audit identified a shared motor/contact-geometry gap. The follow-up command
-rebuilds the Stage 5 player and evaluates one controlled correction: preserving
-the committed gloves 0.28 m ahead of the root. It evaluates 2,000 fixed low
-shots for five visible-state commit horizons and the native controller, records
-first-contact kinematics, and compares the native result with the preserved
-47.15% low-shot baseline:
+audit identified a shared motor/contact-geometry gap. The controlled correction
+preserves committed gloves 0.28 m ahead of the root. On the same 2,000 low
+shots it increased native saves from 47.15% to 59.70%, glove contacts from
+70.35% to 78.25%, and glove saves from 41.80% to 59.50%. A separate 2,000-shot
+upper-third gate saved 69.80% versus the frozen 68.82% reference, so the
+correction passed without a high-shot regression.
+
+The correction is promoted as the versioned Stage 6 motor contract
+`keeper-control-forward-v1`, defined in
+`configs/environment/goalkeeper-control-v2-stage6.json`. It retains the frozen
+`keeper-control-v1` root motion, dive arc, arm IK, observations, actions, and
+native split controller; only `stage6.committed_glove_forward_m=0.28` changes.
+Stage 5 defaults remain unchanged for exact reproduction. Compact evidence is
+stored in `docs/stage6-forward-contact-report.json`.
+
+The focused audit commands are:
 
 ```bash
 scripts/run_stage6_low_shot_capability_audit.sh
+scripts/run_stage6_high_shot_regression.sh
 ```
 
-This command does not train or modify the frozen Stage 5 model. The correction
-defaults off and is enabled only by the versioned benchmark parameter
-`stage6.committed_glove_forward_m`.
+These commands do not train or modify the frozen Stage 5 model.
 - Stage 7: replay and analysis UI for heatmaps, per-quadrant results,
   trajectory review, and dive-choice inspection.
 - Stage 8: final model packaging, Unity inference import, model cards, and

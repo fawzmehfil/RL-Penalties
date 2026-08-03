@@ -136,6 +136,7 @@ def test_forward_contact_benchmark_changes_only_committed_glove_depth() -> None:
         != corrected.environment_parameters.get(key)
     }
     assert changed == {"stage6.committed_glove_forward_m"}
+    assert corrected.motor_contract_id == "keeper-control-forward-v1"
     assert corrected.environment_parameters[
         "stage6.committed_glove_forward_m"
     ] == pytest.approx(0.28)

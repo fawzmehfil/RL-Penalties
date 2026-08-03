@@ -119,6 +119,7 @@ class BenchmarkConfig:
     continuous_actions: int = 0
     stage5_lesson: int = 0
     motor_profile_id: str | None = None
+    motor_contract_id: str | None = None
     stage5_gate_profile: str = "control-v2"
     warmup_attempts_per_arena: int = 0
     environment_parameters: dict[str, float] = field(default_factory=dict)
@@ -901,6 +902,11 @@ def load_benchmark_config(path: Path) -> BenchmarkConfig:
             if raw.get("motor_profile_id") is not None
             else None
         ),
+        motor_contract_id=(
+            str(raw["motor_contract_id"])
+            if raw.get("motor_contract_id") is not None
+            else None
+        ),
         stage5_gate_profile=str(
             raw.get("stage5_gate_profile", "control-v2")
         ),
@@ -998,6 +1004,18 @@ def validate_benchmark_config(config: BenchmarkConfig) -> None:
         raise ValueError(
             "Goalkeeper control behaviors require keeper-control-v1 motor"
         )
+    if config.motor_contract_id is not None:
+        if config.motor_contract_id != "keeper-control-forward-v1":
+            raise ValueError(
+                f"Unsupported motor contract: {config.motor_contract_id}"
+            )
+        if config.environment_parameters.get(
+            "stage6.committed_glove_forward_m"
+        ) != 0.28:
+            raise ValueError(
+                "keeper-control-forward-v1 requires "
+                "stage6.committed_glove_forward_m=0.28"
+            )
     if config.arena_count <= 0 or config.attempts_per_arena <= 0:
         raise ValueError("arena_count and attempts_per_arena must be positive")
     if config.warmup_attempts_per_arena < 0:
@@ -2414,6 +2432,7 @@ def build_report(
         "continuous_actions": config.continuous_actions,
         "discrete_branches": list(config.discrete_branches),
         "motor_profile_id": config.motor_profile_id,
+        "motor_contract_id": config.motor_contract_id,
         "stage5_gate_profile": config.stage5_gate_profile,
         "environment_parameters": dict(sorted(config.environment_parameters.items())),
         "full_benchmark": full,
@@ -2584,6 +2603,7 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
         "continuous_actions": report.get("continuous_actions", 0),
         "discrete_branches": report.get("discrete_branches", DISCRETE_BRANCHES),
         "motor_profile_id": report.get("motor_profile_id"),
+        "motor_contract_id": report.get("motor_contract_id"),
         "stage5_gate_profile": report.get(
             "stage5_gate_profile",
             "control-v2",

@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "report_id": "stage6-forward-contact-promotion-v1",
+  "status": "promoted",
+  "generated_at": "2026-08-03",
+  "controller": {
+    "policy": "native_split_v1:seed-001",
+    "behavior_name": "GoalkeeperControl-v2",
+    "observation_spec_id": "control-state-v2",
+    "action_spec_id": "goalkeeper-hybrid-v1"
+  },
+  "motor_contract": {
+    "base_motor_profile_id": "keeper-control-v1",
+    "promoted_motor_contract_id": "keeper-control-forward-v1",
+    "environment_parameter": "stage6.committed_glove_forward_m",
+    "value_m": 0.28,
+    "stage5_default_m": 0.0,
+    "scope": "Stage 6 and later gameplay-distribution environments"
+  },
+  "low_shot_gate": {
+    "benchmark_id": "goalkeeper-control-v2-low-forward-contact-2k",
+    "attempts": 2000,
+    "same_episode_key_digest_as_baseline": true,
+    "baseline": {
+      "save_rate": 0.4715,
+      "glove_contact_rate": 0.7035,
+      "glove_save_rate": 0.418,
+      "contact_then_goal_rate": 0.3355
+    },
+    "corrected": {
+      "save_rate": 0.597,
+      "glove_contact_rate": 0.7825,
+      "glove_save_rate": 0.595,
+      "contact_then_goal_rate": 0.1995
+    },
+    "save_rate_improvement": 0.1255,
+    "minimum_required_improvement": 0.05,
+    "paired_outcome_changes": {
+      "failures_converted_to_saves": 350,
+      "saves_converted_to_failures": 99,
+      "net_additional_saves": 251
+    },
+    "passed": true
+  },
+  "high_shot_non_regression_gate": {
+    "benchmark_id": "goalkeeper-control-v2-high-forward-contact-2k",
+    "attempts": 2000,
+    "frozen_reference_attempts": 6149,
+    "frozen_reference_save_rate": 0.688241990567572,
+    "corrected_save_rate": 0.698,
+    "corrected_glove_contact_rate": 0.838,
+    "corrected_glove_save_rate": 0.698,
+    "save_rate_regression": -0.009758009432427994,
+    "maximum_allowed_regression": 0.03,
+    "passed": true
+  },
+  "safety": {
+    "invalids": 0,
+    "timeouts": 0,
+    "action_mask_violations": 0,
+    "command_clamps": 0,
+    "duplicate_requests": 0,
+    "missing_actions": 0,
+    "request_consume_discard_balance": true,
+    "passed": true
+  },
+  "source_results": [
+    {
+      "path": "results/evaluations/stage6-low-shot-capability-v1-2k-warmup-fixed/report.json",
+      "sha256": "ec660c24f45f4c898f202a5b414499ab23872d1f291640f38eea86218e981df5"
+    },
+    {
+      "path": "results/evaluations/stage6-low-shot-forward-contact-v1-2k/report.json",
+      "sha256": "943e65bc9c284269d8bb662080c9d5789f20b0ce13a119cd065ae82a3b94e162"
+    },
+    {
+      "path": "results/evaluations/stage6-high-shot-forward-contact-v1-2k/report.json",
+      "sha256": "87b9632421d627f7e3c3b5372025a7b2a518ceeb9a8caed199ccdcc0decef9cd"
+    }
+  ],
+  "implementation_commits": [
+    "12dab52 feat(stage6): add opt-in forward glove contact physics",
+    "0f75688 test(stage6): add low-shot forward-contact audit"
+  ],
+  "decision": "Use keeper-control-forward-v1 for Stage 6 environments. Preserve keeper-control-v1 with a zero forward offset for frozen Stage 5 reproduction.",
+  "limitations": [
+    "The high-shot gate compares a fixed 2,000-shot upper-third suite with the frozen 6,149-shot high-band reference; it is a non-regression check rather than a paired replay.",
+    "This promotion changes contact geometry only and does not claim improved robustness or gameplay-shot generalization."
+  ]
+}

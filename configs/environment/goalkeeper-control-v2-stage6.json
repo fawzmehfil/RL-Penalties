@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "environment_id": "penalty-shootout-kernel-v1",
+  "behavior_name": "GoalkeeperControl-v2",
+  "observation_spec_id": "control-state-v2",
+  "reward_spec_id": "goalkeeper-sparse-v0",
+  "action_spec_id": "goalkeeper-hybrid-v1",
+  "base_motor_profile_id": "keeper-control-v1",
+  "motor_contract_id": "keeper-control-forward-v1",
+  "scenario_suite_id": "on-target-v0",
+  "vector_observation_size": 35,
+  "continuous_actions": 4,
+  "discrete_branches": [
+    2
+  ],
+  "environment_parameters": {
+    "stage6.committed_glove_forward_m": 0.28
+  },
+  "preserved_contracts": [
+    "GoalkeeperControl-v2 behavior and 35-float observation order",
+    "goalkeeper-hybrid-v1 action dimensions and masks",
+    "keeper-control-v1 root motion, dive arc, arm IK, and colliders",
+    "goalkeeper-sparse-v0 terminal reward",
+    "native_split_v1 seed-001 interception and timing models"
+  ],
+  "promotion_evidence": "docs/stage6-forward-contact-report.json",
+  "compatibility": {
+    "stage5_default_committed_glove_forward_m": 0.0,
+    "stage6_default_committed_glove_forward_m": 0.28,
+    "stage5_evidence_remains_frozen": true
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "audit_id": "stage6-high-shot-forward-contact-v1",
+  "benchmark_id": "goalkeeper-control-v2-high-forward-contact-2k",
+  "expected_attempts": 2000,
+  "native_policy_prefix": "native_split_v1:",
+  "reference_evidence": "docs/stage5-native-inference-report.json",
+  "maximum_save_rate_regression": 0.03,
+  "expected_committed_glove_forward_m": 0.28,
+  "safety_counters_must_be_zero": true
+}
