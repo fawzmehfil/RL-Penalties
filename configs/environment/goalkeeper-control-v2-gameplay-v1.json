@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "environment_id": "penalty-shootout-kernel-v1",
+  "behavior_name": "GoalkeeperControl-v2",
+  "observation_spec_id": "control-state-v2-gameplay-v1",
+  "reward_spec_id": "goalkeeper-sparse-v0",
+  "action_spec_id": "goalkeeper-hybrid-v1",
+  "motor_profile_id": "keeper-control-v1",
+  "motor_contract_id": "keeper-control-forward-v1",
+  "scenario_suite_id": "human-shot-v1",
+  "shot_contract_id": "player-shot-v1",
+  "shot_physics_id": "football-flight-v1",
+  "vector_observation_size": 35,
+  "continuous_actions": 4,
+  "discrete_branches": [2],
+  "observation_delay_ticks": 2,
+  "observation_delay_seconds": 0.04,
+  "excluded_privileged_fields": [
+    "player_shot_command",
+    "shot_style",
+    "contact_error",
+    "requested_target",
+    "predicted_unopposed_crossing",
+    "future_goal_plane_intersection",
+    "terminal_outcome"
+  ]
+}

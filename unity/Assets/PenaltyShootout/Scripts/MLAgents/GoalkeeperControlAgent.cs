@@ -74,6 +74,7 @@ namespace PenaltyShootout.MLAgents
         private int nativeInferenceCommitMismatchCount;
         private readonly float[] nativeObservations =
             new float[KernelConstants.GoalkeeperControlV2ObservationSize];
+        private bool hasCachedDecisionObservations;
 
         public PenaltyAreaController Controller
         {
@@ -171,6 +172,7 @@ namespace PenaltyShootout.MLAgents
             heuristicAimX = 0f;
             heuristicAimY = 0f;
             nativeSplitPolicy?.ResetAttempt();
+            hasCachedDecisionObservations = false;
             ResetAttemptTrainingTelemetry();
             if (!UsesDeferredDecisionScheduling)
             {
@@ -182,7 +184,19 @@ namespace PenaltyShootout.MLAgents
         {
             if (UsesDeferredDecisionScheduling)
             {
-                WriteConfiguredControlObservations(sensor.AddObservation);
+                var index = 0;
+                WriteConfiguredControlObservations(
+                    value =>
+                    {
+                        sensor.AddObservation(value);
+                        if (index < nativeObservations.Length)
+                        {
+                            nativeObservations[index] = value;
+                        }
+                        index++;
+                    });
+                hasCachedDecisionObservations =
+                    index == nativeObservations.Length;
             }
             else
             {
@@ -248,6 +262,7 @@ namespace PenaltyShootout.MLAgents
             requestedDecisionContext = context;
             pendingCommand = GoalkeeperControlCommand.Neutral;
             hasPendingCommand = false;
+            hasCachedDecisionObservations = false;
             policyDecisionOutstanding = true;
             policyDecisionRequestCount++;
             RequestDecision();
@@ -569,7 +584,7 @@ namespace PenaltyShootout.MLAgents
 
         private void ApplyCurriculumParameters()
         {
-            if (controller == null || controller.ShotConfiguration == null)
+            if (controller == null)
             {
                 return;
             }
@@ -623,6 +638,10 @@ namespace PenaltyShootout.MLAgents
                     5)
                 : 0;
             var shots = controller.ShotConfiguration;
+            if (shots == null)
+            {
+                return;
+            }
             ApplyLessonDefaults(shots, stage5Lesson);
             GoalkeeperControlTrainingContracts.ApplyReachFocusLesson(
                 shots,
@@ -665,18 +684,7 @@ namespace PenaltyShootout.MLAgents
 
         private bool TryCollectNativeObservations()
         {
-            var index = 0;
-            WriteConfiguredControlObservations(
-                value =>
-                {
-                    if (index < nativeObservations.Length)
-                    {
-                        nativeObservations[index] = value;
-                    }
-
-                    index++;
-                });
-            return index == nativeObservations.Length;
+            return hasCachedDecisionObservations;
         }
 
         private bool UsesGameplayObservations =>

@@ -84,13 +84,17 @@ namespace PenaltyShootout.Kernel
 
             lastAttemptId = attemptId;
             lastSeed = Pcg32.DeriveSeed(masterSeed, arenaId, attemptId);
+            var forcedHorizontalSide = ((arenaId + attemptId) & 1L) == 0L
+                ? 1f
+                : -1f;
             return useHumanShots
                 ? HumanShotGeneratorV1.Sample(
                     humanShotConfiguration,
                     playerShotPhysicsConfiguration,
                     lastSeed,
                     gravity,
-                    fixedTimestep)
+                    fixedTimestep,
+                    forcedHorizontalSide)
                 : ProceduralShotGenerator.Sample(
                     configuration,
                     lastSeed,

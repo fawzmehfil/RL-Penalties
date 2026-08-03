@@ -101,6 +101,7 @@ namespace PenaltyShootout.Kernel
         private int decisionIndex;
         private int ballVisibleHistoryCount;
         private int ballVisibleHistoryWriteIndex;
+        [SerializeField]
         private int gameplayObservationDelayTicks;
         private int nextDeferredControlDecisionTick;
         private int actionMaskViolations;
@@ -515,6 +516,14 @@ namespace PenaltyShootout.Kernel
                     {
                         error = "Stage 6 shot configuration assets are required.";
                     }
+                    return false;
+                }
+                if (Mathf.Abs(
+                        environmentConfiguration.FixedTimestep -
+                        playerShotPhysicsConfiguration.FixedTimestep) > 1e-6f)
+                {
+                    error =
+                        "football-flight-v1 timestep must match the environment timestep.";
                     return false;
                 }
             }
@@ -1564,7 +1573,9 @@ namespace PenaltyShootout.Kernel
                 goalkeeperControlMode == GoalkeeperControlMode.HybridV1;
             GUILayout.BeginArea(new Rect(20f, 20f, 430f, 360f), GUI.skin.box);
             GUILayout.Label(
-                hybridControl
+                UsesHumanShots
+                    ? "Penalty Shootout RL - Stage 6 Shot Variety Lab"
+                    : hybridControl
                     ? "Penalty Shootout RL - Stage 5 Control Lab"
                     : "Penalty Shootout RL - Stage 1 Kernel");
             GUILayout.Label($"Environment: {KernelConstants.EnvironmentId}");
@@ -1586,6 +1597,12 @@ namespace PenaltyShootout.Kernel
                     $"Predicted crossing: ({shot.PredictedUnopposedCrossingLocal.x:F2}, " +
                     $"{shot.PredictedUnopposedCrossingLocal.y:F2})  " +
                     $"solver error {shot.SolverCrossingError:F3} m");
+                if (hasCentrePlaneIntersection)
+                {
+                    GUILayout.Label(
+                        $"Measured target error: " +
+                        $"{Vector2.Distance(centrePlaneIntersectionLocal, shot.ContactAdjustedTargetLocal):F3} m");
+                }
             }
             if (hybridControl)
             {
@@ -1617,7 +1634,7 @@ namespace PenaltyShootout.Kernel
                 hybridControl
                     ? "Controls: A/D move, arrows aim, Shift reach, Space commit"
                     : "Controls: A/D shuffle, Q/W/E left dives, U/I/O right dives");
-            if (GUILayout.Button("Start next procedural attempt"))
+            if (GUILayout.Button("Start next shot"))
             {
                 if (Phase == AttemptPhase.Terminal)
                 {

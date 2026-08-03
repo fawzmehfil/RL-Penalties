@@ -219,6 +219,12 @@ namespace PenaltyShootout.Kernel
             {
                 throw new ArgumentException("Resolver physics inputs are invalid.");
             }
+            if (Mathf.Abs(fixedTimestep - configuration.FixedTimestep) > 1e-6f)
+            {
+                throw new ArgumentException(
+                    "Resolver timestep does not match football-flight-v1.",
+                    nameof(fixedTimestep));
+            }
 
             var idealTarget = new Vector3(
                 command.AimX * MaximumAimX,

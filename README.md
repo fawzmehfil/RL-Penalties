@@ -24,7 +24,7 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 5 frozen; Stage 6 authorized
+## Current status: Stage 6 pre-training evaluation complete
 
 Stages 0-4 established and evaluated the deterministic environment, the first
 trainable nine-action goalkeeper, fixed 20,000-shot benchmarks, and
@@ -63,8 +63,9 @@ model learns commit timing. The phase-aware split controller passed its fixed
 100% commit. Stage 5.6B packages those exact models in Unity and passed native
 runtime parity. Its official 20,000-shot benchmark saved 56.87%, contacted the
 ball with a glove on 73.95% of attempts, saved 68.82% of high shots, and
-committed on every attempt with no lifecycle or safety errors. Stage 5 is now
-frozen and Stage 6 shot-distribution work is authorized.
+committed on every attempt with no lifecycle or safety errors. Stage 5 is
+frozen. Stage 6 now adds the shared human-like shot and gameplay-observation
+contracts used to evaluate that controller before any new training.
 
 Stage 0 established the physics and tooling foundation before goalkeeper
 training:
@@ -1044,18 +1045,20 @@ passing architecture. Any future refinement must use a separately versioned,
 bounded residual or distillation contract and is limited to 250,000 diagnostic
 steps before another promotion decision.
 
-## Later milestones
+## Stage 6 human-like shot system
 
-Future stages extend the goalkeeper benchmark into a fuller football AI and
-playable demo:
+Stage 6 introduces `player-shot-v1`, the shared aim, power, spin, and contact
+error command that procedural generation and the future Stage 9 player input
+will both use. `football-flight-v1` adds bounded Magnus curve and spin decay,
+while the deterministic `human-shot-v1` mixture covers placed, power, curled,
+frame, wide, high, and rare-tail attempts. The launch point remains the
+11-metre penalty spot.
 
-- Stage 6: train and evaluate on a versioned mixture of standard procedural
-  shots, human-like aim and power distributions, imperfect timing and
-  directional noise, spin and curve, common player tendencies, and rare
-  edge or unusually fast shots. The human-like generator will use the same
-  shot-control parameters and launch physics planned for Stage 9 so the
-  playable mode is part of the training design rather than a late,
-  incompatible input source.
+The goalkeeper continues to use the frozen Stage 5 behavior and hybrid action
+space. Its new `control-state-v2-gameplay-v1` profile keeps the same 35-float
+field order but delays visible ball state by exactly two physics ticks (40 ms).
+Shot commands, generated targets, styles, and terminal outcomes remain
+terminal-only evaluation metadata.
 
 Stage 6 began with a lower-third capability audit because the frozen native
 controller saved 48.08% of low shots versus 68.82% of high shots. That fixed
@@ -1082,6 +1085,40 @@ scripts/run_stage6_high_shot_regression.sh
 ```
 
 These commands do not train or modify the frozen Stage 5 model.
+
+Open `Assets/PenaltyShootout/Scenes/ShotVarietyLab.unity` to inspect shots
+manually. Keys `1`-`3` select placed, power, or curled shots, `4` restores the
+gameplay mixture, `Space` launches the next deterministic shot, and `R`
+toggles automatic cycling.
+
+Run the complete fixed pre-training handoff with Unity closed:
+
+```bash
+scripts/run_stage6_pretraining_baseline.sh
+```
+
+It verifies contracts, builds `PenaltyShootoutStage6.app`, runs a 64-shot
+integration smoke, then evaluates stand-center, random, curve-aware reactive,
+and frozen native Stage 5 policies on the same 2,000 attempts. It writes raw
+results under `results/evaluations/stage6-human-shot-v1-pretraining-2k/` and
+compact evidence to `docs/stage6-pretraining-baseline-report.json`. The command
+stops after diagnosis and never starts training.
+
+The fixed pre-training run completed with 1,812 expected-on-target shots per
+policy. Stand-center saved 1.93%, random hybrid saved 3.04%, the curve-aware
+reactive controller saved 42.99%, and the frozen native split controller saved
+42.83%. Native glove contact was 59.71%; trajectory error was 0.054 m at the
+95th percentile and 0.087 m maximum; all safety and lifecycle counters remained
+zero. Training is recommended only because the native save rate is below the
+predeclared 45% threshold. The clearest weaknesses are fast launch speeds
+(25.41%), high spin (33.64%), low shots (30.16%), and outer placements
+(20.71% left, 26.49% right). No Stage 6 model has been trained yet.
+
+## Later milestones
+
+Future stages extend the goalkeeper benchmark into a fuller football AI and
+playable demo:
+
 - Stage 7: replay and analysis UI for heatmaps, per-quadrant results,
   trajectory review, and dive-choice inspection.
 - Stage 8: final model packaging, Unity inference import, model cards, and
@@ -1093,12 +1130,11 @@ These commands do not train or modify the frozen Stage 5 model.
   short calibration fine-tune should be needed if measured player shots expose
   a meaningful distribution mismatch.
 
-Stage 6 is expected to produce the broadest goalkeeper checkpoint, but it is
-not the only training stage that matters. Stage 2 established perception and
-basic save learning, Stage 4 measured and trained observation robustness, and
-Stage 5 teaches the richer movement, commitment, aiming, and arm-reach policy
-that Stage 6 will continue training. Stage 6 broadens that learned controller;
-it does not replace the control capability or evidence built earlier.
+The Stage 6 pre-training report determines whether a new goalkeeper run is
+justified and which shot families require it. Stage 2 established perception
+and basic save learning, Stage 4 measured observation robustness, and Stage 5
+established richer movement, commitment, aiming, and arm reach. Stage 6 changes
+the shot and visibility distribution without discarding that prior evidence.
 
 ## Open-source and third-party notices
 

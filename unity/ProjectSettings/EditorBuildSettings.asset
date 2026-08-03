@@ -26,6 +26,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/PenaltyShootout/Scenes/ControlDemonstration.unity
     guid: 7928c523fad484cec93ae715799bf88e
+  - enabled: 1
+    path: Assets/PenaltyShootout/Scenes/ShotVarietyLab.unity
+    guid: 003e6746830fc45eb8b6eb628984ce75
+  - enabled: 1
+    path: Assets/PenaltyShootout/Scenes/Stage6Baseline.unity
+    guid: bc4f46ee20b5f4d918ec89376cada789
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

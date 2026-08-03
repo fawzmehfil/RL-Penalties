@@ -123,6 +123,9 @@ class BenchmarkConfig:
     stage5_gate_profile: str = "control-v2"
     warmup_attempts_per_arena: int = 0
     environment_parameters: dict[str, float] = field(default_factory=dict)
+    primary_population: str = "all_attempts"
+    shot_contract_id: str | None = None
+    shot_physics_id: str | None = None
 
 
 class GoalkeeperPolicy:
@@ -399,6 +402,45 @@ class ReactiveReachV1Policy(HybridGoalkeeperPolicy):
             )
             continuous[row] = command
             commit[row] = int(should_commit)
+        return continuous, self._sanitize_commit(commit, action_mask)
+
+
+class ReactiveCurveV1Policy(HybridGoalkeeperPolicy):
+    """Curve-aware teacher using only the delayed visible prediction fields."""
+
+    name = "reactive_curve_v1"
+
+    def __init__(self, commit_horizon: float = 0.62) -> None:
+        self.commit_horizon = commit_horizon
+
+    def hybrid_actions(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        continuous = np.zeros(
+            (len(observations), CONTROL_CONTINUOUS_ACTIONS),
+            dtype=np.float32,
+        )
+        commit = np.zeros(len(observations), dtype=np.int32)
+        for row, observation in enumerate(observations):
+            time_value = float(observation[32])
+            time_to_plane = time_value * 1.5 if time_value >= 0.0 else -1.0
+            aim_x = float(np.clip(observation[33], -1.0, 1.0))
+            aim_y = float(np.clip(observation[34], -1.0, 1.0))
+            target_x = aim_x * TARGET_X_EXTENT
+            keeper_x = float(observation[9]) * 3.1
+            continuous[row] = np.asarray(
+                [
+                    np.clip((target_x - keeper_x) / 1.25, -1.0, 1.0),
+                    aim_x,
+                    aim_y,
+                    1.0,
+                ],
+                dtype=np.float32,
+            )
+            commit[row] = int(0.0 <= time_to_plane <= self.commit_horizon)
         return continuous, self._sanitize_commit(commit, action_mask)
 
 
@@ -917,6 +959,17 @@ def load_benchmark_config(path: Path) -> BenchmarkConfig:
             str(key): float(value)
             for key, value in raw.get("environment_parameters", {}).items()
         },
+        primary_population=str(raw.get("primary_population", "all_attempts")),
+        shot_contract_id=(
+            str(raw["shot_contract_id"])
+            if raw.get("shot_contract_id") is not None
+            else None
+        ),
+        shot_physics_id=(
+            str(raw["shot_physics_id"])
+            if raw.get("shot_physics_id") is not None
+            else None
+        ),
     )
     validate_benchmark_config(config)
     return config
@@ -934,6 +987,10 @@ def validate_benchmark_config(config: BenchmarkConfig) -> None:
         raise ValueError(
             "Unsupported Stage 5 gate profile: "
             f"{config.stage5_gate_profile}"
+        )
+    if config.primary_population not in {"all_attempts", "expected_on_target"}:
+        raise ValueError(
+            f"Unsupported primary population: {config.primary_population}"
         )
     is_control = config.behavior_name in CONTROL_BEHAVIOR_NAMES
     expected_observation_shapes = (
@@ -985,11 +1042,25 @@ def validate_benchmark_config(config: BenchmarkConfig) -> None:
         )
     if (
         config.behavior_name == CONTROL_V2_BEHAVIOR_NAME
-        and config.observation_spec_id != "control-state-v2"
+        and config.observation_spec_id not in {
+            "control-state-v2",
+            "control-state-v2-gameplay-v1",
+        }
     ):
         raise ValueError(
-            "GoalkeeperControl-v2 requires control-state-v2 observations"
+            "GoalkeeperControl-v2 requires a versioned 35-float control observation"
         )
+    if config.observation_spec_id == "control-state-v2-gameplay-v1":
+        if config.scenario_suite_id != "human-shot-v1":
+            raise ValueError("Gameplay observations require human-shot-v1")
+        if config.primary_population != "expected_on_target":
+            raise ValueError(
+                "human-shot-v1 requires primary_population=expected_on_target"
+            )
+        if config.shot_contract_id != "player-shot-v1":
+            raise ValueError("human-shot-v1 requires player-shot-v1 commands")
+        if config.shot_physics_id != "football-flight-v1":
+            raise ValueError("human-shot-v1 requires football-flight-v1 physics")
     if (
         is_control
         and config.action_spec_id != "goalkeeper-hybrid-v1"
@@ -1047,6 +1118,10 @@ def make_policy(
         return RandomHybridV1Policy(seed)
     if spec in {"reactive_reach", "reactive_reach_v1"}:
         return ReactiveReachV1Policy()
+    if spec == "reactive_curve_v1":
+        if config is None or config.observation_spec_id != "control-state-v2-gameplay-v1":
+            raise ValueError("reactive_curve_v1 requires gameplay observations")
+        return ReactiveCurveV1Policy()
     if spec.startswith("reactive_reach_v1:"):
         try:
             commit_horizon = float(spec.split(":", maxsplit=1)[1])
@@ -1285,9 +1360,22 @@ def aggregate_policy(
     attempts_per_arena: int,
 ) -> dict[str, Any]:
     total = len(episodes)
+    primary_episodes = (
+        [item for item in episodes if bool(item.get("expected_on_target", False))]
+        if config.primary_population == "expected_on_target"
+        else episodes
+    )
+    primary_total = len(primary_episodes)
     outcomes = Counter(str(item["outcome"]) for item in episodes)
-    saves = sum(1 for item in episodes if item["outcome"] in config.save_outcomes)
+    saves = sum(
+        1
+        for item in primary_episodes
+        if item["outcome"] in config.save_outcomes
+    )
     goals = outcomes["Goal"]
+    frames = outcomes["PostOrCrossbarOut"]
+    wide_misses = outcomes["MissWide"]
+    high_misses = outcomes["MissHigh"]
     invalid = outcomes["Invalid"]
     timeouts = outcomes["Timeout"]
     action_counts = [0] * len(ACTION_NAMES)
@@ -1296,17 +1384,21 @@ def aggregate_policy(
             if index < len(action_counts):
                 action_counts[index] += int(count)
 
-    first_dive_episodes = [item for item in episodes if item.get("has_first_dive")]
+    first_dive_episodes = [
+        item for item in primary_episodes if item.get("has_first_dive")
+    ]
     wrong_side = sum(1 for item in first_dive_episodes if is_wrong_side(item))
     wrong_height = sum(1 for item in first_dive_episodes if is_wrong_height(item))
     contact_then_goal = sum(
-        1 for item in episodes if item["outcome"] == "Goal" and item["goalkeeper_contact"]
+        1
+        for item in primary_episodes
+        if item["outcome"] == "Goal" and item["goalkeeper_contact"]
     )
     committed_episodes = [
-        item for item in episodes if item.get("has_save_commitment")
+        item for item in primary_episodes if item.get("has_save_commitment")
     ]
     contacted_episodes = [
-        item for item in episodes if item.get("goalkeeper_contact")
+        item for item in primary_episodes if item.get("goalkeeper_contact")
     ]
     glove_first_contacts = sum(
         first_contact_category(item) == "glove"
@@ -1340,31 +1432,39 @@ def aggregate_policy(
             )
         )
         > 0
-        for item in episodes
+        for item in primary_episodes
     )
     command_clamp_attempts = sum(
         int(item.get("control_command_clamp_count", 0)) > 0
-        for item in episodes
+        for item in primary_episodes
     )
     glove_saves = sum(
         item["outcome"] in config.save_outcomes and item.get("glove_contact")
-        for item in episodes
+        for item in primary_episodes
     )
     glove_first_saves = sum(
         item["outcome"] in config.save_outcomes
         and first_contact_category(item) == "glove"
-        for item in episodes
+        for item in primary_episodes
     )
     arm_saves = sum(
         item["outcome"] in config.save_outcomes
         and first_contact_part(item) == "Arm"
-        for item in episodes
+        for item in primary_episodes
     )
     body_saves = saves - glove_first_saves - arm_saves
     minimum_glove_distances = [
         float(item["minimum_glove_ball_distance"])
-        for item in episodes
+        for item in primary_episodes
         if float(item.get("minimum_glove_ball_distance", -1.0)) >= 0.0
+    ]
+    runtime_crossing_errors = [
+        float(item["target_error"])
+        for item in episodes
+        if bool(item.get("has_centre_plane_intersection", False))
+        and not bool(item.get("goalkeeper_contact", False))
+        and not bool(item.get("goal_frame_contact", False))
+        and math.isfinite(float(item.get("target_error", math.inf)))
     ]
 
     expected_total = config.arena_count * attempts_per_arena
@@ -1389,17 +1489,28 @@ def aggregate_policy(
         "complete": total == expected_total,
         "episode_key_digest": episode_key_digest,
         "outcomes": dict(sorted(outcomes.items())),
-        "save_rate": rate(saves, total),
+        "primary_population": config.primary_population,
+        "primary_population_attempts": primary_total,
+        "save_rate": rate(saves, primary_total),
+        "all_attempt_save_rate": rate(
+            sum(item["outcome"] in config.save_outcomes for item in episodes),
+            total,
+        ),
         "goal_rate": rate(goals, total),
+        "frame_rate": rate(frames, total),
+        "miss_wide_rate": rate(wide_misses, total),
+        "miss_high_rate": rate(high_misses, total),
         "invalid_rate": rate(invalid, total),
         "timeout_rate": rate(timeouts, total),
         "glove_contact_rate": rate(
-            sum(1 for item in episodes if item["glove_contact"]), total
+            sum(1 for item in primary_episodes if item["glove_contact"]),
+            primary_total,
         ),
         "goalkeeper_contact_rate": rate(
-            sum(1 for item in episodes if item["goalkeeper_contact"]), total
+            sum(1 for item in primary_episodes if item["goalkeeper_contact"]),
+            primary_total,
         ),
-        "contact_then_goal_rate": rate(contact_then_goal, total),
+        "contact_then_goal_rate": rate(contact_then_goal, primary_total),
         "wrong_side_rate": rate(wrong_side, len(first_dive_episodes)),
         "wrong_height_rate": rate(wrong_height, len(first_dive_episodes)),
         "action_mask_violations": sum(
@@ -1409,16 +1520,93 @@ def aggregate_policy(
             int(item["duplicate_terminal_events"]) for item in episodes
         ),
         "action_usage": action_usage(action_counts),
-        "by_quadrant": aggregate_by(episodes, quadrant),
-        "by_height_band": aggregate_by(episodes, height_band),
-        "by_horizontal_band": aggregate_by(episodes, horizontal_band),
-        "by_flight_time_band": aggregate_by(episodes, flight_time_band),
+        "by_quadrant": aggregate_by(primary_episodes, quadrant),
+        "by_height_band": aggregate_by(primary_episodes, height_band),
+        "by_horizontal_band": aggregate_by(primary_episodes, horizontal_band),
+        "by_flight_time_band": aggregate_by(primary_episodes, flight_time_band),
         "by_first_dive_action": aggregate_by(episodes, first_dive_action),
     }
+    if config.primary_population == "expected_on_target":
+        report.update(
+            {
+                "expected_target_class_rates": {
+                    target_class: rate(
+                        sum(
+                            item.get("expected_target_class") == target_class
+                            for item in episodes
+                        ),
+                        total,
+                    )
+                    for target_class in (
+                        "OnTarget",
+                        "Frame",
+                        "MissWide",
+                        "MissHigh",
+                    )
+                },
+                "shot_style_rates": {
+                    style: rate(
+                        sum(item.get("shot_style") == style for item in episodes),
+                        total,
+                    )
+                    for style in ("Placed", "Power", "Curled")
+                },
+                "rare_tail_rate": rate(
+                    sum(bool(item.get("rare_tail", False)) for item in episodes),
+                    total,
+                ),
+                "command_aim_side_counts": {
+                    "left": sum(
+                        float(item.get("command_aim_x", 0.0)) < 0.0
+                        for item in episodes
+                    ),
+                    "right": sum(
+                        float(item.get("command_aim_x", 0.0)) > 0.0
+                        for item in episodes
+                    ),
+                    "center": sum(
+                        float(item.get("command_aim_x", 0.0)) == 0.0
+                        for item in episodes
+                    ),
+                },
+                "by_shot_style": aggregate_by(
+                    primary_episodes,
+                    lambda item: str(item.get("shot_style", "Unknown")),
+                ),
+                "by_launch_speed_band": aggregate_by(
+                    primary_episodes,
+                    stage6_speed_band,
+                ),
+                "by_spin_band": aggregate_by(
+                    primary_episodes,
+                    stage6_spin_band,
+                ),
+                "by_expected_target_class": aggregate_by(
+                    episodes,
+                    lambda item: str(item.get("expected_target_class", "Unknown")),
+                ),
+                "by_rare_tail": aggregate_by(
+                    primary_episodes,
+                    lambda item: "rare_tail" if item.get("rare_tail") else "regular",
+                ),
+                "launch_speed_mps": numeric_summary(
+                    [float(item.get("launch_speed_mps", 0.0)) for item in episodes]
+                ),
+                "solver_error_m": numeric_summary(
+                    [float(item.get("solver_error_m", 0.0)) for item in episodes]
+                ),
+                "curve_displacement_m": numeric_summary(
+                    [stage6_curve_magnitude(item) for item in episodes]
+                ),
+                "runtime_crossing_error_m": numeric_summary(
+                    runtime_crossing_errors
+                ),
+            }
+        )
     if config.behavior_name in CONTROL_BEHAVIOR_NAMES:
         report.update(
             {
-                "commit_rate": rate(len(committed_episodes), total),
+                "commit_rate": rate(len(committed_episodes), primary_total),
                 "first_commit_ball_flight_time": numeric_summary(
                     [
                         float(item["first_commit_ball_flight_time"])
@@ -1466,13 +1654,13 @@ def aggregate_policy(
                         for item in committed_episodes
                     ]
                 ),
-                "immediate_commit_rate": rate(immediate_commits, total),
+                "immediate_commit_rate": rate(immediate_commits, primary_total),
                 "premature_commit_rate": rate(
                     premature_commits,
-                    total,
+                    primary_total,
                 ),
-                "late_commit_rate": rate(late_commits, total),
-                "timely_commit_rate": rate(timely_commits, total),
+                "late_commit_rate": rate(late_commits, primary_total),
+                "timely_commit_rate": rate(timely_commits, primary_total),
                 "first_commit_visible_aim_error_m": numeric_summary(
                     [
                         float(item["first_commit_visible_aim_error"])
@@ -1511,7 +1699,7 @@ def aggregate_policy(
                 "first_eligible_commit_decision_index": numeric_summary(
                     [
                         float(item["first_eligible_commit_decision_index"])
-                        for item in episodes
+                        for item in primary_episodes
                         if int(
                             item.get(
                                 "first_eligible_commit_decision_index",
@@ -1526,7 +1714,7 @@ def aggregate_policy(
                         float(
                             item["first_eligible_commit_ball_flight_time"]
                         )
-                        for item in episodes
+                        for item in primary_episodes
                         if float(
                             item.get(
                                 "first_eligible_commit_ball_flight_time",
@@ -1544,19 +1732,19 @@ def aggregate_policy(
                                 0,
                             )
                         )
-                        for item in episodes
+                        for item in primary_episodes
                     ]
                 ),
                 "goalkeeper_root_distance_m": numeric_summary(
                     [
                         float(item.get("goalkeeper_root_distance", 0.0))
-                        for item in episodes
+                        for item in primary_episodes
                     ]
                 ),
                 "goalkeeper_peak_root_speed_mps": numeric_summary(
                     [
                         float(item.get("goalkeeper_peak_root_speed", 0.0))
-                        for item in episodes
+                        for item in primary_episodes
                     ]
                 ),
                 "goalkeeper_peak_reach_extension": numeric_summary(
@@ -1567,7 +1755,7 @@ def aggregate_policy(
                                 0.0,
                             )
                         )
-                        for item in episodes
+                        for item in primary_episodes
                     ]
                 ),
                 "minimum_glove_ball_distance_m": numeric_summary(
@@ -1576,7 +1764,7 @@ def aggregate_policy(
                 "committed_glove_forward_m": numeric_summary(
                     [
                         float(item.get("committed_glove_forward_m", 0.0))
-                        for item in episodes
+                        for item in primary_episodes
                     ]
                 ),
                 "first_contact_ball_velocity_y_mps": numeric_summary(
@@ -1629,7 +1817,7 @@ def aggregate_policy(
                 ),
                 "control_command_clamp_attempt_rate": rate(
                     command_clamp_attempts,
-                    total,
+                    primary_total,
                 ),
                 "control_target_clamp_count": sum(
                     int(item.get("control_target_clamp_count", 0))
@@ -1637,7 +1825,7 @@ def aggregate_policy(
                 ),
                 "control_target_clamp_attempt_rate": rate(
                     root_saturation_attempts,
-                    total,
+                    primary_total,
                 ),
                 "root_target_saturation_count": sum(
                     int(
@@ -1650,7 +1838,7 @@ def aggregate_policy(
                 ),
                 "root_target_saturation_attempt_rate": rate(
                     root_saturation_attempts,
-                    total,
+                    primary_total,
                 ),
                 "root_target_saturation_distance_m": numeric_summary(
                     [
@@ -1764,17 +1952,17 @@ def aggregate_policy(
                             )
                         )
                         > 0
-                        for item in episodes
+                        for item in primary_episodes
                     ),
                     root_saturation_attempts,
                 ),
-                "glove_save_rate": rate(glove_saves, total),
+                "glove_save_rate": rate(glove_saves, primary_total),
                 "glove_first_save_rate": rate(
                     glove_first_saves,
-                    total,
+                    primary_total,
                 ),
-                "arm_save_rate": rate(arm_saves, total),
-                "body_save_rate": rate(body_saves, total),
+                "arm_save_rate": rate(arm_saves, primary_total),
+                "body_save_rate": rate(body_saves, primary_total),
                 "glove_first_contact_rate": rate(
                     glove_first_contacts,
                     len(contacted_episodes),
@@ -1783,9 +1971,9 @@ def aggregate_policy(
                     body_first_contacts,
                     len(contacted_episodes),
                 ),
-                "control_usage": control_usage(episodes),
+                "control_usage": control_usage(primary_episodes),
                 "by_commit_status": aggregate_by(
-                    episodes,
+                    primary_episodes,
                     lambda item: (
                         "committed"
                         if item.get("has_save_commitment")
@@ -1836,6 +2024,29 @@ def aggregate_by(
         }
         for key, items in sorted(grouped.items())
     }
+
+
+def stage6_speed_band(item: dict[str, Any]) -> str:
+    speed = float(item.get("launch_speed_mps", 0.0))
+    if speed < 18.0:
+        return "slow"
+    if speed < 23.0:
+        return "medium"
+    return "fast"
+
+
+def stage6_spin_band(item: dict[str, Any]) -> str:
+    side = abs(float(item.get("command_side_spin", 0.0)))
+    if side < 0.20:
+        return "low"
+    if side < 0.55:
+        return "moderate"
+    return "high"
+
+
+def stage6_curve_magnitude(item: dict[str, Any]) -> float:
+    value = item.get("curve_displacement", {})
+    return math.hypot(float(value.get("x", 0.0)), float(value.get("y", 0.0)))
 
 
 def stage5_diagnostic_gate(
@@ -2085,12 +2296,16 @@ def numeric_summary(values: Iterable[float]) -> dict[str, float | int]:
         return {
             "count": 0,
             "mean": 0.0,
+            "median": 0.0,
+            "p95": 0.0,
             "minimum": 0.0,
             "maximum": 0.0,
         }
     return {
         "count": int(len(finite)),
         "mean": float(np.mean(finite)),
+        "median": float(np.median(finite)),
+        "p95": float(np.percentile(finite, 95)),
         "minimum": float(np.min(finite)),
         "maximum": float(np.max(finite)),
     }
@@ -2382,6 +2597,96 @@ def write_summary(path: Path, report: dict[str, Any]) -> None:
                     f"({selection['reason']}).",
                 ]
             )
+    diagnosis = report.get("stage6_pretraining_diagnosis")
+    if diagnosis:
+        native_rate = diagnosis.get("native_expected_on_target_save_rate")
+        teacher_rate = diagnosis.get("teacher_expected_on_target_save_rate")
+        gap = diagnosis.get("overall_save_rate_gap")
+        runtime_crossing = diagnosis.get("runtime_crossing_error_m", {})
+        lines.extend(
+            [
+                "",
+                "## Stage 6 pre-training diagnosis",
+                "",
+                f"Training recommended: **{str(diagnosis['training_recommended']).lower()}**",
+                "Native expected-on-target save rate: " +
+                (f"{native_rate:.2%}" if native_rate is not None else "unavailable"),
+                "Reactive teacher save rate: " +
+                (f"{teacher_rate:.2%}" if teacher_rate is not None else "unavailable"),
+                "Teacher gap: " +
+                (f"{gap:.2%}" if gap is not None else "unavailable"),
+                "Runtime physics bounds: "
+                + ("passed" if diagnosis.get("runtime_physics_passed") else "failed"),
+                (
+                    "Runtime crossing error: "
+                    f"median {float(runtime_crossing.get('median', math.nan)):.3f} m, "
+                    f"p95 {float(runtime_crossing.get('p95', math.nan)):.3f} m, "
+                    f"maximum {float(runtime_crossing.get('maximum', math.nan)):.3f} m"
+                ),
+                "",
+                "Reasons:",
+            ]
+        )
+        reasons = diagnosis.get("reasons", [])
+        lines.extend(f"- {reason}" for reason in reasons)
+        if not reasons:
+            lines.append("- No promotion threshold requested training.")
+
+        per_style_gaps = diagnosis.get("per_style_save_rate_gaps", {})
+        if per_style_gaps:
+            lines.extend(
+                [
+                    "",
+                    "### Native gap to reactive controller",
+                    "",
+                    "| Shot style | Teacher minus native |",
+                    "|---|---:|",
+                ]
+            )
+            for style, style_gap in sorted(per_style_gaps.items()):
+                lines.append(f"| {style} | {float(style_gap):+.2%} |")
+
+        weakness_sections = (
+            ("Fast launch speed", diagnosis.get("fast_shot", {})),
+            (
+                "Fast flight time",
+                diagnosis.get("delay_sensitive", {}).get("fast", {}),
+            ),
+            (
+                "High spin",
+                diagnosis.get("spin_sensitive", {}).get("high", {}),
+            ),
+            ("Low height", diagnosis.get("height", {}).get("low", {})),
+            ("High height", diagnosis.get("height", {}).get("high", {})),
+            (
+                "Outer left",
+                diagnosis.get("horizontal", {}).get("left", {}),
+            ),
+            (
+                "Outer right",
+                diagnosis.get("horizontal", {}).get("right", {}),
+            ),
+        )
+        weakness_rows = []
+        for label, section in weakness_sections:
+            rate = section.get("save_rate", {}).get("value")
+            if rate is None:
+                continue
+            weakness_rows.append(
+                f"| {label} | {int(section.get('attempts', 0))} | "
+                f"{float(rate):.2%} |"
+            )
+        if weakness_rows:
+            lines.extend(
+                [
+                    "",
+                    "### Native sensitivity profile",
+                    "",
+                    "| Population | On-target attempts | Save rate |",
+                    "|---|---:|---:|",
+                    *weakness_rows,
+                ]
+            )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -2437,6 +2742,9 @@ def build_report(
         "environment_parameters": dict(sorted(config.environment_parameters.items())),
         "full_benchmark": full,
         "primary_metric": config.primary_metric,
+        "primary_population": config.primary_population,
+        "shot_contract_id": config.shot_contract_id,
+        "shot_physics_id": config.shot_physics_id,
         "minimum_trained_margin_vs_baselines": 0.05,
         "comparisons": comparisons,
         "passed": passed and full,
@@ -2447,7 +2755,133 @@ def build_report(
         report["stage5_diagnostic_selection"] = (
             select_stage5_diagnostic_checkpoint(policy_reports)
         )
+    if config.scenario_suite_id == "human-shot-v1":
+        diagnosis = stage6_pretraining_diagnosis(policy_reports)
+        report["stage6_pretraining_diagnosis"] = diagnosis
+        report["training_recommended"] = diagnosis["training_recommended"]
+        report["status"] = "completed; pretraining diagnosis recorded"
+        report["passed"] = diagnosis["safety_invariants_passed"] and full
     return report
+
+
+def stage6_pretraining_diagnosis(
+    policy_reports: list[dict[str, Any]],
+) -> dict[str, Any]:
+    native = next(
+        (
+            item
+            for item in policy_reports
+            if item["policy"].startswith("native_split_v1:")
+        ),
+        None,
+    )
+    teacher = next(
+        (item for item in policy_reports if item["policy"] == "reactive_curve_v1"),
+        None,
+    )
+    stand_center = next(
+        (item for item in policy_reports if item["policy"] == "stand_center_v1"),
+        None,
+    )
+    if native is None or teacher is None:
+        return {
+            "training_recommended": True,
+            "safety_invariants_passed": False,
+            "reasons": ["native_split_v1 and reactive_curve_v1 are both required"],
+            "overall_save_rate_gap": None,
+            "per_style_save_rate_gaps": {},
+        }
+
+    native_save = float(native["save_rate"]["value"])
+    teacher_save = float(teacher["save_rate"]["value"])
+    overall_gap = teacher_save - native_save
+    styles = sorted(
+        set(native.get("by_shot_style", {})) |
+        set(teacher.get("by_shot_style", {}))
+    )
+    per_style_gaps = {
+        style: (
+            float(
+                teacher.get("by_shot_style", {})
+                .get(style, {})
+                .get("save_rate", {})
+                .get("value", 0.0)
+            )
+            - float(
+                native.get("by_shot_style", {})
+                .get(style, {})
+                .get("save_rate", {})
+                .get("value", 0.0)
+            )
+        )
+        for style in styles
+    }
+    safety_fields = (
+        "action_mask_violations",
+        "duplicate_terminal_events",
+        "control_command_clamp_count",
+        "policy_decision_duplicate_request_count",
+        "policy_decision_missing_action_count",
+        "native_inference_invalid_output_count",
+        "native_inference_commit_mismatch_count",
+    )
+    safety_passed = all(int(native.get(field, 0)) == 0 for field in safety_fields)
+    safety_passed = safety_passed and (
+        native["invalid_rate"]["successes"] == 0
+        and native["timeout_rate"]["successes"] == 0
+    )
+    safety_passed = safety_passed and (
+        int(native.get("policy_decision_request_count", 0))
+        == int(native.get("policy_decision_consumed_count", 0))
+        + int(native.get("policy_decision_discarded_count", 0))
+    )
+    lifecycle_passed = safety_passed
+    runtime_crossing = (
+        stand_center.get("runtime_crossing_error_m", {})
+        if stand_center is not None
+        else {}
+    )
+    physics_passed = (
+        int(runtime_crossing.get("count", 0)) > 0
+        and float(runtime_crossing.get("median", math.inf)) <= 0.04
+        and float(runtime_crossing.get("p95", math.inf)) <= 0.08
+        and float(runtime_crossing.get("maximum", math.inf)) <= 0.12
+    )
+    safety_passed = lifecycle_passed and physics_passed
+    reasons: list[str] = []
+    if native_save < 0.45:
+        reasons.append("native expected-on-target save rate is below 45%")
+    if overall_gap > 0.05:
+        reasons.append("native trails reactive_curve_v1 by more than 5 points")
+    for style, gap in per_style_gaps.items():
+        if gap > 0.10:
+            reasons.append(f"native trails teacher by more than 10 points on {style}")
+    if float(native["glove_contact_rate"]["value"]) < 0.55:
+        reasons.append("native expected-on-target glove contact is below 55%")
+    for style, values in native.get("by_shot_style", {}).items():
+        if int(values.get("attempts", 0)) < 100:
+            reasons.append(f"{style} has fewer than 100 expected-on-target attempts")
+    if not lifecycle_passed:
+        reasons.append("a safety or lifecycle invariant failed")
+    if not physics_passed:
+        reasons.append("runtime shot-physics crossing bounds failed")
+    return {
+        "training_recommended": bool(reasons),
+        "safety_invariants_passed": safety_passed,
+        "lifecycle_invariants_passed": lifecycle_passed,
+        "reasons": reasons,
+        "native_expected_on_target_save_rate": native_save,
+        "teacher_expected_on_target_save_rate": teacher_save,
+        "overall_save_rate_gap": overall_gap,
+        "per_style_save_rate_gaps": per_style_gaps,
+        "delay_sensitive": native.get("by_flight_time_band", {}),
+        "spin_sensitive": native.get("by_spin_band", {}),
+        "fast_shot": native.get("by_launch_speed_band", {}).get("fast", {}),
+        "height": native.get("by_height_band", {}),
+        "horizontal": native.get("by_horizontal_band", {}),
+        "runtime_physics_passed": physics_passed,
+        "runtime_crossing_error_m": runtime_crossing,
+    }
 
 
 def select_stage5_diagnostic_checkpoint(
@@ -2610,12 +3044,19 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
         ),
         "environment_parameters": report.get("environment_parameters", {}),
         "primary_metric": report["primary_metric"],
+        "primary_population": report.get("primary_population", "all_attempts"),
+        "shot_contract_id": report.get("shot_contract_id"),
+        "shot_physics_id": report.get("shot_physics_id"),
         "comparisons": report["comparisons"],
         "stage5_diagnostic_selection": report.get(
             "stage5_diagnostic_selection"
         ),
         "passed": report["passed"],
         "status": report["status"],
+        "training_recommended": report.get("training_recommended"),
+        "stage6_pretraining_diagnosis": report.get(
+            "stage6_pretraining_diagnosis"
+        ),
         "policies": [
             {
                 "policy": policy["policy"],
@@ -2625,7 +3066,15 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                 "complete": policy["complete"],
                 "outcomes": policy["outcomes"],
                 "save_rate": policy["save_rate"],
+                "primary_population": policy.get("primary_population"),
+                "primary_population_attempts": policy.get(
+                    "primary_population_attempts"
+                ),
+                "all_attempt_save_rate": policy.get("all_attempt_save_rate"),
                 "goal_rate": policy["goal_rate"],
+                "frame_rate": policy.get("frame_rate"),
+                "miss_wide_rate": policy.get("miss_wide_rate"),
+                "miss_high_rate": policy.get("miss_high_rate"),
                 "invalid_rate": policy["invalid_rate"],
                 "timeout_rate": policy["timeout_rate"],
                 "glove_contact_rate": policy["glove_contact_rate"],
@@ -2641,6 +3090,37 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                 "by_horizontal_band": policy["by_horizontal_band"],
                 "by_flight_time_band": policy["by_flight_time_band"],
                 "by_first_dive_action": policy["by_first_dive_action"],
+                **(
+                    {
+                        "expected_target_class_rates": policy[
+                            "expected_target_class_rates"
+                        ],
+                        "shot_style_rates": policy["shot_style_rates"],
+                        "rare_tail_rate": policy["rare_tail_rate"],
+                        "command_aim_side_counts": policy[
+                            "command_aim_side_counts"
+                        ],
+                        "by_shot_style": policy["by_shot_style"],
+                        "by_launch_speed_band": policy[
+                            "by_launch_speed_band"
+                        ],
+                        "by_spin_band": policy["by_spin_band"],
+                        "by_expected_target_class": policy[
+                            "by_expected_target_class"
+                        ],
+                        "by_rare_tail": policy["by_rare_tail"],
+                        "launch_speed_mps": policy["launch_speed_mps"],
+                        "solver_error_m": policy["solver_error_m"],
+                        "curve_displacement_m": policy[
+                            "curve_displacement_m"
+                        ],
+                        "runtime_crossing_error_m": policy[
+                            "runtime_crossing_error_m"
+                        ],
+                    }
+                    if "by_shot_style" in policy
+                    else {}
+                ),
                 **(
                     {
                         "commit_rate": policy["commit_rate"],
@@ -2716,6 +3196,18 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                             ],
                         "policy_action_override_count":
                             policy["policy_action_override_count"],
+                        "policy_decision_request_count":
+                            policy["policy_decision_request_count"],
+                        "policy_decision_consumed_count":
+                            policy["policy_decision_consumed_count"],
+                        "policy_decision_discarded_count":
+                            policy["policy_decision_discarded_count"],
+                        "policy_decision_duplicate_request_count":
+                            policy[
+                                "policy_decision_duplicate_request_count"
+                            ],
+                        "policy_decision_missing_action_count":
+                            policy["policy_decision_missing_action_count"],
                         "native_inference_evaluation_count":
                             policy["native_inference_evaluation_count"],
                         "native_inference_maximum_action_error":

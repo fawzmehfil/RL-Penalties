@@ -62,7 +62,8 @@ namespace PenaltyShootout.Kernel
             PlayerShotPhysicsConfigV1 physics,
             ulong seed,
             Vector3 gravity,
-            float fixedTimestep)
+            float fixedTimestep,
+            float forcedHorizontalSide = 0f)
         {
             if (distribution == null)
             {
@@ -81,6 +82,15 @@ namespace PenaltyShootout.Kernel
                 throw new ArgumentException(physicsError, nameof(physics));
             }
 
+            if (!KernelMath.IsFinite(forcedHorizontalSide) ||
+                (Mathf.Abs(forcedHorizontalSide) > 1e-5f &&
+                 Mathf.Abs(Mathf.Abs(forcedHorizontalSide) - 1f) > 1e-5f))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(forcedHorizontalSide),
+                    "Forced horizontal side must be -1, 0, or 1.");
+            }
+
             var random = new Pcg32(seed);
             var style = SampleStyle(ref random, distribution);
             var targetClass = SampleTargetClass(ref random, distribution);
@@ -97,6 +107,7 @@ namespace PenaltyShootout.Kernel
                     style,
                     targetClass,
                     rareTail);
+                command = ApplyHorizontalSide(command, forcedHorizontalSide);
                 try
                 {
                     resolved = PlayerShotResolverV1.Resolve(
@@ -113,7 +124,9 @@ namespace PenaltyShootout.Kernel
                     continue;
                 }
 
-                if (resolved.ExpectedTargetClass == targetClass &&
+                if (resolved.LaunchSpeed >= 14f &&
+                    resolved.LaunchSpeed <= 30f &&
+                    resolved.ExpectedTargetClass == targetClass &&
                     (!rareTail ||
                      (resolved.Command.Power >= 0.95f &&
                       Mathf.Abs(resolved.Command.AimX) >= 0.90f)))
@@ -126,7 +139,8 @@ namespace PenaltyShootout.Kernel
             if (!found)
             {
                 throw new InvalidOperationException(
-                    $"human-shot-v1 exhausted deterministic candidates for {style}/{targetClass}.");
+                    $"human-shot-v1 exhausted deterministic candidates for " +
+                    $"{style}/{targetClass} (rare_tail={rareTail}).");
             }
 
             return new ScenarioInstance
@@ -209,6 +223,25 @@ namespace PenaltyShootout.Kernel
                 : PlayerShotStyleV1.Curled;
         }
 
+        private static PlayerShotCommandV1 ApplyHorizontalSide(
+            PlayerShotCommandV1 command,
+            float forcedHorizontalSide)
+        {
+            if (Mathf.Abs(forcedHorizontalSide) <= 1e-5f)
+            {
+                return command;
+            }
+
+            return new PlayerShotCommandV1(
+                Mathf.Abs(command.AimX) * forcedHorizontalSide,
+                command.AimY,
+                command.Power,
+                command.SideSpin,
+                command.VerticalSpin,
+                command.ContactErrorXMeters,
+                command.ContactErrorYMeters);
+        }
+
         private static ExpectedShotTargetClassV1 SampleTargetClass(
             ref Pcg32 random,
             HumanShotDistributionConfigV1 configuration)
@@ -247,10 +280,15 @@ namespace PenaltyShootout.Kernel
             var aim = SampleAim(ref random, targetClass);
             if (rareTail)
             {
-                power = random.Range(0.95f, 1f);
+                power = random.Range(0.95f, 0.955f);
                 var side = random.NextFloat() < 0.5f ? -1f : 1f;
-                aim.x = side * random.Range(0.90f, 0.96f);
-                sideSpin = -side * random.Range(0.55f, 0.95f);
+                aim.x = side * random.Range(0.90f, 0.92f);
+                if (targetClass == ExpectedShotTargetClassV1.MissHigh)
+                {
+                    aim.y = HeightToAim(random.Range(2.58f, 2.64f));
+                    verticalSpin = -1f;
+                }
+                sideSpin = side * random.Range(0.65f, 0.78f);
             }
 
             var powerFactor = Mathf.InverseLerp(0.35f, 1f, power);
@@ -264,6 +302,17 @@ namespace PenaltyShootout.Kernel
                 configuration.ContactErrorTruncationSigma,
                 out var errorX,
                 out var errorY);
+            if (rareTail)
+            {
+                var errorMagnitude =
+                    targetClass == ExpectedShotTargetClassV1.MissWide
+                        ? -0.15f
+                        : targetClass == ExpectedShotTargetClassV1.Frame
+                            ? 0.10f
+                            : 0.22f;
+                errorX = -Mathf.Sign(aim.x) * errorMagnitude;
+                errorY = 0f;
+            }
             return new PlayerShotCommandV1(
                 aim.x,
                 aim.y,
