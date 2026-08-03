@@ -24,7 +24,7 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 5.6 native inference passed
+## Current status: Stage 5 frozen; Stage 6 authorized
 
 Stages 0-4 established and evaluated the deterministic environment, the first
 trainable nine-action goalkeeper, fixed 20,000-shot benchmarks, and
@@ -61,7 +61,10 @@ one supervised model learns interception and arm reach, while a second balanced
 model learns commit timing. The phase-aware split controller passed its fixed
 400-shot gate at 57.25% saves, 72.5% glove contact, 67.39% high-shot saves, and
 100% commit. Stage 5.6B packages those exact models in Unity and passed native
-runtime parity at 58.0% saves with no lifecycle or safety errors.
+runtime parity. Its official 20,000-shot benchmark saved 56.87%, contacted the
+ball with a glove on 73.95% of attempts, saved 68.82% of high shots, and
+committed on every attempt with no lifecycle or safety errors. Stage 5 is now
+frozen and Stage 6 shot-distribution work is authorized.
 
 Stage 0 established the physics and tooling foundation before goalkeeper
 training:
@@ -1015,11 +1018,13 @@ timing ONNX models as Git LFS assets and runs both with
 physics, and deferred request/consume lifecycle.
 
 The evaluator sends the Python model's action as a shadow reference while
-Unity independently computes and executes the native action. The fixed
-400-shot gate recorded 13,522 native decisions, maximum continuous-action
-error `8.05e-7`, zero commit mismatches, and zero invalid outputs. Native Unity
-saved 58.0% versus Python's 57.25%, with identical episode keys and all parity,
-behavioral, and safety checks passing.
+Unity independently computes and executes the native action. The official
+20,000-shot gate recorded 668,796 native evaluations, maximum
+continuous-action error `1.42e-6`, zero commit mismatches, and zero invalid
+outputs. Native Unity saved 56.87% versus Python's 56.84%, with identical
+episode keys and all parity, behavioral, and safety checks passing. Native
+save rates were 68.82% for high shots, 54.77% for middle shots, and 48.08% for
+low shots.
 
 Reproduce the import, tests, build, 64-shot smoke, and 400-shot gate with:
 

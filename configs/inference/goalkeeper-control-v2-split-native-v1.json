@@ -46,6 +46,12 @@
     "minimum_high_shot_save_rate": 0.3,
     "safety_counters_must_be_zero": true
   },
+  "official_freeze_gate": {
+    "benchmark_id": "goalkeeper-control-v2-id-20k",
+    "attempts_per_policy": 20000,
+    "minimum_attempts_per_quadrant": 1000,
+    "minimum_attempts_per_height_band": 1000
+  },
   "ppo_refinement": {
     "authorized": false,
     "reason": "Native parity and the fixed 400-shot promotion gate must pass first.",

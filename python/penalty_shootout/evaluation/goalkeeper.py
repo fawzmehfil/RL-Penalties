@@ -2290,7 +2290,7 @@ def build_report(
         if passed and full
         else "smoke run; full benchmark gate not evaluated"
         if not full
-        else "no trained checkpoint policy evaluated"
+        else "completed; ONNX baseline gate not evaluated"
         if not comparisons
         else "failed"
     )

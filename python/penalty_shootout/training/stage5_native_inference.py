@@ -154,6 +154,71 @@ def build_evidence(
         "lifecycle_and_safety": lifecycle_safe,
     }
     passed = all(checks.values())
+    freeze_contract = contract.get("official_freeze_gate", {})
+    quadrants = native_policy.get("by_quadrant", {})
+    height_bands = native_policy.get("by_height_band", {})
+    required_quadrants = ("low-left", "high-left", "low-right", "high-right")
+    required_height_bands = ("low", "middle", "high")
+    freeze_checks = {
+        "native_gate_passed": passed,
+        "official_benchmark": evaluation.get("benchmark_id")
+        == freeze_contract.get("benchmark_id"),
+        "official_attempt_count": int(native_policy.get("attempts", 0))
+        == int(freeze_contract.get("attempts_per_policy", -1)),
+        "quadrant_coverage": all(
+            int(quadrants.get(name, {}).get("attempts", 0))
+            >= int(freeze_contract.get("minimum_attempts_per_quadrant", 1))
+            for name in required_quadrants
+        ),
+        "height_coverage": all(
+            int(height_bands.get(name, {}).get("attempts", 0))
+            >= int(freeze_contract.get("minimum_attempts_per_height_band", 1))
+            for name in required_height_bands
+        ),
+    }
+    stage5_frozen = all(freeze_checks.values())
+    official_benchmark = None
+    if stage5_frozen:
+        official_benchmark = {
+            "benchmark_id": evaluation.get("benchmark_id"),
+            "episode_key_digest": native_policy.get("episode_key_digest"),
+            "outcomes": native_policy.get("outcomes", {}),
+            "save_rate": native_policy.get("save_rate", {}),
+            "goal_rate": native_policy.get("goal_rate", {}),
+            "glove_contact_rate": native_policy.get("glove_contact_rate", {}),
+            "glove_save_rate": native_policy.get("glove_save_rate", {}),
+            "by_quadrant": quadrants,
+            "by_height_band": height_bands,
+            "safety_and_lifecycle": {
+                "invalid_attempts": int(
+                    native_policy.get("invalid_rate", {}).get("successes", 0)
+                ),
+                "timeouts": int(
+                    native_policy.get("timeout_rate", {}).get("successes", 0)
+                ),
+                "action_mask_violations": int(
+                    native_policy.get("action_mask_violations", 0)
+                ),
+                "control_command_clamps": int(
+                    native_policy.get("control_command_clamp_count", 0)
+                ),
+                "duplicate_requests": int(
+                    native_policy.get("policy_decision_duplicate_request_count", 0)
+                ),
+                "missing_actions": int(
+                    native_policy.get("policy_decision_missing_action_count", 0)
+                ),
+                "requests": int(
+                    native_policy.get("policy_decision_request_count", 0)
+                ),
+                "consumed": int(
+                    native_policy.get("policy_decision_consumed_count", 0)
+                ),
+                "discarded": int(
+                    native_policy.get("policy_decision_discarded_count", 0)
+                ),
+            },
+        }
     return {
         "schema_version": 1,
         "stage": "5.6B",
@@ -169,6 +234,17 @@ def build_evidence(
         "native_unity": native_metrics,
         "checks": checks,
         "failed_checks": [name for name, passed in checks.items() if not passed],
+        "stage5_freeze": {
+            "status": "frozen" if stage5_frozen else "not-frozen",
+            "checks": freeze_checks,
+            "stage6_authorized": stage5_frozen,
+            "decision": (
+                "Freeze Stage 5 and proceed to Stage 6."
+                if stage5_frozen
+                else "Complete the official 20,000-shot benchmark before Stage 6."
+            ),
+        },
+        "official_benchmark": official_benchmark,
         "ppo_refinement": {
             "authorized": passed,
             "automatic_launch": False,
@@ -209,7 +285,12 @@ def main() -> int:
     args.output.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
     if args.summary.is_file():
         summary = load_json(args.summary)
+        summary["schema_version"] = max(
+            int(summary.get("schema_version", 1)),
+            8,
+        )
         summary["status"] = evidence["status"]
+        summary["stage5_freeze"] = evidence["stage5_freeze"]
         summary["native_inference"] = {
             "contract_id": evidence["inference_contract_id"],
             "status": evidence["status"],
@@ -225,11 +306,12 @@ def main() -> int:
                 "interception_model_id": "goalkeeper-interception-v2",
                 "timing_model_id": "goalkeeper-commit-timing-v1",
                 "deployment": "native-unity-inference",
-                "save_rate_400": evidence["native_unity"]["save_rate"],
-                "glove_contact_rate_400": evidence["native_unity"][
+                "evaluation_attempts": evidence["attempts_per_policy"],
+                "save_rate": evidence["native_unity"]["save_rate"],
+                "glove_contact_rate": evidence["native_unity"][
                     "glove_contact_rate"
                 ],
-                "high_shot_save_rate_400": evidence["native_unity"][
+                "high_shot_save_rate": evidence["native_unity"][
                     "high_shot_save_rate"
                 ],
             }

@@ -72,6 +72,12 @@ def test_native_evidence_requires_exact_parity_and_safety(tmp_path: Path) -> Non
             "minimum_glove_contact_rate": 0.4,
             "minimum_high_shot_save_rate": 0.3,
         },
+        "official_freeze_gate": {
+            "benchmark_id": "goalkeeper-control-v2-id-20k",
+            "attempts_per_policy": 20000,
+            "minimum_attempts_per_quadrant": 1000,
+            "minimum_attempts_per_height_band": 1000,
+        },
         "ppo_refinement": {"maximum_initial_budget_steps": 250000},
     }
     source = {
@@ -92,7 +98,80 @@ def test_native_evidence_requires_exact_parity_and_safety(tmp_path: Path) -> Non
 
     assert evidence["status"] == "native-gate-passed"
     assert all(evidence["checks"].values())
+    assert evidence["stage5_freeze"]["status"] == "not-frozen"
+    assert evidence["stage5_freeze"]["stage6_authorized"] is False
     assert evidence["ppo_refinement"]["authorized"] is True
+
+
+def test_native_evidence_freezes_stage5_after_official_20k(
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "project"
+    model_dir = project / "unity" / "Assets" / "Models"
+    model_dir.mkdir(parents=True)
+    model = model_dir / "model.onnx"
+    model.write_bytes(b"model")
+    model_hash = hashlib.sha256(model.read_bytes()).hexdigest()
+    contract = {
+        "inference_contract_id": "native",
+        "source_supervision_contract_id": "supervision",
+        "models": {
+            "interception": {
+                "asset": "Assets/Models/model.onnx",
+                "sha256": model_hash,
+            }
+        },
+        "promotion_gates": {
+            "maximum_native_python_action_error": 0.0001,
+            "maximum_save_rate_delta": 0.02,
+            "maximum_glove_contact_rate_delta": 0.02,
+            "maximum_high_shot_save_rate_delta": 0.03,
+            "minimum_commit_rate": 0.85,
+            "minimum_save_rate": 0.35,
+            "minimum_glove_contact_rate": 0.4,
+            "minimum_high_shot_save_rate": 0.3,
+        },
+        "official_freeze_gate": {
+            "benchmark_id": "goalkeeper-control-v2-id-20k",
+            "attempts_per_policy": 20000,
+            "minimum_attempts_per_quadrant": 1000,
+            "minimum_attempts_per_height_band": 1000,
+        },
+        "ppo_refinement": {"maximum_initial_budget_steps": 250000},
+    }
+    python_policy = _policy("split_supervised:seed-001", native=False)
+    native_policy = _policy("native_split_v1:seed-001", native=True)
+    python_policy["attempts"] = 20000
+    native_policy["attempts"] = 20000
+    native_policy["by_quadrant"] = {
+        name: {"attempts": 5000, "save_rate": _rate(0.5)}
+        for name in ("low-left", "high-left", "low-right", "high-right")
+    }
+    native_policy["by_height_band"] = {
+        "low": {"attempts": 6500, "save_rate": _rate(0.5)},
+        "middle": {"attempts": 7000, "save_rate": _rate(0.5)},
+        "high": {"attempts": 6500, "save_rate": _rate(0.6739)},
+    }
+
+    evidence = build_evidence(
+        {
+            "benchmark_id": "goalkeeper-control-v2-id-20k",
+            "run_id": "native-20k",
+            "policies": [python_policy, native_policy],
+        },
+        contract,
+        {
+            "status": "supervised-gate-passed",
+            "supervision_contract_id": "supervision",
+        },
+        project,
+    )
+
+    assert evidence["stage5_freeze"]["status"] == "frozen"
+    assert evidence["stage5_freeze"]["stage6_authorized"] is True
+    assert evidence["official_benchmark"]["benchmark_id"] == (
+        "goalkeeper-control-v2-id-20k"
+    )
 
 
 def test_native_evidence_rejects_commit_mismatch(tmp_path: Path) -> None:
