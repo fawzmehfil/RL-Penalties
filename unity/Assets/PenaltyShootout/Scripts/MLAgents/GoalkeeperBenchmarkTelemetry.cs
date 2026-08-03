@@ -170,6 +170,32 @@ namespace PenaltyShootout.MLAgents
                     (int)result.FirstGoalkeeperContactPart,
                 first_goalkeeper_contact_time =
                     result.FirstGoalkeeperContactTime,
+                has_first_goalkeeper_contact_kinematics =
+                    result.HasFirstGoalkeeperContactKinematics,
+                first_goalkeeper_contact_point_local =
+                    VectorPayload.From(
+                        result.FirstGoalkeeperContactPointLocal),
+                first_goalkeeper_contact_normal_local =
+                    VectorPayload.From(
+                        result.FirstGoalkeeperContactNormalLocal),
+                first_goalkeeper_contact_impulse_local =
+                    VectorPayload.From(
+                        result.FirstGoalkeeperContactImpulseLocal),
+                first_goalkeeper_contact_relative_velocity_local =
+                    VectorPayload.From(
+                        result.FirstGoalkeeperContactRelativeVelocityLocal),
+                first_goalkeeper_contact_ball_velocity_local =
+                    VectorPayload.From(
+                        result.FirstGoalkeeperContactBallVelocityLocal),
+                first_goalkeeper_contact_root_velocity_local =
+                    VectorPayload.From(
+                        result.FirstGoalkeeperContactRootVelocityLocal),
+                first_goalkeeper_contact_left_glove_velocity_local =
+                    VectorPayload.From(
+                        result.FirstGoalkeeperContactLeftGloveVelocityLocal),
+                first_goalkeeper_contact_right_glove_velocity_local =
+                    VectorPayload.From(
+                        result.FirstGoalkeeperContactRightGloveVelocityLocal),
                 last_goalkeeper_contact_part = result.LastGoalkeeperContactPart.ToString(),
                 last_goalkeeper_contact_part_id = (int)result.LastGoalkeeperContactPart,
                 glove_contact = result.GloveContact,
@@ -280,6 +306,8 @@ namespace PenaltyShootout.MLAgents
                     result.ControlSaturationCounts ?? new int[4],
                 minimum_glove_ball_distance =
                     result.MinimumGloveBallDistance,
+                committed_glove_forward_m =
+                    result.CommittedGloveForward,
                 policy_decision_request_count =
                     result.PolicyDecisionRequestCount,
                 policy_decision_consumed_count =
@@ -337,6 +365,15 @@ namespace PenaltyShootout.MLAgents
             public string first_goalkeeper_contact_part;
             public int first_goalkeeper_contact_part_id;
             public float first_goalkeeper_contact_time;
+            public bool has_first_goalkeeper_contact_kinematics;
+            public VectorPayload first_goalkeeper_contact_point_local;
+            public VectorPayload first_goalkeeper_contact_normal_local;
+            public VectorPayload first_goalkeeper_contact_impulse_local;
+            public VectorPayload first_goalkeeper_contact_relative_velocity_local;
+            public VectorPayload first_goalkeeper_contact_ball_velocity_local;
+            public VectorPayload first_goalkeeper_contact_root_velocity_local;
+            public VectorPayload first_goalkeeper_contact_left_glove_velocity_local;
+            public VectorPayload first_goalkeeper_contact_right_glove_velocity_local;
             public string last_goalkeeper_contact_part;
             public int last_goalkeeper_contact_part_id;
             public bool glove_contact;
@@ -403,6 +440,7 @@ namespace PenaltyShootout.MLAgents
             public float[] control_absolute_action_sums;
             public int[] control_saturation_counts;
             public float minimum_glove_ball_distance;
+            public float committed_glove_forward_m;
             public int policy_decision_request_count;
             public int policy_decision_consumed_count;
             public int policy_decision_discarded_count;

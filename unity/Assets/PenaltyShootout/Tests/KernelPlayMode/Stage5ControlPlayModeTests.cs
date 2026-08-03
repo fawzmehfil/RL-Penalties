@@ -86,6 +86,20 @@ namespace PenaltyShootout.Kernel.Tests
                 FirstGoalkeeperContactPart =
                     GoalkeeperContactPart.LeftGlove,
                 FirstGoalkeeperContactTime = 0.74f,
+                HasFirstGoalkeeperContactKinematics = true,
+                FirstGoalkeeperContactPointLocal = new Vector3(-1f, 0.4f, 0.5f),
+                FirstGoalkeeperContactNormalLocal = Vector3.forward,
+                FirstGoalkeeperContactImpulseLocal = new Vector3(0f, 1f, 2f),
+                FirstGoalkeeperContactRelativeVelocityLocal =
+                    new Vector3(3f, 4f, 5f),
+                FirstGoalkeeperContactBallVelocityLocal =
+                    new Vector3(6f, 7f, 8f),
+                FirstGoalkeeperContactRootVelocityLocal =
+                    new Vector3(-2f, -0.3f, 0f),
+                FirstGoalkeeperContactLeftGloveVelocityLocal =
+                    new Vector3(-3f, -0.4f, 0f),
+                FirstGoalkeeperContactRightGloveVelocityLocal =
+                    new Vector3(-2f, -0.2f, 0f),
                 GoalkeeperRootDistance = 2.1f,
                 GoalkeeperPeakRootSpeed = 5.4f,
                 GoalkeeperPeakReachExtension = 1f,
@@ -94,6 +108,7 @@ namespace PenaltyShootout.Kernel.Tests
                 TrainingDecisionShapingReward = 0.05f,
                 PolicyActionOverrideCount = 0,
                 MinimumGloveBallDistance = 0.04f,
+                CommittedGloveForward = 0.28f,
                 SampledShotFlightTime = 0.58f,
                 SampledLaunchDelay = 0.24f,
                 AcceptedControlDecisionCount = 5,
@@ -139,6 +154,16 @@ namespace PenaltyShootout.Kernel.Tests
                 json);
             StringAssert.Contains("\"goalkeeper_peak_reach_extension\":1.0", json);
             StringAssert.Contains("\"minimum_glove_ball_distance\"", json);
+            StringAssert.Contains(
+                "\"has_first_goalkeeper_contact_kinematics\":true",
+                json);
+            StringAssert.Contains(
+                "\"first_goalkeeper_contact_ball_velocity_local\"",
+                json);
+            StringAssert.Contains(
+                "\"first_goalkeeper_contact_left_glove_velocity_local\"",
+                json);
+            StringAssert.Contains("\"committed_glove_forward_m\":0.28", json);
             StringAssert.Contains(
                 "\"first_commit_was_premature\":false",
                 json);

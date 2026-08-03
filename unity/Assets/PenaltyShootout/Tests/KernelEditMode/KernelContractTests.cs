@@ -486,6 +486,59 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void Stage6CommittedGlovePlanePreservesReadyForwardDepth()
+        {
+            var root = CreateControlMotorWithArmRig(
+                out var goalkeeper,
+                out var rig);
+            goalkeeper.SetCommittedGloveForward(
+                controlMotor.ReadyGloveForward);
+            goalkeeper.ResetForAttempt(1, 1UL);
+            var readyLeftZ = rig.LeftGloveArenaLocal.z;
+            var readyRightZ = rig.RightGloveArenaLocal.z;
+
+            Assert.That(
+                goalkeeper.TryApplyCommand(
+                    new GoalkeeperControlCommand
+                    {
+                        AimX = 0f,
+                        AimY = 0f,
+                        Reach = 1f,
+                        Commit = true,
+                    }),
+                Is.True);
+            for (var index = 0; index < 18; index++)
+            {
+                goalkeeper.Tick(0.02f);
+            }
+
+            Assert.That(goalkeeper.CurrentReachExtension, Is.GreaterThan(0.99f));
+            Assert.That(
+                rig.LeftGloveArenaLocal.z,
+                Is.EqualTo(readyLeftZ).Within(0.01f));
+            Assert.That(
+                rig.RightGloveArenaLocal.z,
+                Is.EqualTo(readyRightZ).Within(0.01f));
+            Assert.That(
+                goalkeeper.CommittedGloveTargetArenaZ,
+                Is.EqualTo(
+                    controlMotor.StandingZ +
+                    controlMotor.ReadyGloveForward).Within(1e-5f));
+            Object.DestroyImmediate(root);
+        }
+
+        [Test]
+        public void Stage6CommittedGloveForwardRejectsInvalidOverrides()
+        {
+            var root = CreateControlMotor(out var goalkeeper);
+            goalkeeper.SetCommittedGloveForward(float.NaN);
+            Assert.That(goalkeeper.CommittedGloveForward, Is.Zero);
+            goalkeeper.SetCommittedGloveForward(5f);
+            Assert.That(goalkeeper.CommittedGloveForward, Is.EqualTo(0.5f));
+            Object.DestroyImmediate(root);
+        }
+
+        [Test]
         public void Stage4ObservationDelayBufferReturnsDeterministicDelayedSnapshots()
         {
             var buffer = new GoalkeeperObservationDelayBuffer(4);
@@ -1752,10 +1805,20 @@ namespace PenaltyShootout.Kernel.Tests
         public void ContactHistoryPreservesFirstGoalkeeperContactAcrossReset()
         {
             var contacts = new ContactHistory();
+            var kinematics = new ContactKinematics
+            {
+                HasValue = true,
+                PointWorld = new Vector3(1f, 2f, 3f),
+                NormalWorld = Vector3.forward,
+                ImpulseWorld = new Vector3(0f, 1f, 2f),
+                RelativeVelocityWorld = new Vector3(3f, 4f, 5f),
+                BallVelocityWorld = new Vector3(6f, 7f, 8f),
+            };
             contacts.Record(
                 ContactKind.Goalkeeper,
                 0.4f,
-                GoalkeeperContactPart.TorsoOrHead);
+                GoalkeeperContactPart.TorsoOrHead,
+                kinematics);
             contacts.Record(
                 ContactKind.Goalkeeper,
                 0.5f,
@@ -1767,6 +1830,9 @@ namespace PenaltyShootout.Kernel.Tests
                 contacts.FirstGoalkeeperContactTime,
                 Is.EqualTo(0.4f));
             Assert.That(
+                contacts.FirstGoalkeeperContactKinematics.PointWorld,
+                Is.EqualTo(kinematics.PointWorld));
+            Assert.That(
                 contacts.LastGoalkeeperContactPart,
                 Is.EqualTo(GoalkeeperContactPart.RightGlove));
 
@@ -1777,6 +1843,9 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(
                 contacts.FirstGoalkeeperContactTime,
                 Is.EqualTo(float.NegativeInfinity));
+            Assert.That(
+                contacts.FirstGoalkeeperContactKinematics.HasValue,
+                Is.False);
         }
 
         [Test]
@@ -2245,6 +2314,65 @@ namespace PenaltyShootout.Kernel.Tests
             goalkeeper = keeper.AddComponent<GoalkeeperMotorV1>();
             goalkeeper.Configuration = controlMotor;
             goalkeeper.ArenaOrigin = root.transform;
+            return root;
+        }
+
+        private GameObject CreateControlMotorWithArmRig(
+            out GoalkeeperMotorV1 goalkeeper,
+            out GoalkeeperArmRigV1 rig)
+        {
+            var root = new GameObject("ControlMotorArmRoot");
+            var keeper = new GameObject("ControlKeeper");
+            keeper.transform.SetParent(root.transform, false);
+            keeper.AddComponent<Rigidbody>();
+            CreatePrimitiveChild(keeper.transform, PrimitiveType.Capsule, "Torso");
+            CreatePrimitiveChild(keeper.transform, PrimitiveType.Sphere, "Head");
+            CreatePrimitiveChild(keeper.transform, PrimitiveType.Capsule, "LeftLeg");
+            CreatePrimitiveChild(keeper.transform, PrimitiveType.Capsule, "RightLeg");
+            var leftShoulder = new GameObject("LeftShoulder").transform;
+            leftShoulder.SetParent(keeper.transform, false);
+            var rightShoulder = new GameObject("RightShoulder").transform;
+            rightShoulder.SetParent(keeper.transform, false);
+            var leftUpper = CreatePrimitiveChild(
+                keeper.transform,
+                PrimitiveType.Capsule,
+                "LeftUpperArm");
+            var rightUpper = CreatePrimitiveChild(
+                keeper.transform,
+                PrimitiveType.Capsule,
+                "RightUpperArm");
+            var leftForearm = CreatePrimitiveChild(
+                keeper.transform,
+                PrimitiveType.Capsule,
+                "LeftForearm");
+            var rightForearm = CreatePrimitiveChild(
+                keeper.transform,
+                PrimitiveType.Capsule,
+                "RightForearm");
+            var leftGlove = CreatePrimitiveChild(
+                keeper.transform,
+                PrimitiveType.Sphere,
+                "LeftGlove");
+            var rightGlove = CreatePrimitiveChild(
+                keeper.transform,
+                PrimitiveType.Sphere,
+                "RightGlove");
+            rig = keeper.AddComponent<GoalkeeperArmRigV1>();
+            rig.Configure(
+                controlMotor,
+                root.transform,
+                leftShoulder,
+                rightShoulder,
+                leftUpper.transform,
+                rightUpper.transform,
+                leftForearm.transform,
+                rightForearm.transform,
+                leftGlove.transform,
+                rightGlove.transform);
+            goalkeeper = keeper.AddComponent<GoalkeeperMotorV1>();
+            goalkeeper.Configuration = controlMotor;
+            goalkeeper.ArenaOrigin = root.transform;
+            goalkeeper.ArmRig = rig;
             return root;
         }
 

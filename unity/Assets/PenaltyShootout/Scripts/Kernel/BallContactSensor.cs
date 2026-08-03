@@ -9,28 +9,57 @@ namespace PenaltyShootout.Kernel
     {
         private readonly List<PendingContact> pendingContacts =
             new List<PendingContact>(8);
+        private Rigidbody body;
         private long attemptId;
 
         public int PendingContactCount => pendingContacts.Count;
 
+        private void Awake()
+        {
+            body = GetComponent<Rigidbody>();
+        }
+
         private void OnCollisionEnter(Collision collision)
         {
-            var marker = ResolveContactMarker(collision);
+            var marker = ResolveContactMarker(collision, out var contact);
             if (marker == null || marker.Kind == ContactKind.None)
             {
                 return;
             }
 
-            pendingContacts.Add(new PendingContact(marker.Kind, marker.GoalkeeperPart));
+            if (body == null)
+            {
+                body = GetComponent<Rigidbody>();
+            }
+
+            pendingContacts.Add(
+                new PendingContact(
+                    marker.Kind,
+                    marker.GoalkeeperPart,
+                    new ContactKinematics
+                    {
+                        HasValue = collision.contactCount > 0,
+                        PointWorld = contact.point,
+                        NormalWorld = contact.normal,
+                        ImpulseWorld = collision.impulse,
+                        RelativeVelocityWorld = collision.relativeVelocity,
+                        BallVelocityWorld = body == null
+                            ? Vector3.zero
+                            : body.linearVelocity,
+                    }));
         }
 
-        private ContactMarker ResolveContactMarker(Collision collision)
+        private ContactMarker ResolveContactMarker(
+            Collision collision,
+            out ContactPoint selectedContact)
         {
             ContactMarker selected = null;
+            selectedContact = default;
             var selectedPriority = -1;
             for (var index = 0; index < collision.contactCount; index++)
             {
-                var otherCollider = collision.GetContact(index).otherCollider;
+                var contact = collision.GetContact(index);
+                var otherCollider = contact.otherCollider;
                 if (otherCollider == null ||
                     otherCollider.transform == transform ||
                     otherCollider.transform.IsChildOf(transform))
@@ -43,13 +72,22 @@ namespace PenaltyShootout.Kernel
                 if (priority > selectedPriority)
                 {
                     selected = candidate;
+                    selectedContact = contact;
                     selectedPriority = priority;
                 }
             }
 
-            return selected != null
-                ? selected
-                : collision.gameObject.GetComponentInParent<ContactMarker>();
+            if (selected != null)
+            {
+                return selected;
+            }
+
+            if (collision.contactCount > 0)
+            {
+                selectedContact = collision.GetContact(0);
+            }
+
+            return collision.gameObject.GetComponentInParent<ContactMarker>();
         }
 
         private static int ContactPriority(ContactMarker marker)
@@ -80,7 +118,11 @@ namespace PenaltyShootout.Kernel
             for (var index = 0; index < pendingContacts.Count; index++)
             {
                 var pending = pendingContacts[index];
-                history.Record(pending.Kind, attemptTime, pending.GoalkeeperPart);
+                history.Record(
+                    pending.Kind,
+                    attemptTime,
+                    pending.GoalkeeperPart,
+                    pending.Kinematics);
             }
 
             pendingContacts.Clear();
@@ -108,13 +150,16 @@ namespace PenaltyShootout.Kernel
         {
             public readonly ContactKind Kind;
             public readonly GoalkeeperContactPart GoalkeeperPart;
+            public readonly ContactKinematics Kinematics;
 
             public PendingContact(
                 ContactKind kind,
-                GoalkeeperContactPart goalkeeperPart)
+                GoalkeeperContactPart goalkeeperPart,
+                ContactKinematics kinematics)
             {
                 Kind = kind;
                 GoalkeeperPart = goalkeeperPart;
+                Kinematics = kinematics;
             }
         }
     }

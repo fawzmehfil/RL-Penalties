@@ -52,6 +52,7 @@ namespace PenaltyShootout.Kernel
         private int commandClampCount;
         private int targetClampCount;
         private float maximumRootTargetSaturationDistance;
+        private float committedGloveForward;
         private long attemptId;
 
         public GoalkeeperControlMotorConfig Configuration
@@ -104,6 +105,14 @@ namespace PenaltyShootout.Kernel
             armRig == null ? Vector3.zero : armRig.LeftGloveArenaLocal;
         public Vector3 RightGloveArenaLocal =>
             armRig == null ? Vector3.zero : armRig.RightGloveArenaLocal;
+        public Vector3 LeftGloveWorldVelocity =>
+            armRig == null ? Vector3.zero : armRig.LeftGloveWorldVelocity;
+        public Vector3 RightGloveWorldVelocity =>
+            armRig == null ? Vector3.zero : armRig.RightGloveWorldVelocity;
+        public float CommittedGloveForward => committedGloveForward;
+        public float CommittedGloveTargetArenaZ =>
+            (configuration == null ? 0.30f : configuration.StandingZ) +
+            committedGloveForward;
 
         private void Awake()
         {
@@ -128,6 +137,13 @@ namespace PenaltyShootout.Kernel
         public GoalkeeperControlActionMask GetActionMask()
         {
             return new GoalkeeperControlActionMask(CanCommit);
+        }
+
+        public void SetCommittedGloveForward(float forwardMeters)
+        {
+            committedGloveForward = KernelMath.IsFinite(forwardMeters)
+                ? Mathf.Clamp(forwardMeters, 0f, 0.50f)
+                : 0f;
         }
 
         public bool TryApplyCommand(GoalkeeperControlCommand requested)
@@ -673,7 +689,7 @@ namespace PenaltyShootout.Kernel
                 peakReachExtension,
                 currentReachExtension);
             armRig?.ApplyPose(
-                new Vector3(target.x, target.y, configuration.StandingZ),
+                new Vector3(target.x, target.y, CommittedGloveTargetArenaZ),
                 currentReachExtension,
                 ToWorld(currentLocal),
                 bodyRotation,

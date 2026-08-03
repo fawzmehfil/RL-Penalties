@@ -93,6 +93,17 @@ namespace PenaltyShootout.Kernel
     }
 
     [Serializable]
+    public struct ContactKinematics
+    {
+        public bool HasValue;
+        public Vector3 PointWorld;
+        public Vector3 NormalWorld;
+        public Vector3 ImpulseWorld;
+        public Vector3 RelativeVelocityWorld;
+        public Vector3 BallVelocityWorld;
+    }
+
+    [Serializable]
     public sealed class AttemptResult
     {
         public string EnvironmentId;
@@ -112,6 +123,15 @@ namespace PenaltyShootout.Kernel
         public int GoalFrameContactCount;
         public GoalkeeperContactPart FirstGoalkeeperContactPart;
         public float FirstGoalkeeperContactTime;
+        public bool HasFirstGoalkeeperContactKinematics;
+        public Vector3 FirstGoalkeeperContactPointLocal;
+        public Vector3 FirstGoalkeeperContactNormalLocal;
+        public Vector3 FirstGoalkeeperContactImpulseLocal;
+        public Vector3 FirstGoalkeeperContactRelativeVelocityLocal;
+        public Vector3 FirstGoalkeeperContactBallVelocityLocal;
+        public Vector3 FirstGoalkeeperContactRootVelocityLocal;
+        public Vector3 FirstGoalkeeperContactLeftGloveVelocityLocal;
+        public Vector3 FirstGoalkeeperContactRightGloveVelocityLocal;
         public GoalkeeperContactPart LastGoalkeeperContactPart;
         public bool GloveContact;
         public int GloveContactCount;
@@ -181,6 +201,7 @@ namespace PenaltyShootout.Kernel
         public float[] ControlAbsoluteActionSums;
         public int[] ControlSaturationCounts;
         public float MinimumGloveBallDistance;
+        public float CommittedGloveForward;
     }
 
     public readonly struct GoalkeeperDecisionContext
@@ -365,6 +386,7 @@ namespace PenaltyShootout.Kernel
         public float LastGoalFrameContactTime { get; private set; }
         public float FirstGoalkeeperContactTime { get; private set; }
         public GoalkeeperContactPart FirstGoalkeeperContactPart { get; private set; }
+        public ContactKinematics FirstGoalkeeperContactKinematics { get; private set; }
         public GoalkeeperContactPart LastGoalkeeperContactPart { get; private set; }
         public bool GloveTouched { get; private set; }
         public int GloveContactCount { get; private set; }
@@ -384,6 +406,7 @@ namespace PenaltyShootout.Kernel
             LastGoalFrameContactTime = float.NegativeInfinity;
             FirstGoalkeeperContactTime = float.NegativeInfinity;
             FirstGoalkeeperContactPart = GoalkeeperContactPart.None;
+            FirstGoalkeeperContactKinematics = default;
             LastGoalkeeperContactPart = GoalkeeperContactPart.None;
             GloveTouched = false;
             GloveContactCount = 0;
@@ -397,7 +420,8 @@ namespace PenaltyShootout.Kernel
         public void Record(
             ContactKind kind,
             float attemptTime,
-            GoalkeeperContactPart goalkeeperPart = GoalkeeperContactPart.None)
+            GoalkeeperContactPart goalkeeperPart = GoalkeeperContactPart.None,
+            ContactKinematics kinematics = default)
         {
             switch (kind)
             {
@@ -406,6 +430,7 @@ namespace PenaltyShootout.Kernel
                     {
                         FirstGoalkeeperContactTime = attemptTime;
                         FirstGoalkeeperContactPart = goalkeeperPart;
+                        FirstGoalkeeperContactKinematics = kinematics;
                     }
 
                     GoalkeeperTouched = true;

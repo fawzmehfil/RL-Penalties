@@ -575,6 +575,10 @@ namespace PenaltyShootout.MLAgents
             }
 
             var parameters = Academy.Instance.EnvironmentParameters;
+            controller.GoalkeeperControlMotor?.SetCommittedGloveForward(
+                parameters.GetWithDefault(
+                    "stage6.committed_glove_forward_m",
+                    0f));
             nativeSplitInferenceEnabled =
                 nativeSplitInferenceByDefault ||
                 CommandLineEnablesNativeInference() ||

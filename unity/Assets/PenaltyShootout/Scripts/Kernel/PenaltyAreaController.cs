@@ -116,6 +116,9 @@ namespace PenaltyShootout.Kernel
         private float firstCommitReachExtension;
         private Vector2 firstCommitAim;
         private float minimumGloveBallDistance;
+        private Vector3 firstContactRootVelocityLocal;
+        private Vector3 firstContactLeftGloveVelocityLocal;
+        private Vector3 firstContactRightGloveVelocityLocal;
         private int controlCommandClampCount;
         private int acceptedControlDecisionCount;
         private int controlMoveCommandCount;
@@ -539,6 +542,9 @@ namespace PenaltyShootout.Kernel
             firstCommitReachExtension = 0f;
             firstCommitAim = Vector2.zero;
             minimumGloveBallDistance = float.PositiveInfinity;
+            firstContactRootVelocityLocal = Vector3.zero;
+            firstContactLeftGloveVelocityLocal = Vector3.zero;
+            firstContactRightGloveVelocityLocal = Vector3.zero;
             controlCommandClampCount = 0;
             acceptedControlDecisionCount = 0;
             controlMoveCommandCount = 0;
@@ -751,7 +757,12 @@ namespace PenaltyShootout.Kernel
             attemptTime += deltaTime;
             phaseTime += deltaTime;
             ballFlightTime += deltaTime;
+            var hadGoalkeeperContact = contactHistory.GoalkeeperTouched;
             ballContactSensor.Drain(contactHistory, attemptTime);
+            if (!hadGoalkeeperContact && contactHistory.GoalkeeperTouched)
+            {
+                CaptureFirstContactMotorKinematics();
+            }
 
             var currentLocal = ToLocal(ball.position);
             UpdateMinimumGloveDistance(currentLocal);
@@ -854,6 +865,24 @@ namespace PenaltyShootout.Kernel
             }
 
             previousBallLocal = currentLocal;
+        }
+
+        private void CaptureFirstContactMotorKinematics()
+        {
+            if (goalkeeperControlMode != GoalkeeperControlMode.HybridV1 ||
+                goalkeeperControlMotor == null)
+            {
+                firstContactRootVelocityLocal = Vector3.zero;
+                firstContactLeftGloveVelocityLocal = Vector3.zero;
+                firstContactRightGloveVelocityLocal = Vector3.zero;
+                return;
+            }
+
+            firstContactRootVelocityLocal = goalkeeperControlMotor.RootVelocity;
+            firstContactLeftGloveVelocityLocal = ToLocalDirection(
+                goalkeeperControlMotor.LeftGloveWorldVelocity);
+            firstContactRightGloveVelocityLocal = ToLocalDirection(
+                goalkeeperControlMotor.RightGloveWorldVelocity);
         }
 
         private void TickTerminal(float deltaTime)
@@ -1133,6 +1162,8 @@ namespace PenaltyShootout.Kernel
                     new Vector2(centrePlaneIntersectionLocal.x, centrePlaneIntersectionLocal.y),
                     new Vector2(scenario.TargetLocal.x, scenario.TargetLocal.y))
                 : float.PositiveInfinity;
+            var contactKinematics =
+                contactHistory.FirstGoalkeeperContactKinematics;
             lastResult = new AttemptResult
             {
                 EnvironmentId = KernelConstants.EnvironmentId,
@@ -1157,6 +1188,32 @@ namespace PenaltyShootout.Kernel
                         contactHistory.FirstGoalkeeperContactTime)
                         ? -1f
                         : contactHistory.FirstGoalkeeperContactTime,
+                HasFirstGoalkeeperContactKinematics =
+                    contactKinematics.HasValue,
+                FirstGoalkeeperContactPointLocal = contactKinematics.HasValue
+                    ? ToLocal(contactKinematics.PointWorld)
+                    : Vector3.zero,
+                FirstGoalkeeperContactNormalLocal = contactKinematics.HasValue
+                    ? ToLocalDirection(contactKinematics.NormalWorld)
+                    : Vector3.zero,
+                FirstGoalkeeperContactImpulseLocal = contactKinematics.HasValue
+                    ? ToLocalDirection(contactKinematics.ImpulseWorld)
+                    : Vector3.zero,
+                FirstGoalkeeperContactRelativeVelocityLocal =
+                    contactKinematics.HasValue
+                        ? ToLocalDirection(
+                            contactKinematics.RelativeVelocityWorld)
+                        : Vector3.zero,
+                FirstGoalkeeperContactBallVelocityLocal =
+                    contactKinematics.HasValue
+                        ? ToLocalDirection(contactKinematics.BallVelocityWorld)
+                        : Vector3.zero,
+                FirstGoalkeeperContactRootVelocityLocal =
+                    firstContactRootVelocityLocal,
+                FirstGoalkeeperContactLeftGloveVelocityLocal =
+                    firstContactLeftGloveVelocityLocal,
+                FirstGoalkeeperContactRightGloveVelocityLocal =
+                    firstContactRightGloveVelocityLocal,
                 LastGoalkeeperContactPart = contactHistory.LastGoalkeeperContactPart,
                 GloveContact = contactHistory.GloveTouched,
                 GloveContactCount = contactHistory.GloveContactCount,
@@ -1235,6 +1292,9 @@ namespace PenaltyShootout.Kernel
                     float.IsPositiveInfinity(minimumGloveBallDistance)
                         ? -1f
                         : minimumGloveBallDistance,
+                CommittedGloveForward = goalkeeperControlMotor == null
+                    ? 0f
+                    : goalkeeperControlMotor.CommittedGloveForward,
             };
 
             if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)

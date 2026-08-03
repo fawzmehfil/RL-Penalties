@@ -37,8 +37,13 @@ namespace PenaltyShootout.Kernel
 
         private Vector3 currentLeftTargetBodyLocal;
         private Vector3 currentRightTargetBodyLocal;
+        private Vector3 currentLeftGloveWorldPosition;
+        private Vector3 currentRightGloveWorldPosition;
+        private Vector3 leftGloveWorldVelocity;
+        private Vector3 rightGloveWorldVelocity;
         private float currentExtension;
         private bool initialized;
+        private bool hasWorldPoseSample;
         private long attemptId;
 
         public GoalkeeperControlMotorConfig Configuration
@@ -74,6 +79,9 @@ namespace PenaltyShootout.Kernel
 
         public Vector3 RightGloveArenaLocal =>
             rightGlove == null ? Vector3.zero : ToArenaLocal(rightGlove.position);
+
+        public Vector3 LeftGloveWorldVelocity => leftGloveWorldVelocity;
+        public Vector3 RightGloveWorldVelocity => rightGloveWorldVelocity;
 
         private void Awake()
         {
@@ -186,6 +194,10 @@ namespace PenaltyShootout.Kernel
                 currentRightTargetBodyLocal,
                 1f,
                 bodyWorldRotation);
+            UpdateWorldPoseKinematics(
+                bodyWorldPosition,
+                bodyWorldRotation,
+                deltaTime);
         }
 
         public void ResetForAttempt(long nextAttemptId, ulong seed)
@@ -222,6 +234,11 @@ namespace PenaltyShootout.Kernel
                 currentRightTargetBodyLocal,
                 1f,
                 bodyWorldRotation);
+            currentLeftGloveWorldPosition = leftGlove.position;
+            currentRightGloveWorldPosition = rightGlove.position;
+            leftGloveWorldVelocity = Vector3.zero;
+            rightGloveWorldVelocity = Vector3.zero;
+            hasWorldPoseSample = true;
         }
 
         public bool ValidateReset(out string error)
@@ -334,6 +351,33 @@ namespace PenaltyShootout.Kernel
                 configuration.ArmRadius * 2f,
                 length * 0.5f,
                 configuration.ArmRadius * 2f);
+        }
+
+        private void UpdateWorldPoseKinematics(
+            Vector3 bodyWorldPosition,
+            Quaternion bodyWorldRotation,
+            float deltaTime)
+        {
+            var nextLeft =
+                bodyWorldPosition + bodyWorldRotation * leftGlove.localPosition;
+            var nextRight =
+                bodyWorldPosition + bodyWorldRotation * rightGlove.localPosition;
+            if (hasWorldPoseSample && deltaTime > 1e-6f)
+            {
+                leftGloveWorldVelocity =
+                    (nextLeft - currentLeftGloveWorldPosition) / deltaTime;
+                rightGloveWorldVelocity =
+                    (nextRight - currentRightGloveWorldPosition) / deltaTime;
+            }
+            else
+            {
+                leftGloveWorldVelocity = Vector3.zero;
+                rightGloveWorldVelocity = Vector3.zero;
+            }
+
+            currentLeftGloveWorldPosition = nextLeft;
+            currentRightGloveWorldPosition = nextRight;
+            hasWorldPoseSample = true;
         }
 
         private Vector3 ReadyGloveLocal(float side)
