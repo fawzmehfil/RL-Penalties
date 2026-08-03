@@ -119,7 +119,9 @@ namespace PenaltyShootout.MLAgents
                 environment_id = result.EnvironmentId,
                 behavior_name =
                     observationSpecId ==
-                        KernelConstants.GoalkeeperControlV2ObservationSpecId
+                        KernelConstants.GoalkeeperControlV2ObservationSpecId ||
+                    observationSpecId ==
+                        KernelConstants.GoalkeeperGameplayObservationSpecId
                         ? KernelConstants.GoalkeeperControlV2BehaviorName
                         : observationSpecId ==
                             KernelConstants.GoalkeeperControlObservationSpecId
@@ -135,7 +137,9 @@ namespace PenaltyShootout.MLAgents
                     observationSpecId ==
                         KernelConstants.GoalkeeperControlObservationSpecId ||
                     observationSpecId ==
-                        KernelConstants.GoalkeeperControlV2ObservationSpecId
+                        KernelConstants.GoalkeeperControlV2ObservationSpecId ||
+                    observationSpecId ==
+                        KernelConstants.GoalkeeperGameplayObservationSpecId
                         ? KernelConstants.GoalkeeperControlActionSpecId
                         : KernelConstants.ActionSpecId,
                 scenario_suite_id = result.ScenarioSuiteId,
@@ -147,6 +151,39 @@ namespace PenaltyShootout.MLAgents
                 stage4_keeper_position_noise_m =
                     observationSettings.GoalkeeperPositionNoiseMeters,
                 stage4_dropout_probability = observationSettings.DropoutProbability,
+                observation_delay_ticks = result.ObservationDelayTicks,
+                shot_contract_id = result.PlayerShot.ShotContractId,
+                shot_physics_id = result.PlayerShot.ShotPhysicsId,
+                shot_style = result.PlayerShot.ShotStyle.ToString(),
+                mixture_component_id = result.PlayerShot.MixtureComponentId,
+                command_aim_x = result.PlayerShot.Command.AimX,
+                command_aim_y = result.PlayerShot.Command.AimY,
+                command_power = result.PlayerShot.Command.Power,
+                command_side_spin = result.PlayerShot.Command.SideSpin,
+                command_vertical_spin = result.PlayerShot.Command.VerticalSpin,
+                contact_error_x_m = result.PlayerShot.Command.ContactErrorXMeters,
+                contact_error_y_m = result.PlayerShot.Command.ContactErrorYMeters,
+                launch_velocity_local = VectorPayload.From(
+                    result.PlayerShot.LaunchVelocityLocal),
+                launch_speed_mps = result.PlayerShot.LaunchSpeed,
+                launch_angular_velocity_local = VectorPayload.From(
+                    result.PlayerShot.AngularVelocityLocal),
+                intended_target_local = VectorPayload.From(
+                    result.PlayerShot.ContactAdjustedTargetLocal),
+                predicted_unopposed_crossing_local = VectorPayload.From(
+                    result.PlayerShot.PredictedUnopposedCrossingLocal),
+                expected_target_class = result.PlayerShot.ExpectedTargetClass.ToString(),
+                expected_on_target =
+                    result.PlayerShot.ExpectedTargetClass ==
+                    ExpectedShotTargetClassV1.OnTarget,
+                solver_error_m = result.PlayerShot.SolverCrossingError,
+                solver_iterations = result.PlayerShot.SolverIterations,
+                curve_displacement = new Vector2Payload
+                {
+                    x = result.PlayerShot.PredictedCurveDisplacement.x,
+                    y = result.PlayerShot.PredictedCurveDisplacement.y,
+                },
+                rare_tail = result.PlayerShot.RareTail,
                 attempt_id = result.AttemptId,
                 arena_id = result.ArenaId,
                 seed = result.Seed.ToString(),
@@ -346,6 +383,29 @@ namespace PenaltyShootout.MLAgents
             public float stage4_ball_velocity_noise_mps;
             public float stage4_keeper_position_noise_m;
             public float stage4_dropout_probability;
+            public int observation_delay_ticks;
+            public string shot_contract_id;
+            public string shot_physics_id;
+            public string shot_style;
+            public string mixture_component_id;
+            public float command_aim_x;
+            public float command_aim_y;
+            public float command_power;
+            public float command_side_spin;
+            public float command_vertical_spin;
+            public float contact_error_x_m;
+            public float contact_error_y_m;
+            public VectorPayload launch_velocity_local;
+            public float launch_speed_mps;
+            public VectorPayload launch_angular_velocity_local;
+            public VectorPayload intended_target_local;
+            public VectorPayload predicted_unopposed_crossing_local;
+            public string expected_target_class;
+            public bool expected_on_target;
+            public float solver_error_m;
+            public int solver_iterations;
+            public Vector2Payload curve_displacement;
+            public bool rare_tail;
             public long attempt_id;
             public int arena_id;
             public string seed;

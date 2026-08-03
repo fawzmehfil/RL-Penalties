@@ -182,9 +182,7 @@ namespace PenaltyShootout.MLAgents
         {
             if (UsesDeferredDecisionScheduling)
             {
-                GoalkeeperTrainingContracts.WriteControlStateV2(
-                    controller,
-                    sensor.AddObservation);
+                WriteConfiguredControlObservations(sensor.AddObservation);
             }
             else
             {
@@ -561,9 +559,11 @@ namespace PenaltyShootout.MLAgents
             GoalkeeperBenchmarkTelemetry.Emit(
                 result,
                 sparseReward,
-                UsesDeferredDecisionScheduling
-                    ? KernelConstants.GoalkeeperControlV2ObservationSpecId
-                    : KernelConstants.GoalkeeperControlObservationSpecId);
+                UsesGameplayObservations
+                    ? KernelConstants.GoalkeeperGameplayObservationSpecId
+                    : UsesDeferredDecisionScheduling
+                        ? KernelConstants.GoalkeeperControlV2ObservationSpecId
+                        : KernelConstants.GoalkeeperControlObservationSpecId);
             EndEpisode();
         }
 
@@ -575,10 +575,17 @@ namespace PenaltyShootout.MLAgents
             }
 
             var parameters = Academy.Instance.EnvironmentParameters;
+            controller.GameplayObservationDelayTicks = Mathf.Clamp(
+                Mathf.RoundToInt(
+                    parameters.GetWithDefault(
+                        "stage6.observation_delay_ticks",
+                        controller.UsesHumanShots ? 2f : 0f)),
+                0,
+                127);
             controller.GoalkeeperControlMotor?.SetCommittedGloveForward(
                 parameters.GetWithDefault(
                     "stage6.committed_glove_forward_m",
-                    0f));
+                    controller.UsesHumanShots ? 0.28f : 0f));
             nativeSplitInferenceEnabled =
                 nativeSplitInferenceByDefault ||
                 CommandLineEnablesNativeInference() ||
@@ -659,8 +666,7 @@ namespace PenaltyShootout.MLAgents
         private bool TryCollectNativeObservations()
         {
             var index = 0;
-            GoalkeeperTrainingContracts.WriteControlStateV2(
-                controller,
+            WriteConfiguredControlObservations(
                 value =>
                 {
                     if (index < nativeObservations.Length)
@@ -671,6 +677,24 @@ namespace PenaltyShootout.MLAgents
                     index++;
                 });
             return index == nativeObservations.Length;
+        }
+
+        private bool UsesGameplayObservations =>
+            controller != null && controller.UsesHumanShots;
+
+        private void WriteConfiguredControlObservations(Action<float> add)
+        {
+            if (UsesGameplayObservations)
+            {
+                GoalkeeperTrainingContracts.WriteControlStateGameplayV1(
+                    controller,
+                    controller.GameplayObservationDelayTicks,
+                    add);
+            }
+            else
+            {
+                GoalkeeperTrainingContracts.WriteControlStateV2(controller, add);
+            }
         }
 
         private static bool CommandLineEnablesNativeInference()
