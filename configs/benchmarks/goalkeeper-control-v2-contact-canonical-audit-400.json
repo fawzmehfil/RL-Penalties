@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "goalkeeper-control-v2-contact-canonical-audit-400",
+  "environment_id": "penalty-shootout-kernel-v1",
+  "behavior_name": "GoalkeeperControl-v2",
+  "observation_spec_id": "control-state-v2",
+  "reward_spec_id": "goalkeeper-sparse-v0",
+  "action_spec_id": "goalkeeper-hybrid-v1",
+  "motor_profile_id": "keeper-control-v1",
+  "motor_contract_id": "keeper-control-forward-v1",
+  "scenario_suite_id": "on-target-v0",
+  "observation_shapes": [[35]],
+  "continuous_actions": 4,
+  "discrete_branches": [2],
+  "arena_count": 16,
+  "attempts_per_arena": 25,
+  "total_attempts": 400,
+  "stage2_lesson": 3,
+  "stage5_lesson": 4,
+  "master_seed": 20260723,
+  "primary_metric": "save_rate",
+  "environment_parameters": {
+    "stage5.lesson": 4,
+    "stage5.metrics_version": 5,
+    "stage5.reach_training_enabled": 1,
+    "stage5.reach_training_version": 5,
+    "stage6.committed_glove_forward_m": 0.28,
+    "stage6.audit.glove_bounciness": 0.35,
+    "stage6.audit.glove_friction": 0.15
+  },
+  "save_outcomes": ["Saved", "BlockedThenOut"],
+  "failure_outcomes": ["Goal"]
+}

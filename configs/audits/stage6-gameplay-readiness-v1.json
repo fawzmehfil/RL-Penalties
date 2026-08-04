@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "audit_id": "stage6-gameplay-readiness-v1",
+  "benchmark_id": "goalkeeper-control-v2-human-shot-v1-pretraining-2k",
+  "master_seed": 20260803,
+  "attempts_per_arena": 25,
+  "arena_count": 16,
+  "motor_timing_contract_id": "stage6-motor-timing-v1",
+  "policies": [
+    "native_split_v1:seed-001",
+    "reactive_curve_v1",
+    "reactive_motor_v1"
+  ],
+  "comparison_runs": {
+    "delayed_observation_ticks": 2,
+    "zero_delay_observation_ticks": 0
+  },
+  "decision_thresholds": {
+    "minimum_teacher_gain_for_interception_training": 0.05,
+    "minimum_zero_delay_gain_for_timing_training": 0.03,
+    "maximum_canonical_regression": 0.02,
+    "minimum_contact_candidate_low_gain": 0.05,
+    "minimum_contact_candidate_overall_gain": 0.02
+  },
+  "contact_fixture": {
+    "ball_speeds_mps": [16, 22, 28],
+    "contact_angles_degrees": [0, 20, 40],
+    "glove_speeds_mps": [0, 4, 8],
+    "committed_glove_forward_candidates_m": [0.28, 0.34, 0.40],
+    "promotion_requires_runtime_ab_test": true,
+    "promotion_requires_manual_realism_review": true
+  }
+}
