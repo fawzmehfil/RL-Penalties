@@ -14,6 +14,57 @@ namespace PenaltyShootout.Kernel.Tests
     {
         [UnityTest]
         [Category("Stage6Acceptance")]
+        public IEnumerator ContactReviewLabRunsFixedReplayWithNativeInference()
+        {
+            var load = SceneManager.LoadSceneAsync(
+                "ShotVarietyLab",
+                LoadSceneMode.Single);
+            while (!load.isDone)
+            {
+                yield return null;
+            }
+            yield return null;
+
+            var lab = UnityEngine.Object.FindFirstObjectByType<
+                Stage6ShotVarietyLab>();
+            var controller = UnityEngine.Object.FindFirstObjectByType<
+                PenaltyAreaController>();
+            var agent = UnityEngine.Object.FindFirstObjectByType<
+                GoalkeeperControlAgent>();
+            Assert.That(lab, Is.Not.Null);
+            Assert.That(controller, Is.Not.Null);
+            Assert.That(agent, Is.Not.Null);
+            Assert.That(lab.ReplayCount, Is.EqualTo(12));
+            Assert.That(lab.UsesNativeGoalkeeper, Is.True);
+            Assert.That(lab.ContactCandidateEnabled, Is.False);
+            Assert.That(agent.NativeSplitInferenceEnabled, Is.True);
+            Assert.That(controller.DebugUiIgnoresArenaId, Is.True);
+            Assert.That(
+                controller.TryConfigureNextReplayAttempt(
+                    20260803UL,
+                    3,
+                    10,
+                    out var error),
+                Is.True,
+                error);
+
+            controller.BeginNextAttempt();
+            var frames = 0;
+            while (controller.LastResult == null && frames < 400)
+            {
+                frames++;
+                yield return new WaitForFixedUpdate();
+            }
+
+            Assert.That(controller.LastResult, Is.Not.Null);
+            Assert.That(controller.LastResult.Outcome, Is.Not.EqualTo(AttemptOutcome.Invalid));
+            Assert.That(controller.LastResult.Outcome, Is.Not.EqualTo(AttemptOutcome.Timeout));
+            Assert.That(controller.LastResult.NativeInferenceEvaluationCount, Is.GreaterThan(0));
+            Assert.That(controller.LastResult.NativeInferenceInvalidOutputCount, Is.Zero);
+        }
+
+        [UnityTest]
+        [Category("Stage6Acceptance")]
         public IEnumerator BaselineScenePublishesGameplayContractAndTerminates()
         {
             var load = SceneManager.LoadSceneAsync(

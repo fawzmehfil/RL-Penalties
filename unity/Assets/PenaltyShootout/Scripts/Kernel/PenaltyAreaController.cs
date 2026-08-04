@@ -131,6 +131,9 @@ namespace PenaltyShootout.Kernel
         private Vector3 firstContactRootVelocityLocal;
         private Vector3 firstContactLeftGloveVelocityLocal;
         private PhysicsMaterial auditGloveContactMaterial;
+        private readonly Dictionary<Collider, PhysicsMaterial>
+            originalGloveContactMaterials =
+                new Dictionary<Collider, PhysicsMaterial>();
         private Vector3 firstContactRightGloveVelocityLocal;
         private int controlCommandClampCount;
         private int acceptedControlDecisionCount;
@@ -297,6 +300,11 @@ namespace PenaltyShootout.Kernel
             get => showDebugUi;
             set => showDebugUi = value;
         }
+
+        public bool DebugUiIgnoresArenaId { get; set; }
+
+        public bool AuditGloveContactMaterialEnabled =>
+            auditGloveContactMaterial != null;
 
         public GoalkeeperControlMode ControlMode
         {
@@ -799,11 +807,7 @@ namespace PenaltyShootout.Kernel
             {
                 return;
             }
-            if (auditGloveContactMaterial != null)
-            {
-                Destroy(auditGloveContactMaterial);
-            }
-            auditGloveContactMaterial =
+            var replacement =
                 GoalkeeperAuditContactPhysicsV1.CreateGloveMaterial(
                     bounciness,
                     friction);
@@ -817,9 +821,32 @@ namespace PenaltyShootout.Kernel
                 var collider = marker.GetComponent<Collider>();
                 if (collider != null)
                 {
-                    collider.sharedMaterial = auditGloveContactMaterial;
+                    if (!originalGloveContactMaterials.ContainsKey(collider))
+                    {
+                        originalGloveContactMaterials.Add(
+                            collider,
+                            collider.sharedMaterial);
+                    }
+                    collider.sharedMaterial = replacement;
                 }
             }
+
+            DestroyRuntimeObject(auditGloveContactMaterial);
+            auditGloveContactMaterial = replacement;
+        }
+
+        public void ClearAuditGloveContactMaterial()
+        {
+            foreach (var pair in originalGloveContactMaterials)
+            {
+                if (pair.Key != null)
+                {
+                    pair.Key.sharedMaterial = pair.Value;
+                }
+            }
+            originalGloveContactMaterials.Clear();
+            DestroyRuntimeObject(auditGloveContactMaterial);
+            auditGloveContactMaterial = null;
         }
 
         public void ManualFixedStep()
@@ -1620,11 +1647,27 @@ namespace PenaltyShootout.Kernel
                 : arenaOrigin.InverseTransformDirection(worldDirection);
         }
 
+        private static void DestroyRuntimeObject(UnityEngine.Object target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+            if (Application.isPlaying)
+            {
+                Destroy(target);
+            }
+            else
+            {
+                DestroyImmediate(target);
+            }
+        }
+
         private void OnGUI()
         {
             if (!showDebugUi ||
                 Application.isBatchMode ||
-                arenaId != 0 ||
+                (!DebugUiIgnoresArenaId && arenaId != 0) ||
                 !initialized)
             {
                 return;

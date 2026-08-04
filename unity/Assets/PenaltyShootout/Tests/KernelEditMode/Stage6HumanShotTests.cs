@@ -183,6 +183,78 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void AuditContactMaterialRestoresEachOriginalGloveMaterial()
+        {
+            var root = new GameObject("Arena");
+            created.Add(root);
+            var controller = root.AddComponent<PenaltyAreaController>();
+            var original = new PhysicsMaterial("Original Glove");
+            created.Add(original);
+            var glove = new GameObject("LeftGlove");
+            glove.transform.SetParent(root.transform);
+            var marker = glove.AddComponent<ContactMarker>();
+            marker.Kind = ContactKind.Goalkeeper;
+            marker.GoalkeeperPart = GoalkeeperContactPart.LeftGlove;
+            var collider = glove.AddComponent<SphereCollider>();
+            collider.sharedMaterial = original;
+
+            controller.ConfigureAuditGloveContactMaterial(0.35f, 0.15f);
+
+            Assert.That(controller.AuditGloveContactMaterialEnabled, Is.True);
+            Assert.That(collider.sharedMaterial, Is.Not.SameAs(original));
+            Assert.That(collider.sharedMaterial.bounciness, Is.EqualTo(0.35f));
+
+            controller.ClearAuditGloveContactMaterial();
+
+            Assert.That(controller.AuditGloveContactMaterialEnabled, Is.False);
+            Assert.That(collider.sharedMaterial, Is.SameAs(original));
+        }
+
+        [Test]
+        public void ContactReviewMetricsSeparateGoalwardAndAwayVelocity()
+        {
+            var result = new AttemptResult
+            {
+                HasFirstGoalkeeperContactKinematics = true,
+                FirstGoalkeeperContactBallVelocityLocal =
+                    new Vector3(2f, 3f, 4f),
+                FirstGoalkeeperContactImpulseLocal =
+                    new Vector3(0f, 0f, 1.5f),
+            };
+
+            var metrics = Stage6ContactReviewMetricsV1.FromResult(result);
+
+            Assert.That(metrics.HasContact, Is.True);
+            Assert.That(metrics.ContactBallSpeed, Is.EqualTo(Mathf.Sqrt(29f)).Within(1e-6f));
+            Assert.That(metrics.AwayFromGoalSpeed, Is.EqualTo(4f));
+            Assert.That(metrics.GoalwardSpeed, Is.Zero);
+            Assert.That(metrics.VerticalSpeed, Is.EqualTo(3f));
+            Assert.That(metrics.ImpulseMagnitude, Is.EqualTo(1.5f));
+        }
+
+        [Test]
+        public void ContactReviewCatalogPreservesFixedReplayKeys()
+        {
+            const string json =
+                "{\"schema_version\":1,\"entries\":[{" +
+                "\"arena_id\":3,\"attempt_id\":10,\"shot_style\":\"Power\"," +
+                "\"replay_arguments\":[\"--stage6-replay-master-seed=20260803\"]}]}";
+
+            var valid = Stage6ContactReviewReplayCatalogV1.TryParse(
+                json,
+                1UL,
+                out var keys,
+                out var error);
+
+            Assert.That(valid, Is.True, error);
+            Assert.That(keys, Has.Length.EqualTo(1));
+            Assert.That(keys[0].MasterSeed, Is.EqualTo(20260803UL));
+            Assert.That(keys[0].ArenaId, Is.EqualTo(3));
+            Assert.That(keys[0].AttemptId, Is.EqualTo(10));
+            Assert.That(keys[0].ShotStyle, Is.EqualTo("Power"));
+        }
+
+        [Test]
         public void HumanShotSamplingIsDeterministicAndFinite()
         {
             var physics = CreatePhysics();

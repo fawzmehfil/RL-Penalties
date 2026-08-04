@@ -11,7 +11,8 @@ namespace PenaltyShootout.MLAgents
     public sealed class GoalkeeperControlAgent :
         Agent,
         IGoalkeeperControlSourceV1,
-        IGoalkeeperDeferredControlSourceV2
+        IGoalkeeperDeferredControlSourceV2,
+        IGoalkeeperNativeInferenceControlV1
     {
         [SerializeField]
         private PenaltyAreaController controller;
@@ -97,10 +98,27 @@ namespace PenaltyShootout.MLAgents
         public bool NativeSplitInferenceEnabled =>
             nativeSplitInferenceEnabled;
 
+        public bool NativeInferenceEnabled => nativeSplitInferenceEnabled;
+
         public bool NativeSplitInferenceByDefault
         {
             get => nativeSplitInferenceByDefault;
             set => nativeSplitInferenceByDefault = value;
+        }
+
+        public bool TrySetNativeInference(bool enabled, out string error)
+        {
+            if (enabled && nativeSplitPolicy == null)
+            {
+                error = "Native split inference requires a packaged policy.";
+                return false;
+            }
+
+            nativeSplitInferenceByDefault = enabled;
+            nativeSplitInferenceEnabled = enabled;
+            nativeSplitPolicy?.ResetAttempt();
+            error = string.Empty;
+            return true;
         }
 
         public bool UsesDeferredDecisionScheduling

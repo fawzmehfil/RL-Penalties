@@ -191,6 +191,13 @@ namespace PenaltyShootout.Kernel
             GoalkeeperControlActionMask actionMask);
     }
 
+    public interface IGoalkeeperNativeInferenceControlV1
+    {
+        bool NativeInferenceEnabled { get; }
+
+        bool TrySetNativeInference(bool enabled, out string error);
+    }
+
     public static class GoalkeeperControlSpace
     {
         public const int ContinuousActionCount = 4;

@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "review_id": "stage6-contact-review-replays-v1",
+  "source_benchmark_id": "goalkeeper-control-v2-human-shot-v1-pretraining-2k",
+  "source_run": "stage6-gameplay-readiness-delay2-400",
+  "candidate_run": "stage6-gameplay-readiness-contact-candidate-400",
+  "master_seed": 20260803,
+  "selection": "baseline goalkeeper contact followed by goal; candidate changed outcome to save",
+  "entries": [
+    {
+      "arena_id": 0,
+      "attempt_id": 7,
+      "scenario_seed": "2664133258622911679",
+      "shot_style": "Placed",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    },
+    {
+      "arena_id": 4,
+      "attempt_id": 4,
+      "scenario_seed": "12128018902903235192",
+      "shot_style": "Placed",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    },
+    {
+      "arena_id": 1,
+      "attempt_id": 10,
+      "scenario_seed": "13921756124330341017",
+      "shot_style": "Placed",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    },
+    {
+      "arena_id": 9,
+      "attempt_id": 5,
+      "scenario_seed": "14173111159433277718",
+      "shot_style": "Placed",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    },
+    {
+      "arena_id": 5,
+      "attempt_id": 23,
+      "scenario_seed": "10501309162468084177",
+      "shot_style": "Placed",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    },
+    {
+      "arena_id": 14,
+      "attempt_id": 19,
+      "scenario_seed": "3043005081857257145",
+      "shot_style": "Placed",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    },
+    {
+      "arena_id": 13,
+      "attempt_id": 6,
+      "scenario_seed": "9226612943311733748",
+      "shot_style": "Placed",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    },
+    {
+      "arena_id": 7,
+      "attempt_id": 24,
+      "scenario_seed": "8117643550742552692",
+      "shot_style": "Power",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    },
+    {
+      "arena_id": 11,
+      "attempt_id": 15,
+      "scenario_seed": "7774401285344531954",
+      "shot_style": "Power",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    },
+    {
+      "arena_id": 10,
+      "attempt_id": 16,
+      "scenario_seed": "9990025765294751016",
+      "shot_style": "Curled",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    },
+    {
+      "arena_id": 11,
+      "attempt_id": 24,
+      "scenario_seed": "1348197466422491776",
+      "shot_style": "Curled",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    },
+    {
+      "arena_id": 14,
+      "attempt_id": 17,
+      "scenario_seed": "8304823529570980068",
+      "shot_style": "Curled",
+      "replay_arguments": ["--stage6-replay-master-seed=20260803"]
+    }
+  ]
+}
