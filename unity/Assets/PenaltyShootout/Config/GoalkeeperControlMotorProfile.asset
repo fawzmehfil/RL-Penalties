@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f746fae0b8c2475896f5f972e5cabfd0, type: 3}
   m_Name: GoalkeeperControlMotorProfile
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   MotorProfileId: keeper-control-v1
   StandingZ: 0.3
   LateralLimit: 3.1
