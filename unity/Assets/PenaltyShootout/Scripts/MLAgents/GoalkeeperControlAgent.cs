@@ -601,6 +601,13 @@ namespace PenaltyShootout.MLAgents
                 parameters.GetWithDefault(
                     "stage6.committed_glove_forward_m",
                     controller.UsesHumanShots ? 0.28f : 0f));
+            controller.ConfigureAuditGloveContactMaterial(
+                parameters.GetWithDefault(
+                    "stage6.audit.glove_bounciness",
+                    -1f),
+                parameters.GetWithDefault(
+                    "stage6.audit.glove_friction",
+                    -1f));
             nativeSplitInferenceEnabled =
                 nativeSplitInferenceByDefault ||
                 CommandLineEnablesNativeInference() ||

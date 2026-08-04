@@ -130,6 +130,7 @@ namespace PenaltyShootout.Kernel
         private float minimumGloveBallDistance;
         private Vector3 firstContactRootVelocityLocal;
         private Vector3 firstContactLeftGloveVelocityLocal;
+        private PhysicsMaterial auditGloveContactMaterial;
         private Vector3 firstContactRightGloveVelocityLocal;
         private int controlCommandClampCount;
         private int acceptedControlDecisionCount;
@@ -759,6 +760,66 @@ namespace PenaltyShootout.Kernel
             }
 
             Physics.SyncTransforms();
+        }
+
+        public bool TryConfigureNextReplayAttempt(
+            ulong replayMasterSeed,
+            int replayArenaId,
+            long replayAttemptId,
+            out string error)
+        {
+            if (replayMasterSeed == 0UL || replayArenaId < 0 || replayAttemptId <= 0)
+            {
+                error = "Replay seed, arena ID, and attempt ID must be positive.";
+                return false;
+            }
+            if (!initialized && !Initialize())
+            {
+                error = "Penalty area could not initialize for replay.";
+                return false;
+            }
+            if (stateMachine.Phase != AttemptPhase.Terminal)
+            {
+                error = "Replay can only be configured at a terminal boundary.";
+                return false;
+            }
+
+            MasterSeed = replayMasterSeed;
+            ArenaId = replayArenaId;
+            attemptId = replayAttemptId - 1;
+            error = string.Empty;
+            return true;
+        }
+
+        public void ConfigureAuditGloveContactMaterial(
+            float bounciness,
+            float friction)
+        {
+            if (bounciness < 0f || friction < 0f)
+            {
+                return;
+            }
+            if (auditGloveContactMaterial != null)
+            {
+                Destroy(auditGloveContactMaterial);
+            }
+            auditGloveContactMaterial =
+                GoalkeeperAuditContactPhysicsV1.CreateGloveMaterial(
+                    bounciness,
+                    friction);
+            foreach (var marker in GetComponentsInChildren<ContactMarker>(true))
+            {
+                if (marker.GoalkeeperPart != GoalkeeperContactPart.LeftGlove &&
+                    marker.GoalkeeperPart != GoalkeeperContactPart.RightGlove)
+                {
+                    continue;
+                }
+                var collider = marker.GetComponent<Collider>();
+                if (collider != null)
+                {
+                    collider.sharedMaterial = auditGloveContactMaterial;
+                }
+            }
         }
 
         public void ManualFixedStep()

@@ -9,6 +9,7 @@ namespace PenaltyShootout.Kernel
         [SerializeField] private bool automaticCycling;
         private PlayerShotStyleV1? forcedStyle;
         private HumanShotDistributionConfigV1 runtimeDistribution;
+        private string replayLabel = "none";
 
         private void Awake()
         {
@@ -25,6 +26,7 @@ namespace PenaltyShootout.Kernel
                 controller.HumanShotConfiguration = runtimeDistribution;
                 controller.ScenarioController.HumanShotConfiguration =
                     runtimeDistribution;
+                ConfigureReplayFromCommandLine();
             }
         }
 
@@ -81,12 +83,58 @@ namespace PenaltyShootout.Kernel
             }
         }
 
+        private void ConfigureReplayFromCommandLine()
+        {
+            var arguments = System.Environment.GetCommandLineArgs();
+            if (!TryReadArgument(arguments, "--stage6-replay-master-seed=", out var seedText) ||
+                !TryReadArgument(arguments, "--stage6-replay-arena-id=", out var arenaText) ||
+                !TryReadArgument(arguments, "--stage6-replay-attempt-id=", out var attemptText))
+            {
+                return;
+            }
+            if (!ulong.TryParse(seedText, out var seed) ||
+                !int.TryParse(arenaText, out var arenaId) ||
+                !long.TryParse(attemptText, out var attemptId))
+            {
+                Debug.LogError("Stage 6 replay arguments are not numeric.", this);
+                return;
+            }
+            if (!controller.TryConfigureNextReplayAttempt(
+                    seed,
+                    arenaId,
+                    attemptId,
+                    out var error))
+            {
+                Debug.LogError($"Stage 6 replay arguments are invalid: {error}", this);
+                return;
+            }
+            replayLabel = $"seed {seed}, arena {arenaId}, attempt {attemptId}";
+        }
+
+        private static bool TryReadArgument(
+            string[] arguments,
+            string prefix,
+            out string value)
+        {
+            foreach (var argument in arguments)
+            {
+                if (argument.StartsWith(prefix, System.StringComparison.Ordinal))
+                {
+                    value = argument.Substring(prefix.Length);
+                    return true;
+                }
+            }
+            value = string.Empty;
+            return false;
+        }
+
         private void OnGUI()
         {
-            GUILayout.BeginArea(new Rect(12f, 575f, 470f, 55f), GUI.skin.box);
+            GUILayout.BeginArea(new Rect(12f, 560f, 520f, 78f), GUI.skin.box);
             GUILayout.Label(
                 $"Stage 6 shot mode: {(forcedStyle.HasValue ? forcedStyle.Value.ToString() : "Gameplay mixture")}; auto: {automaticCycling}");
             GUILayout.Label("1 placed, 2 power, 3 curled, 4 mixture, Space launch, R auto");
+            GUILayout.Label($"Replay: {replayLabel}");
             GUILayout.EndArea();
         }
     }

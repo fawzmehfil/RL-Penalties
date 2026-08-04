@@ -134,6 +134,55 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void MotorTimingExtractionPreservesFrozenDiveGeometry()
+        {
+            var motor = CreateMotor();
+            var estimate = GoalkeeperMotorTimingV1.Estimate(
+                new Vector2(0.30f, 0.60f),
+                new Vector3(0.20f, 0f, motor.StandingZ),
+                motor);
+
+            Assert.That(estimate.RootTargetLocal.x, Is.EqualTo(0.5006f).Within(1e-4f));
+            Assert.That(estimate.RootTargetLocal.y, Is.EqualTo(0.0714f).Within(1e-4f));
+            Assert.That(estimate.DiveDuration, Is.EqualTo(0.51536f).Within(1e-4f));
+            Assert.That(estimate.FullReachTime, Is.EqualTo(0.33645f).Within(1e-4f));
+            Assert.That(estimate.RootTargetSaturated, Is.False);
+        }
+
+        [Test]
+        public void ReactiveMotorParityFixtureUsesMotorReachTime()
+        {
+            var motor = CreateMotor();
+            var command = GoalkeeperReactiveMotorPolicyV1.DecideFromVisiblePrediction(
+                0.30f,
+                new Vector2(0.30f, 0.60f),
+                0.20f,
+                motor,
+                new GoalkeeperControlActionMask(true));
+
+            Assert.That(command.MoveX, Is.EqualTo(0.24048f).Within(1e-5f));
+            Assert.That(command.AimX, Is.EqualTo(0.30f).Within(1e-6f));
+            Assert.That(command.AimY, Is.EqualTo(0.60f).Within(1e-6f));
+            Assert.That(command.Reach, Is.EqualTo(1f));
+            Assert.That(command.Commit, Is.True);
+        }
+
+        [Test]
+        public void AuditContactMaterialIsExplicitAndBounded()
+        {
+            var material = GoalkeeperAuditContactPhysicsV1.CreateGloveMaterial(
+                0.35f,
+                0.15f);
+            created.Add(material);
+
+            Assert.That(material.bounciness, Is.EqualTo(0.35f));
+            Assert.That(material.dynamicFriction, Is.EqualTo(0.15f));
+            Assert.That(material.bounceCombine, Is.EqualTo(PhysicsMaterialCombine.Maximum));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                GoalkeeperAuditContactPhysicsV1.CreateGloveMaterial(1.1f, 0.1f));
+        }
+
+        [Test]
         public void HumanShotSamplingIsDeterministicAndFinite()
         {
             var physics = CreatePhysics();
@@ -159,6 +208,13 @@ namespace PenaltyShootout.Kernel.Tests
                 distribution,
                 physics,
                 out var error), Is.True, error);
+        }
+
+        private GoalkeeperControlMotorConfig CreateMotor()
+        {
+            var motor = ScriptableObject.CreateInstance<GoalkeeperControlMotorConfig>();
+            created.Add(motor);
+            return motor;
         }
 
         [Test]

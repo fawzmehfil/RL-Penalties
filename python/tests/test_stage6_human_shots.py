@@ -6,9 +6,11 @@ import pytest
 from penalty_shootout.evaluation.goalkeeper import (
     BenchmarkConfig,
     ReactiveCurveV1Policy,
+    ReactiveMotorV1Policy,
     aggregate_policy,
     load_benchmark_config,
     make_policy,
+    motor_timing_estimate_v1,
     stage6_curve_magnitude,
     stage6_pretraining_diagnosis,
     stage6_speed_band,
@@ -69,6 +71,32 @@ def test_reactive_curve_uses_visible_prediction_and_mask() -> None:
     assert np.all(np.abs(continuous) <= 1.0)
     assert discrete.tolist() == [[0], [0]]
     assert continuous[0].tolist() == pytest.approx([0.692, 0.3, 0.6, 1.0])
+
+
+def test_reactive_motor_matches_frozen_motor_timing_parity_fixture() -> None:
+    estimate = motor_timing_estimate_v1(0.3, 0.6, 0.2)
+    assert estimate.root_target_x == pytest.approx(0.5006)
+    assert estimate.root_target_y == pytest.approx(0.0714)
+    assert estimate.dive_duration == pytest.approx(0.5153647)
+    assert estimate.full_reach_time == pytest.approx(0.3364532)
+    assert estimate.root_target_saturation_m == pytest.approx(0.0)
+
+    config = load_benchmark_config(CONFIG)
+    policy = make_policy("reactive_motor_v1", 1, config)
+    assert isinstance(policy, ReactiveMotorV1Policy)
+    observations = np.zeros((1, 35), dtype=np.float32)
+    observations[0, 9] = 0.2 / 3.1
+    observations[0, 32] = 0.3 / 1.5
+    observations[0, 33] = 0.3
+    observations[0, 34] = 0.6
+
+    continuous, discrete = policy.hybrid_actions(
+        observations,
+        np.zeros((1, 2), dtype=bool),
+    )
+
+    assert continuous[0].tolist() == pytest.approx([0.24048, 0.3, 0.6, 1.0])
+    assert discrete.tolist() == [[1]]
 
 
 def test_stage6_bins_are_stable() -> None:

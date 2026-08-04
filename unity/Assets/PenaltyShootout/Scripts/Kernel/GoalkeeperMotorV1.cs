@@ -491,65 +491,31 @@ namespace PenaltyShootout.Kernel
             commitStartRotation = body.rotation;
             latchedAim = new Vector2(command.AimX, command.AimY);
             currentReachAim = latchedAim;
-            var target = GoalkeeperControlSpace.AimToLocal(command.AimX, command.AimY);
-            var deltaX = target.x - commitStartLocal.x;
-            var direction = Mathf.Abs(deltaX) <= configuration.CentralBlockThreshold
-                ? 0f
-                : Mathf.Sign(deltaX);
-            var armAllowance =
-                (configuration.UpperArmLength + configuration.ForearmLength) *
-                configuration.ArmAllowanceForBodyTarget;
-            var desiredRootX = direction == 0f
-                ? commitStartLocal.x
-                : target.x - direction * armAllowance;
-            var unclampedRootX = desiredRootX;
-            desiredRootX = Mathf.Clamp(
-                desiredRootX,
-                commitStartLocal.x - configuration.MaximumDiveLateralDisplacement,
-                commitStartLocal.x + configuration.MaximumDiveLateralDisplacement);
-            desiredRootX = Mathf.Clamp(
-                desiredRootX,
-                -configuration.LateralLimit,
-                configuration.LateralLimit);
-            var desiredRootY = Mathf.Clamp(
-                target.y -
-                configuration.ShoulderHeight -
-                (configuration.UpperArmLength + configuration.ForearmLength) * 0.62f,
-                0f,
-                configuration.MaximumDiveRootHeight);
-            if (!Mathf.Approximately(unclampedRootX, desiredRootX))
+            var timing = GoalkeeperMotorTimingV1.Estimate(
+                latchedAim,
+                commitStartLocal,
+                configuration);
+            if (timing.RootTargetSaturated)
             {
                 targetClampCount++;
                 maximumRootTargetSaturationDistance = Mathf.Max(
                     maximumRootTargetSaturationDistance,
-                    Mathf.Abs(unclampedRootX - desiredRootX));
+                    timing.RootTargetSaturationDistance);
             }
 
-            diveTargetLocal = new Vector3(
-                desiredRootX,
-                desiredRootY,
-                configuration.StandingZ);
-            var lateralFraction = Mathf.Clamp01(
-                Mathf.Abs(diveTargetLocal.x - commitStartLocal.x) /
-                configuration.MaximumDiveLateralDisplacement);
-            var heightFraction = configuration.MaximumDiveRootHeight <= 1e-6f
-                ? 0f
-                : Mathf.Clamp01(diveTargetLocal.y / configuration.MaximumDiveRootHeight);
+            diveTargetLocal = timing.RootTargetLocal;
             stateDuration = configuration.PlantDuration;
-            var difficulty = Mathf.Max(lateralFraction, heightFraction);
-            var diveDuration = Mathf.Lerp(
-                configuration.MinimumDiveDuration,
-                configuration.MaximumDiveDuration,
-                difficulty);
             diveTargetRotation =
                 ArenaRotation *
                 Quaternion.Euler(
                     0f,
                     0f,
-                    -direction * configuration.MaximumBodyRollDegrees * lateralFraction);
+                    -timing.Direction *
+                    configuration.MaximumBodyRollDegrees *
+                    timing.LateralFraction);
             recoveryStartRotation = diveTargetRotation;
             recoveryStartLocal = diveTargetLocal;
-            pendingDiveDuration = diveDuration;
+            pendingDiveDuration = timing.DiveDuration;
         }
 
         private float pendingDiveDuration;
@@ -563,14 +529,14 @@ namespace PenaltyShootout.Kernel
                 -direction *
                 configuration.MaximumBodyRollDegrees *
                 0.12f *
-                SmoothStep(normalized);
+                GoalkeeperMotorTimingV1.SmoothStep(normalized);
             var rotation = ArenaRotation * Quaternion.Euler(0f, 0f, plantRoll);
             bodyRollDegrees = plantRoll;
             MoveBody(commitStartLocal, rotation, deltaTime);
             var extension =
                 activeCommand.Reach01 *
                 configuration.PlantReachFraction *
-                SmoothStep(normalized);
+                GoalkeeperMotorTimingV1.SmoothStep(normalized);
             ApplyReach(extension, rotation, deltaTime, false);
             if (normalized >= 1f)
             {
@@ -584,7 +550,7 @@ namespace PenaltyShootout.Kernel
         {
             stateTime += deltaTime;
             var normalized = Mathf.Clamp01(stateTime / stateDuration);
-            var displacement = SmoothStep(normalized);
+            var displacement = GoalkeeperMotorTimingV1.SmoothStep(normalized);
             var next = Vector3.LerpUnclamped(
                 commitStartLocal,
                 diveTargetLocal,
@@ -620,7 +586,7 @@ namespace PenaltyShootout.Kernel
         {
             stateTime += deltaTime;
             var normalized = Mathf.Clamp01(stateTime / configuration.RecoveryDuration);
-            var displacement = SmoothStep(normalized);
+            var displacement = GoalkeeperMotorTimingV1.SmoothStep(normalized);
             var target = new Vector3(
                 recoveryStartLocal.x,
                 0f,
@@ -724,7 +690,7 @@ namespace PenaltyShootout.Kernel
                 return 1f;
             }
 
-            var progress = SmoothStep(
+            var progress = GoalkeeperMotorTimingV1.SmoothStep(
                 Mathf.InverseLerp(
                     configuration.ReachStartNormalized,
                     configuration.FullReachNormalized,
@@ -750,9 +716,5 @@ namespace PenaltyShootout.Kernel
             return arenaOrigin == null ? local : arenaOrigin.TransformPoint(local);
         }
 
-        private static float SmoothStep(float value)
-        {
-            return value * value * (3f - 2f * value);
-        }
     }
 }

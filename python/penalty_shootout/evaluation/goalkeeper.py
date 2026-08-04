@@ -444,6 +444,110 @@ class ReactiveCurveV1Policy(HybridGoalkeeperPolicy):
         return continuous, self._sanitize_commit(commit, action_mask)
 
 
+@dataclass(frozen=True)
+class MotorTimingEstimateV1:
+    root_target_x: float
+    root_target_y: float
+    lateral_fraction: float
+    height_fraction: float
+    dive_duration: float
+    root_target_saturation_m: float
+    full_reach_time: float
+
+
+def motor_timing_estimate_v1(
+    aim_x: float,
+    aim_y: float,
+    goalkeeper_root_x: float,
+) -> MotorTimingEstimateV1:
+    """Python parity for the frozen keeper-control-v1 motor geometry."""
+    target_x = float(np.clip(aim_x, -1.0, 1.0)) * TARGET_X_EXTENT
+    target_y = TARGET_Y_MIN + (
+        (float(np.clip(aim_y, -1.0, 1.0)) + 1.0) * 0.5
+    ) * (TARGET_Y_MAX - TARGET_Y_MIN)
+    delta_x = target_x - goalkeeper_root_x
+    direction = 0.0 if abs(delta_x) <= 0.28 else math.copysign(1.0, delta_x)
+    arm_allowance = (0.40 + 0.43) * 0.68
+    desired_root_x = (
+        goalkeeper_root_x
+        if direction == 0.0
+        else target_x - direction * arm_allowance
+    )
+    unclamped_root_x = desired_root_x
+    desired_root_x = float(np.clip(
+        desired_root_x,
+        goalkeeper_root_x - 2.55,
+        goalkeeper_root_x + 2.55,
+    ))
+    desired_root_x = float(np.clip(desired_root_x, -3.10, 3.10))
+    desired_root_y = float(np.clip(
+        target_y - 1.30 - (0.40 + 0.43) * 0.62,
+        0.0,
+        0.72,
+    ))
+    lateral_fraction = float(np.clip(
+        abs(desired_root_x - goalkeeper_root_x) / 2.55,
+        0.0,
+        1.0,
+    ))
+    height_fraction = float(np.clip(desired_root_y / 0.72, 0.0, 1.0))
+    difficulty = max(lateral_fraction, height_fraction)
+    dive_duration = 0.48 + (0.78 - 0.48) * difficulty
+    return MotorTimingEstimateV1(
+        root_target_x=desired_root_x,
+        root_target_y=desired_root_y,
+        lateral_fraction=lateral_fraction,
+        height_fraction=height_fraction,
+        dive_duration=dive_duration,
+        root_target_saturation_m=abs(unclamped_root_x - desired_root_x),
+        full_reach_time=0.12 + 0.42 * dive_duration,
+    )
+
+
+class ReactiveMotorV1Policy(HybridGoalkeeperPolicy):
+    """Visible-state teacher that schedules commit from frozen motor timing."""
+
+    name = "reactive_motor_v1"
+    commit_margin_seconds = 0.08
+
+    def hybrid_actions(
+        self,
+        observations: np.ndarray,
+        action_mask: np.ndarray | None,
+        agent_ids: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        continuous = np.zeros(
+            (len(observations), CONTROL_CONTINUOUS_ACTIONS),
+            dtype=np.float32,
+        )
+        commit = np.zeros(len(observations), dtype=np.int32)
+        for row, observation in enumerate(observations):
+            time_value = float(observation[32])
+            time_to_plane = time_value * 1.5 if time_value >= 0.0 else -1.0
+            aim_x = float(np.clip(observation[33], -1.0, 1.0))
+            aim_y = float(np.clip(observation[34], -1.0, 1.0))
+            keeper_x = float(observation[9]) * 3.1
+            estimate = motor_timing_estimate_v1(aim_x, aim_y, keeper_x)
+            continuous[row] = np.asarray(
+                [
+                    np.clip(
+                        (estimate.root_target_x - keeper_x) / 1.25,
+                        -1.0,
+                        1.0,
+                    ),
+                    aim_x,
+                    aim_y,
+                    1.0,
+                ],
+                dtype=np.float32,
+            )
+            commit[row] = int(
+                0.0 <= time_to_plane <=
+                estimate.full_reach_time + self.commit_margin_seconds
+            )
+        return continuous, self._sanitize_commit(commit, action_mask)
+
+
 class SplitSupervisedPolicy(HybridGoalkeeperPolicy):
     policy_type = "supervised"
 
@@ -1122,6 +1226,10 @@ def make_policy(
         if config is None or config.observation_spec_id != "control-state-v2-gameplay-v1":
             raise ValueError("reactive_curve_v1 requires gameplay observations")
         return ReactiveCurveV1Policy()
+    if spec == "reactive_motor_v1":
+        if config is None or config.observation_spec_id != "control-state-v2-gameplay-v1":
+            raise ValueError("reactive_motor_v1 requires gameplay observations")
+        return ReactiveMotorV1Policy()
     if spec.startswith("reactive_reach_v1:"):
         try:
             commit_horizon = float(spec.split(":", maxsplit=1)[1])
@@ -3274,6 +3382,7 @@ def parse_args() -> argparse.Namespace:
             "Policy spec: stand_center, random_legal, reactive_side, "
             "linear_intercept, stand_center_v1, random_hybrid_v1, "
             "reactive_reach_v1, reactive_reach_v1:commit_horizon, "
+            "reactive_curve_v1, reactive_motor_v1, "
             "interception_teacher_timing:manifest, "
             "split_supervised:manifest, native_split_v1:manifest, or "
             "onnx:path"
