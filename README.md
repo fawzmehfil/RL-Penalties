@@ -1114,6 +1114,29 @@ predeclared 45% threshold. The clearest weaknesses are fast launch speeds
 (25.41%), high spin (33.64%), low shots (30.16%), and outer placements
 (20.71% left, 26.49% right). No Stage 6 model has been trained yet.
 
+The follow-up `stage6-gameplay-readiness-v1` audit decomposes that result with
+fixed 400-shot paired controls. Run it with:
+
+```bash
+scripts/run_stage6_gameplay_readiness_audit.sh
+```
+
+The frozen native controller saved 41.92% with the fair 40 ms observation
+delay and 45.48% at zero delay. The existing curve-aware teacher saved 43.01%,
+while a motor-timing teacher saved only 19.45%; the evidence therefore does
+not support retraining interception Model A from that teacher. The offline
+motor envelope marked 16.16% of on-target shots as root-saturated and only
+18.07% of outer shots as fully reachable at the current timing.
+
+An audit-only glove material candidate raised the gameplay save rate to
+49.04%, low-shot saves by 9.09 percentage points, canonical saves from 62.5%
+to 74.0%, and high-shot saves from 69.0% to 76.25%. It remains opt-in and is
+not the Stage 6 default: a visual/physical realism review must confirm that
+the additional deflections look like credible glove parries rather than an
+over-bouncy collider. Compact evidence is stored in
+`docs/stage6-gameplay-readiness-report.json`; raw paired episodes and replay
+keys remain under ignored `results/evaluations/`.
+
 ## Later milestones
 
 Future stages extend the goalkeeper benchmark into a fuller football AI and

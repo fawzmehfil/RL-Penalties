@@ -1,0 +1,485 @@
+{
+  "schema_version": 1,
+  "audit_id": "stage6-gameplay-readiness-v1",
+  "generated_at": "2026-08-04T04:15:12.119977+00:00",
+  "status": "passed",
+  "scope": "diagnostic_only_no_training_or_motor_promotion",
+  "episode_key_digest": "36949b876a75bd7cc3c9deaa2c887b4ef66f53870687bb447ec148298bc4ef2b",
+  "policies": {
+    "native delayed": {
+      "policy": "native_split_v1:seed-001",
+      "attempts": 400,
+      "expected_on_target_attempts": 365,
+      "episode_key_digest": "36949b876a75bd7cc3c9deaa2c887b4ef66f53870687bb447ec148298bc4ef2b",
+      "save_rate": {
+        "successes": 153,
+        "total": 365,
+        "value": 0.4191780821917808,
+        "lower_95": 0.36965705919944947,
+        "upper_95": 0.4703826147877368
+      },
+      "glove_contact_rate": {
+        "successes": 210,
+        "total": 365,
+        "value": 0.5753424657534246,
+        "lower_95": 0.5241075206274659,
+        "upper_95": 0.6250080375200722
+      },
+      "contact_then_goal_rate": {
+        "successes": 60,
+        "total": 365,
+        "value": 0.1643835616438356,
+        "lower_95": 0.12989438451322832,
+        "upper_95": 0.20586358373864727
+      },
+      "root_saturation_rate": {
+        "successes": 53,
+        "total": 365,
+        "value": 0.14520547945205478,
+        "lower_95": 0.11275697640432888,
+        "upper_95": 0.1850443043190825
+      },
+      "invalids": 0,
+      "timeouts": 0,
+      "mask_violations": 0
+    },
+    "curve": {
+      "policy": "reactive_curve_v1",
+      "attempts": 400,
+      "expected_on_target_attempts": 365,
+      "episode_key_digest": "36949b876a75bd7cc3c9deaa2c887b4ef66f53870687bb447ec148298bc4ef2b",
+      "save_rate": {
+        "successes": 157,
+        "total": 365,
+        "value": 0.4301369863013699,
+        "lower_95": 0.380333140631934,
+        "upper_95": 0.48139606908580324
+      },
+      "glove_contact_rate": {
+        "successes": 214,
+        "total": 365,
+        "value": 0.5863013698630137,
+        "lower_95": 0.5351335574281293,
+        "upper_95": 0.6356715364499599
+      },
+      "contact_then_goal_rate": {
+        "successes": 60,
+        "total": 365,
+        "value": 0.1643835616438356,
+        "lower_95": 0.12989438451322832,
+        "upper_95": 0.20586358373864727
+      },
+      "root_saturation_rate": {
+        "successes": 54,
+        "total": 365,
+        "value": 0.14794520547945206,
+        "lower_95": 0.11519310549564316,
+        "upper_95": 0.188030559160406
+      },
+      "invalids": 0,
+      "timeouts": 0,
+      "mask_violations": 0
+    },
+    "motor": {
+      "policy": "reactive_motor_v1",
+      "attempts": 400,
+      "expected_on_target_attempts": 365,
+      "episode_key_digest": "36949b876a75bd7cc3c9deaa2c887b4ef66f53870687bb447ec148298bc4ef2b",
+      "save_rate": {
+        "successes": 71,
+        "total": 365,
+        "value": 0.19452054794520549,
+        "lower_95": 0.1571810168197449,
+        "upper_95": 0.238223174691146
+      },
+      "glove_contact_rate": {
+        "successes": 130,
+        "total": 365,
+        "value": 0.3561643835616438,
+        "lower_95": 0.308769621245335,
+        "upper_95": 0.406555222291183
+      },
+      "contact_then_goal_rate": {
+        "successes": 62,
+        "total": 365,
+        "value": 0.16986301369863013,
+        "lower_95": 0.13482504536683873,
+        "upper_95": 0.21177769075031241
+      },
+      "root_saturation_rate": {
+        "successes": 44,
+        "total": 365,
+        "value": 0.12054794520547946,
+        "lower_95": 0.09103696379196116,
+        "upper_95": 0.1579628615377105
+      },
+      "invalids": 0,
+      "timeouts": 0,
+      "mask_violations": 0
+    },
+    "native zero delay": {
+      "policy": "native_split_v1:seed-001",
+      "attempts": 400,
+      "expected_on_target_attempts": 365,
+      "episode_key_digest": "36949b876a75bd7cc3c9deaa2c887b4ef66f53870687bb447ec148298bc4ef2b",
+      "save_rate": {
+        "successes": 166,
+        "total": 365,
+        "value": 0.4547945205479452,
+        "lower_95": 0.4044453418551759,
+        "upper_95": 0.5060853232563012
+      },
+      "glove_contact_rate": {
+        "successes": 216,
+        "total": 365,
+        "value": 0.5917808219178082,
+        "lower_95": 0.5406560726504966,
+        "upper_95": 0.640993789092868
+      },
+      "contact_then_goal_rate": {
+        "successes": 53,
+        "total": 365,
+        "value": 0.14520547945205478,
+        "lower_95": 0.11275697640432888,
+        "upper_95": 0.1850443043190825
+      },
+      "root_saturation_rate": {
+        "successes": 56,
+        "total": 365,
+        "value": 0.15342465753424658,
+        "lower_95": 0.12007778331801586,
+        "upper_95": 0.1939906492033088
+      },
+      "invalids": 0,
+      "timeouts": 0,
+      "mask_violations": 0
+    },
+    "stand": {
+      "policy": "stand_center_v1",
+      "attempts": 400,
+      "expected_on_target_attempts": 365,
+      "episode_key_digest": "36949b876a75bd7cc3c9deaa2c887b4ef66f53870687bb447ec148298bc4ef2b",
+      "save_rate": {
+        "successes": 10,
+        "total": 365,
+        "value": 0.0273972602739726,
+        "lower_95": 0.014948422117791231,
+        "upper_95": 0.04969034950219694
+      },
+      "glove_contact_rate": {
+        "successes": 9,
+        "total": 365,
+        "value": 0.024657534246575342,
+        "lower_95": 0.01302557149804729,
+        "upper_95": 0.046190816189303145
+      },
+      "contact_then_goal_rate": {
+        "successes": 23,
+        "total": 365,
+        "value": 0.06301369863013699,
+        "lower_95": 0.042352943238236344,
+        "upper_95": 0.09277681950604258
+      },
+      "root_saturation_rate": {
+        "successes": 0,
+        "total": 365,
+        "value": 0.0,
+        "lower_95": 0.0,
+        "upper_95": 0.010414932293610691
+      },
+      "invalids": 0,
+      "timeouts": 0,
+      "mask_violations": 0
+    },
+    "random": {
+      "policy": "random_hybrid_v1",
+      "attempts": 400,
+      "expected_on_target_attempts": 365,
+      "episode_key_digest": "36949b876a75bd7cc3c9deaa2c887b4ef66f53870687bb447ec148298bc4ef2b",
+      "save_rate": {
+        "successes": 17,
+        "total": 365,
+        "value": 0.04657534246575343,
+        "lower_95": 0.029279844662147902,
+        "upper_95": 0.07331561448630453
+      },
+      "glove_contact_rate": {
+        "successes": 13,
+        "total": 365,
+        "value": 0.03561643835616438,
+        "lower_95": 0.020930587596045876,
+        "upper_95": 0.05997533582185555
+      },
+      "contact_then_goal_rate": {
+        "successes": 21,
+        "total": 365,
+        "value": 0.057534246575342465,
+        "lower_95": 0.03793555920168144,
+        "upper_95": 0.08634943567732198
+      },
+      "root_saturation_rate": {
+        "successes": 32,
+        "total": 365,
+        "value": 0.08767123287671233,
+        "lower_95": 0.06278548056774644,
+        "upper_95": 0.12114573757027222
+      },
+      "invalids": 0,
+      "timeouts": 0,
+      "mask_violations": 0
+    },
+    "contact candidate": {
+      "policy": "native_split_v1:seed-001",
+      "attempts": 400,
+      "expected_on_target_attempts": 365,
+      "episode_key_digest": "36949b876a75bd7cc3c9deaa2c887b4ef66f53870687bb447ec148298bc4ef2b",
+      "save_rate": {
+        "successes": 179,
+        "total": 365,
+        "value": 0.4904109589041096,
+        "lower_95": 0.4394933272258622,
+        "upper_95": 0.5415283290099056
+      },
+      "glove_contact_rate": {
+        "successes": 210,
+        "total": 365,
+        "value": 0.5753424657534246,
+        "lower_95": 0.5241075206274659,
+        "upper_95": 0.6250080375200722
+      },
+      "contact_then_goal_rate": {
+        "successes": 34,
+        "total": 365,
+        "value": 0.09315068493150686,
+        "lower_95": 0.06742565051957147,
+        "upper_95": 0.12735033548372268
+      },
+      "root_saturation_rate": {
+        "successes": 53,
+        "total": 365,
+        "value": 0.14520547945205478,
+        "lower_95": 0.11275697640432888,
+        "upper_95": 0.1850443043190825
+      },
+      "invalids": 0,
+      "timeouts": 0,
+      "mask_violations": 0
+    }
+  },
+  "paired": {
+    "native_vs_reactive_curve": {
+      "attempts": 365,
+      "both_save": 145,
+      "left_only_save": 8,
+      "right_only_save": 12,
+      "both_fail": 200,
+      "left_save_rate": 0.4191780821917808,
+      "right_save_rate": 0.4301369863013699,
+      "right_minus_left": 0.010958904109589041,
+      "union_save_rate": 0.4520547945205479
+    },
+    "native_vs_reactive_motor": {
+      "attempts": 365,
+      "both_save": 65,
+      "left_only_save": 88,
+      "right_only_save": 6,
+      "both_fail": 206,
+      "left_save_rate": 0.4191780821917808,
+      "right_save_rate": 0.19452054794520549,
+      "right_minus_left": -0.22465753424657534,
+      "union_save_rate": 0.43561643835616437
+    },
+    "native_delay2_vs_native_delay0": {
+      "attempts": 365,
+      "both_save": 149,
+      "left_only_save": 4,
+      "right_only_save": 17,
+      "both_fail": 195,
+      "left_save_rate": 0.4191780821917808,
+      "right_save_rate": 0.4547945205479452,
+      "right_minus_left": 0.03561643835616438,
+      "union_save_rate": 0.4657534246575342
+    },
+    "native_vs_contact_candidate": {
+      "attempts": 365,
+      "both_save": 151,
+      "left_only_save": 2,
+      "right_only_save": 28,
+      "both_fail": 184,
+      "left_save_rate": 0.4191780821917808,
+      "right_save_rate": 0.4904109589041096,
+      "right_minus_left": 0.07123287671232877,
+      "union_save_rate": 0.4958904109589041
+    }
+  },
+  "offline_capability_oracle": {
+    "label": "offline_motor_capability_estimate_not_a_policy_score",
+    "attempts": 365,
+    "reachable_rate": {
+      "successes": 237,
+      "total": 365,
+      "value": 0.6493150684931507,
+      "lower_95": 0.5990367580301909,
+      "upper_95": 0.6964831662985665
+    },
+    "root_saturated_rate": {
+      "successes": 59,
+      "total": 365,
+      "value": 0.16164383561643836,
+      "lower_95": 0.127434531980886,
+      "upper_95": 0.20290105233835187
+    },
+    "insufficient_full_reach_time_rate": {
+      "successes": 107,
+      "total": 365,
+      "value": 0.29315068493150687,
+      "lower_95": 0.2487995850820994,
+      "upper_95": 0.3418104280037504
+    },
+    "by_horizontal_band": {
+      "central": {
+        "successes": 136,
+        "total": 149,
+        "value": 0.912751677852349,
+        "lower_95": 0.856452134172779,
+        "upper_95": 0.9483033356392266
+      },
+      "inner": {
+        "successes": 86,
+        "total": 133,
+        "value": 0.6466165413533834,
+        "lower_95": 0.5623036100371858,
+        "upper_95": 0.7226977363099208
+      },
+      "outer": {
+        "successes": 15,
+        "total": 83,
+        "value": 0.18072289156626506,
+        "lower_95": 0.11269365829519953,
+        "upper_95": 0.2769987683436512
+      }
+    }
+  },
+  "contact_diagnosis": {
+    "contact_attempts": 213,
+    "contact_save_rate": {
+      "successes": 153,
+      "total": 213,
+      "value": 0.7183098591549296,
+      "lower_95": 0.6544463072204263,
+      "upper_95": 0.7744384665022113
+    },
+    "contact_then_goal_rate": {
+      "successes": 60,
+      "total": 213,
+      "value": 0.28169014084507044,
+      "lower_95": 0.22556153349778882,
+      "upper_95": 0.3455536927795739
+    },
+    "low_shot_save_rate": {
+      "successes": 49,
+      "total": 165,
+      "value": 0.296969696969697,
+      "lower_95": 0.23251337813475736,
+      "upper_95": 0.37066465368293444
+    },
+    "low_contact_save_rate": {
+      "successes": 49,
+      "total": 90,
+      "value": 0.5444444444444444,
+      "lower_95": 0.44184633569208204,
+      "upper_95": 0.6434038309244221
+    },
+    "median_contact_z_m": 0.653045654296875,
+    "rear_contact_save_rate": {
+      "successes": 59,
+      "total": 106,
+      "value": 0.5566037735849056,
+      "lower_95": 0.46169918065155957,
+      "upper_95": 0.647549186302387
+    },
+    "forward_contact_save_rate": {
+      "successes": 94,
+      "total": 107,
+      "value": 0.8785046728971962,
+      "lower_95": 0.8031678343823965,
+      "upper_95": 0.9276056583323826
+    },
+    "candidate_status": "not_promoted_requires_controlled_runtime_ab_test",
+    "runtime_candidate": {
+      "contract_id": "stage6-contact-candidate-v1",
+      "paired": {
+        "attempts": 365,
+        "both_save": 151,
+        "left_only_save": 2,
+        "right_only_save": 28,
+        "both_fail": 184,
+        "left_save_rate": 0.4191780821917808,
+        "right_save_rate": 0.4904109589041096,
+        "right_minus_left": 0.07123287671232877,
+        "union_save_rate": 0.4958904109589041
+      },
+      "baseline_low_save_rate": {
+        "successes": 49,
+        "total": 165,
+        "value": 0.296969696969697,
+        "lower_95": 0.23251337813475736,
+        "upper_95": 0.37066465368293444
+      },
+      "candidate_low_save_rate": {
+        "successes": 64,
+        "total": 165,
+        "value": 0.3878787878787879,
+        "lower_95": 0.31688754097139255,
+        "upper_95": 0.46397196913688493
+      },
+      "low_save_rate_gain": 0.09090909090909088,
+      "overall_save_rate_gain": 0.07123287671232877,
+      "passes_gameplay_gain_gate": true,
+      "promotion_status": "eligible_for_physical_realism_review_not_promoted",
+      "regressions": {
+        "canonical": {
+          "attempts": 400,
+          "both_save": 248,
+          "left_only_save": 2,
+          "right_only_save": 48,
+          "both_fail": 102,
+          "left_save_rate": 0.625,
+          "right_save_rate": 0.74,
+          "right_minus_left": 0.115,
+          "union_save_rate": 0.745
+        },
+        "high_shot": {
+          "attempts": 400,
+          "both_save": 276,
+          "left_only_save": 0,
+          "right_only_save": 29,
+          "both_fail": 95,
+          "left_save_rate": 0.69,
+          "right_save_rate": 0.7625,
+          "right_minus_left": 0.0725,
+          "union_save_rate": 0.7625
+        },
+        "passed": true
+      }
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "model_b_timing",
+      "verdict": "latency_decomposition_required_before_retraining",
+      "reason": "Removing the 40 ms delay improves native saves by at least three points, but this ablation also changes Model A inputs."
+    },
+    {
+      "priority": "motor_capability",
+      "verdict": "validate_fair_anticipation_before_training",
+      "reason": "At least ten percent of expected-on-target shots saturate the frozen root target."
+    },
+    {
+      "priority": "contact_physics",
+      "verdict": "eligible_for_physical_realism_review_not_promoted",
+      "reason": "The candidate passed gameplay and regression gates; visual deflection realism remains unproven."
+    }
+  ],
+  "safety_invariants_passed": true
+}
