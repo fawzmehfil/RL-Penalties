@@ -32,7 +32,8 @@
     "stage5.native_split_inference": 0,
     "stage6.committed_glove_forward_m": 0.28,
     "stage6.observation_delay_ticks": 2,
-    "stage6.glove_handling_v1": 1
+    "stage6.glove_handling_v1": 1,
+    "stage6.glove_handling_version": 1
   },
   "save_outcomes": ["Saved", "BlockedThenOut"],
   "failure_outcomes": ["Goal"]

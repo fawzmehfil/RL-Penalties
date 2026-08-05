@@ -126,6 +126,8 @@ class BenchmarkConfig:
     primary_population: str = "all_attempts"
     shot_contract_id: str | None = None
     shot_physics_id: str | None = None
+    glove_handling_id: str | None = None
+    glove_geometry_id: str | None = None
 
 
 class GoalkeeperPolicy:
@@ -1074,6 +1076,16 @@ def load_benchmark_config(path: Path) -> BenchmarkConfig:
             if raw.get("shot_physics_id") is not None
             else None
         ),
+        glove_handling_id=(
+            str(raw["glove_handling_id"])
+            if raw.get("glove_handling_id") is not None
+            else None
+        ),
+        glove_geometry_id=(
+            str(raw["glove_geometry_id"])
+            if raw.get("glove_geometry_id") is not None
+            else None
+        ),
     )
     validate_benchmark_config(config)
     return config
@@ -1190,6 +1202,41 @@ def validate_benchmark_config(config: BenchmarkConfig) -> None:
             raise ValueError(
                 "keeper-control-forward-v1 requires "
                 "stage6.committed_glove_forward_m=0.28"
+            )
+    if config.glove_handling_id is not None:
+        supported_glove_contracts = {
+            "keeper-glove-physx-legacy-v1": 0.0,
+            "keeper-glove-handling-v1": 1.0,
+            "keeper-glove-handling-v2": 2.0,
+        }
+        if config.glove_handling_id not in supported_glove_contracts:
+            raise ValueError(
+                f"Unsupported glove handling contract: {config.glove_handling_id}"
+            )
+        expected_version = supported_glove_contracts[config.glove_handling_id]
+        configured_version = config.environment_parameters.get(
+            "stage6.glove_handling_version"
+        )
+        if configured_version is not None and configured_version != expected_version:
+            raise ValueError(
+                f"{config.glove_handling_id} requires "
+                f"stage6.glove_handling_version={expected_version:g}"
+            )
+        if (
+            config.glove_handling_id == "keeper-glove-handling-v2"
+            and config.environment_parameters.get("stage6.glove_handling_profile")
+            not in {0.0, 1.0, 2.0}
+        ):
+            raise ValueError(
+                "keeper-glove-handling-v2 requires a fixed "
+                "stage6.glove_handling_profile in {0,1,2}"
+            )
+        if (
+            config.glove_handling_id != "keeper-glove-physx-legacy-v1"
+            and config.glove_geometry_id != "goalkeeper-palm-compound-v1"
+        ):
+            raise ValueError(
+                "Versioned glove handling requires goalkeeper-palm-compound-v1"
             )
     if config.arena_count <= 0 or config.attempts_per_arena <= 0:
         raise ValueError("arena_count and attempts_per_arena must be positive")
@@ -1644,6 +1691,16 @@ def aggregate_policy(
             str(item.get("glove_handling_outcome", "None"))
             for item in glove_handling_episodes
         )
+        classified_contact_episodes = [
+            item
+            for item in glove_handling_episodes
+            if str(item.get("glove_handling_outcome", "None")) != "None"
+        ]
+        classified_total = len(classified_contact_episodes)
+        rejection_reasons = Counter(
+            str(item.get("glove_handling_rejection_reason", "None"))
+            for item in classified_contact_episodes
+        )
         report["glove_handling"] = {
             "contract_id": next(
                 (
@@ -1662,11 +1719,16 @@ def aggregate_policy(
                 "",
             ),
             "enabled_attempts": len(glove_handling_episodes),
-            "classified_contact_attempts": sum(
-                count
-                for outcome, count in handling_outcomes.items()
-                if outcome != "None"
-            ),
+            "versions": dict(sorted(Counter(
+                int(item.get("glove_handling_version", 1))
+                for item in glove_handling_episodes
+            ).items())),
+            "profiles": dict(sorted(Counter(
+                str(item.get("glove_handling_profile_id", ""))
+                for item in glove_handling_episodes
+                if item.get("glove_handling_profile_id")
+            ).items())),
+            "classified_contact_attempts": classified_total,
             "outcomes": dict(sorted(handling_outcomes.items())),
             "catch_rate": rate(
                 handling_outcomes["Catch"], len(glove_handling_episodes)
@@ -1684,6 +1746,43 @@ def aggregate_policy(
             "uncontrolled_rate": rate(
                 handling_outcomes["Uncontrolled"],
                 len(glove_handling_episodes),
+            ),
+            "catch_share_of_contacts": rate(
+                handling_outcomes["Catch"], classified_total
+            ),
+            "punch_share_of_contacts": rate(
+                handling_outcomes["Punch"], classified_total
+            ),
+            "controlled_catch_punch_share_of_contacts": rate(
+                handling_outcomes["Catch"] + handling_outcomes["Punch"],
+                classified_total,
+            ),
+            "uncontrolled_share_of_contacts": rate(
+                handling_outcomes["Uncontrolled"], classified_total
+            ),
+            "rejection_reasons": dict(sorted(rejection_reasons.items())),
+            "candidate_contact_count": numeric_summary([
+                float(item.get("glove_candidate_contact_count", 0))
+                for item in classified_contact_episodes
+            ]),
+            "forward_glove_speed_mps": numeric_summary([
+                float(item.get("glove_forward_speed_mps", 0.0))
+                for item in classified_contact_episodes
+            ]),
+            "capture_distance_m": numeric_summary([
+                float(item.get("glove_capture_distance_m", 0.0))
+                for item in classified_contact_episodes
+            ]),
+            "controlled_response_violations": sum(
+                int(item.get("glove_controlled_response_count", 0)) > 1
+                for item in glove_handling_episodes
+            ),
+            "maximum_controlled_response_count": max(
+                (
+                    int(item.get("glove_controlled_response_count", 0))
+                    for item in glove_handling_episodes
+                ),
+                default=0,
             ),
             "energy_cap_violations": sum(
                 float(item.get("glove_outgoing_energy_ratio", 0.0)) > 0.9501
@@ -2911,6 +3010,8 @@ def build_report(
         "primary_population": config.primary_population,
         "shot_contract_id": config.shot_contract_id,
         "shot_physics_id": config.shot_physics_id,
+        "glove_handling_id": config.glove_handling_id,
+        "glove_geometry_id": config.glove_geometry_id,
         "minimum_trained_margin_vs_baselines": 0.05,
         "comparisons": comparisons,
         "passed": passed and full,
