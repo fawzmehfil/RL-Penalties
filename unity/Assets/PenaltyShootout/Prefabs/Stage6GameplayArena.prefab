@@ -3138,10 +3138,13 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier:
   configuration: {fileID: 11400000, guid: 729c774164e824b4297d4c4bfb5f3676, type: 2}
+  configurationV2: {fileID: 11400000, guid: 7a62995ea234c4d01afdd39ca5321e75, type: 2}
   motor: {fileID: 3102227255857640564}
   ball: {fileID: 2431369412023470612}
   geometry: {fileID: 1834914084963447792}
   handlingEnabled: 1
+  handlingVersion: 1
+  profileV2: 1
 --- !u!114 &1834914084963447792
 MonoBehaviour:
   m_ObjectHideFlags: 0

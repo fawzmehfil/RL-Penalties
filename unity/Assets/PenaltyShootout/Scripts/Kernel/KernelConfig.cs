@@ -29,6 +29,8 @@ namespace PenaltyShootout.Kernel
             "keeper-control-forward-v1";
         public const string GoalkeeperGloveHandlingContractId =
             "keeper-glove-handling-v1";
+        public const string GoalkeeperGloveHandlingV2ContractId =
+            "keeper-glove-handling-v2";
         public const string GoalkeeperPalmGeometryId =
             "goalkeeper-palm-compound-v1";
         public const string GoalkeeperLegacyGloveHandlingId =

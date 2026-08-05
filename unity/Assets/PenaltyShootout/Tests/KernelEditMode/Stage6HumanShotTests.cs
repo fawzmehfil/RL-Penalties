@@ -456,6 +456,153 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(back.Region, Is.EqualTo(GloveContactRegionV1.Back));
         }
 
+        [Test]
+        public void GloveV2ProfilesAreFrozenToTheCalibrationTable()
+        {
+            var conservative = GoalkeeperGloveCalibrationProfilesV2.Get(
+                GoalkeeperGloveCalibrationProfileV2.Conservative);
+            var balanced = GoalkeeperGloveCalibrationProfilesV2.Get(
+                GoalkeeperGloveCalibrationProfileV2.Balanced);
+            var permissive = GoalkeeperGloveCalibrationProfilesV2.Get(
+                GoalkeeperGloveCalibrationProfileV2.Permissive);
+
+            Assert.That(conservative.CatchAlignment, Is.EqualTo(0.70f));
+            Assert.That(conservative.PunchForwardSpeed, Is.EqualTo(1.00f));
+            Assert.That(balanced.OneHandCatchMaximumSpeed, Is.EqualTo(9f));
+            Assert.That(balanced.CentralExtent, Is.EqualTo(0.82f));
+            Assert.That(permissive.TwoHandCatchMaximumSpeed, Is.EqualTo(20f));
+            Assert.That(permissive.PunchAlignment, Is.EqualTo(0.30f));
+        }
+
+        [Test]
+        public void GloveV2ReconstructsCommandedImpactVelocity()
+        {
+            var commandedIncoming = new Vector3(1.5f, -0.25f, 17f);
+            var measuredGlove = new Vector3(-0.5f, 0.75f, -1.25f);
+            var relativeImpact = commandedIncoming - measuredGlove;
+
+            var reconstructed =
+                GoalkeeperGloveHandlingV1.ReconstructIncomingBallVelocity(
+                    relativeImpact,
+                    measuredGlove);
+
+            Assert.That(
+                Vector3.Distance(reconstructed, commandedIncoming),
+                Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(
+                Mathf.Abs(reconstructed.magnitude - commandedIncoming.magnitude),
+                Is.LessThanOrEqualTo(0.5f));
+        }
+
+        [Test]
+        public void GloveV2CandidateSelectionPrefersFrontPalmThenStableLeftHand()
+        {
+            var thresholds = GoalkeeperGloveCalibrationProfilesV2.Get(
+                GoalkeeperGloveCalibrationProfileV2.Balanced);
+            var candidates = new[]
+            {
+                CreateV2Candidate(
+                    GloveContactRegionV1.Palm,
+                    GoalkeeperContactPart.LeftGlove,
+                    new Vector3(0f, 0f, 12f),
+                    Vector3.zero,
+                    0.1f),
+                CreateV2Candidate(
+                    GloveContactRegionV1.Fingers,
+                    GoalkeeperContactPart.RightGlove,
+                    new Vector3(0f, 0f, -12f),
+                    Vector3.zero,
+                    0.1f),
+                CreateV2Candidate(
+                    GloveContactRegionV1.Palm,
+                    GoalkeeperContactPart.RightGlove,
+                    new Vector3(0f, 0f, -12f),
+                    Vector3.zero,
+                    0.1f),
+                CreateV2Candidate(
+                    GloveContactRegionV1.Palm,
+                    GoalkeeperContactPart.LeftGlove,
+                    new Vector3(0f, 0f, -12f),
+                    Vector3.zero,
+                    0.1f),
+            };
+
+            var selected = GoalkeeperGloveHandlingPolicyV2.SelectCandidate(
+                candidates,
+                thresholds);
+
+            Assert.That(selected, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void GloveV2BalancedProfileSeparatesCatchAndMeasuredPunch()
+        {
+            var configuration = CreateGloveHandlingV2();
+            var thresholds = GoalkeeperGloveCalibrationProfilesV2.Get(
+                GoalkeeperGloveCalibrationProfileV2.Balanced);
+            var caught = GoalkeeperGloveHandlingPolicyV2.Resolve(
+                CreateV2Candidate(
+                    GloveContactRegionV1.Palm,
+                    GoalkeeperContactPart.LeftGlove,
+                    new Vector3(0f, 0f, -8.5f),
+                    Vector3.zero,
+                    0.2f),
+                thresholds,
+                configuration);
+            var punched = GoalkeeperGloveHandlingPolicyV2.Resolve(
+                CreateV2Candidate(
+                    GloveContactRegionV1.Palm,
+                    GoalkeeperContactPart.RightGlove,
+                    new Vector3(0f, 0f, -14f),
+                    new Vector3(0f, 0f, 0.9f),
+                    0.2f),
+                thresholds,
+                configuration);
+            var belowThreshold = GoalkeeperGloveHandlingPolicyV2.Resolve(
+                CreateV2Candidate(
+                    GloveContactRegionV1.Palm,
+                    GoalkeeperContactPart.RightGlove,
+                    new Vector3(0f, 0f, -14f),
+                    new Vector3(0f, 0f, 0.79f),
+                    0.2f),
+                thresholds,
+                configuration);
+
+            Assert.That(caught.Outcome, Is.EqualTo(GloveHandlingOutcomeV1.Catch));
+            Assert.That(punched.Outcome, Is.EqualTo(GloveHandlingOutcomeV1.Punch));
+            Assert.That(punched.PunchEligible, Is.True);
+            Assert.That(punched.EnergyRatio, Is.LessThanOrEqualTo(0.95001f));
+            Assert.That(
+                belowThreshold.Outcome,
+                Is.Not.EqualTo(GloveHandlingOutcomeV1.Punch));
+            Assert.That(
+                belowThreshold.RejectionReason,
+                Is.EqualTo(GloveHandlingRejectionReasonV2.PunchTooSlow));
+        }
+
+        [Test]
+        public void GloveV2RejectsCatchAfterWholeBallCrossesGoalLine()
+        {
+            var decision = GoalkeeperGloveHandlingPolicyV2.Resolve(
+                CreateV2Candidate(
+                    GloveContactRegionV1.Palm,
+                    GoalkeeperContactPart.LeftGlove,
+                    new Vector3(0f, 0f, -7f),
+                    Vector3.zero,
+                    0.1f,
+                    wholeBallAcross: true),
+                GoalkeeperGloveCalibrationProfilesV2.Get(
+                    GoalkeeperGloveCalibrationProfileV2.Balanced),
+                CreateGloveHandlingV2());
+
+            Assert.That(
+                decision.Outcome,
+                Is.EqualTo(GloveHandlingOutcomeV1.Uncontrolled));
+            Assert.That(
+                decision.RejectionReason,
+                Is.EqualTo(GloveHandlingRejectionReasonV2.AcrossGoalLine));
+        }
+
         private PlayerShotPhysicsConfigV1 CreatePhysics()
         {
             var configuration =
@@ -470,6 +617,50 @@ namespace PenaltyShootout.Kernel.Tests
                 ScriptableObject.CreateInstance<GoalkeeperGloveHandlingConfigV1>();
             created.Add(configuration);
             return configuration;
+        }
+
+        private GoalkeeperGloveHandlingConfigV2 CreateGloveHandlingV2()
+        {
+            var configuration =
+                ScriptableObject.CreateInstance<GoalkeeperGloveHandlingConfigV2>();
+            created.Add(configuration);
+            return configuration;
+        }
+
+        private GloveContactCandidateV2 CreateV2Candidate(
+            GloveContactRegionV1 region,
+            GoalkeeperContactPart part,
+            Vector3 incoming,
+            Vector3 gloveVelocity,
+            float extent,
+            bool wholeBallAcross = false)
+        {
+            var surfaceObject = new GameObject($"Test_{part}_{region}");
+            created.Add(surfaceObject);
+            var surface = surfaceObject.AddComponent<GloveContactSurfaceV1>();
+            surface.Configure(part, region);
+            var contact = new BallContactEventV1(
+                ContactKind.Goalkeeper,
+                part,
+                new ContactKinematics
+                {
+                    HasValue = true,
+                    RelativeVelocityWorld = incoming - gloveVelocity,
+                    BallVelocityWorld = incoming,
+                },
+                surface);
+            return new GloveContactCandidateV2(
+                contact,
+                incoming,
+                gloveVelocity,
+                Vector3.forward,
+                extent,
+                0.14f,
+                false,
+                0.5f,
+                true,
+                wholeBallAcross,
+                true);
         }
 
         private static float PearsonCorrelation(

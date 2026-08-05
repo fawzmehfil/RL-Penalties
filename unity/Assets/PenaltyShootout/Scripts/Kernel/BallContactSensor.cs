@@ -10,6 +10,8 @@ namespace PenaltyShootout.Kernel
     {
         private readonly List<PendingContact> pendingContacts =
             new List<PendingContact>(8);
+        private readonly List<BallContactEventV1> pendingGloveCandidates =
+            new List<BallContactEventV1>(8);
         private Rigidbody body;
         private long attemptId;
 
@@ -52,6 +54,50 @@ namespace PenaltyShootout.Kernel
                             ? Vector3.zero
                             : body.linearVelocity,
                     }));
+
+            CaptureCompoundGloveCandidates(collision);
+        }
+
+        private void CaptureCompoundGloveCandidates(Collision collision)
+        {
+            for (var index = 0; index < collision.contactCount; index++)
+            {
+                var contact = collision.GetContact(index);
+                var otherCollider = contact.otherCollider;
+                if (otherCollider == null ||
+                    otherCollider.transform == transform ||
+                    otherCollider.transform.IsChildOf(transform))
+                {
+                    continue;
+                }
+
+                var marker = otherCollider.GetComponentInParent<ContactMarker>();
+                var surface =
+                    otherCollider.GetComponentInParent<GloveContactSurfaceV1>();
+                if (marker == null || surface == null ||
+                    marker.Kind != ContactKind.Goalkeeper ||
+                    (marker.GoalkeeperPart != GoalkeeperContactPart.LeftGlove &&
+                     marker.GoalkeeperPart != GoalkeeperContactPart.RightGlove))
+                {
+                    continue;
+                }
+
+                pendingGloveCandidates.Add(new BallContactEventV1(
+                    marker.Kind,
+                    marker.GoalkeeperPart,
+                    new ContactKinematics
+                    {
+                        HasValue = true,
+                        PointWorld = contact.point,
+                        NormalWorld = contact.normal,
+                        ImpulseWorld = collision.impulse,
+                        RelativeVelocityWorld = collision.relativeVelocity,
+                        BallVelocityWorld = body == null
+                            ? Vector3.zero
+                            : body.linearVelocity,
+                    },
+                    surface));
+            }
         }
 
         private ContactMarker ResolveContactMarker(
@@ -121,7 +167,8 @@ namespace PenaltyShootout.Kernel
         public void Drain(
             ContactHistory history,
             float attemptTime,
-            Action<BallContactEventV1> contactCallback = null)
+            Action<BallContactEventV1> contactCallback = null,
+            Action<IReadOnlyList<BallContactEventV1>> compoundGloveCallback = null)
         {
             for (var index = 0; index < pendingContacts.Count; index++)
             {
@@ -138,18 +185,25 @@ namespace PenaltyShootout.Kernel
                     pending.GloveSurface));
             }
 
+            if (pendingGloveCandidates.Count > 0)
+            {
+                compoundGloveCallback?.Invoke(pendingGloveCandidates);
+            }
+
             pendingContacts.Clear();
+            pendingGloveCandidates.Clear();
         }
 
         public void ResetForAttempt(long nextAttemptId, ulong seed)
         {
             attemptId = nextAttemptId;
             pendingContacts.Clear();
+            pendingGloveCandidates.Clear();
         }
 
         public bool ValidateReset(out string error)
         {
-            if (pendingContacts.Count != 0)
+            if (pendingContacts.Count != 0 || pendingGloveCandidates.Count != 0)
             {
                 error = $"Ball contact buffer was not cleared for attempt {attemptId}.";
                 return false;

@@ -21,6 +21,8 @@ namespace PenaltyShootout.Stage0.Editor
             "Assets/PenaltyShootout/Config/HumanShotDistributionV1.asset";
         public const string GloveHandlingPath =
             "Assets/PenaltyShootout/Config/GoalkeeperGloveHandlingV1.asset";
+        public const string GloveHandlingV2Path =
+            "Assets/PenaltyShootout/Config/GoalkeeperGloveHandlingV2.asset";
         public const string PrefabPath =
             "Assets/PenaltyShootout/Prefabs/Stage6GameplayArena.prefab";
         public const string LabScenePath =
@@ -41,10 +43,22 @@ namespace PenaltyShootout.Stage0.Editor
                 GetOrCreate<HumanShotDistributionConfigV1>(DistributionPath);
             var gloveHandling =
                 GetOrCreate<GoalkeeperGloveHandlingConfigV1>(GloveHandlingPath);
-            Validate(physics, distribution, gloveHandling);
-            CreateArenaPrefab(physics, distribution, gloveHandling);
-            CreateLabScene(distribution);
-            CreateBaselineScene();
+            var gloveHandlingV2 =
+                GetOrCreate<GoalkeeperGloveHandlingConfigV2>(GloveHandlingV2Path);
+            Validate(physics, distribution, gloveHandling, gloveHandlingV2);
+            CreateArenaPrefab(
+                physics,
+                distribution,
+                gloveHandling,
+                gloveHandlingV2);
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(LabScenePath) == null)
+            {
+                CreateLabScene(distribution);
+            }
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(BaselineScenePath) == null)
+            {
+                CreateBaselineScene();
+            }
             RegisterStage6Scenes();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
@@ -118,7 +132,8 @@ namespace PenaltyShootout.Stage0.Editor
         private static void Validate(
             PlayerShotPhysicsConfigV1 physics,
             HumanShotDistributionConfigV1 distribution,
-            GoalkeeperGloveHandlingConfigV1 gloveHandling)
+            GoalkeeperGloveHandlingConfigV1 gloveHandling,
+            GoalkeeperGloveHandlingConfigV2 gloveHandlingV2)
         {
             if (!physics.Validate(out var physicsError))
             {
@@ -132,12 +147,17 @@ namespace PenaltyShootout.Stage0.Editor
             {
                 throw new InvalidOperationException(gloveError);
             }
+            if (!gloveHandlingV2.Validate(out var gloveV2Error))
+            {
+                throw new InvalidOperationException(gloveV2Error);
+            }
         }
 
         private static void CreateArenaPrefab(
             PlayerShotPhysicsConfigV1 physics,
             HumanShotDistributionConfigV1 distribution,
-            GoalkeeperGloveHandlingConfigV1 gloveHandling)
+            GoalkeeperGloveHandlingConfigV1 gloveHandling,
+            GoalkeeperGloveHandlingConfigV2 gloveHandlingV2)
         {
             if (AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) == null &&
                 !AssetDatabase.CopyAsset(Stage5ProjectBuilder.PrefabPath, PrefabPath))
@@ -161,9 +181,10 @@ namespace PenaltyShootout.Stage0.Editor
                 }
                 handler.Configure(
                     gloveHandling,
+                    gloveHandlingV2,
                     controller.GoalkeeperControlMotor,
                     controller.Ball,
-                    true);
+                    1);
                 controller.GoalkeeperGloveHandling = handler;
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
             }

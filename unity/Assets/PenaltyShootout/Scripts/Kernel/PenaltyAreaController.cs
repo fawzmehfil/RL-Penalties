@@ -1016,9 +1016,14 @@ namespace PenaltyShootout.Kernel
             ballContactSensor.Drain(
                 contactHistory,
                 attemptTime,
-                goalkeeperGloveHandling == null
+                goalkeeperGloveHandling == null ||
+                    goalkeeperGloveHandling.HandlingVersion != 1
                     ? null
-                    : goalkeeperGloveHandling.ProcessContact);
+                    : goalkeeperGloveHandling.ProcessContact,
+                goalkeeperGloveHandling == null ||
+                    goalkeeperGloveHandling.HandlingVersion != 2
+                    ? null
+                    : goalkeeperGloveHandling.ProcessContactsV2);
             if (!hadGoalkeeperContact && contactHistory.GoalkeeperTouched)
             {
                 CaptureFirstContactMotorKinematics();
@@ -1590,12 +1595,9 @@ namespace PenaltyShootout.Kernel
                 CommittedGloveForward = goalkeeperControlMotor == null
                     ? 0f
                     : goalkeeperControlMotor.CommittedGloveForward,
-                GloveHandlingId = goalkeeperGloveHandling == null ||
-                    goalkeeperGloveHandling.Configuration == null
+                GloveHandlingId = goalkeeperGloveHandling == null
                     ? string.Empty
-                    : goalkeeperGloveHandling.HandlingEnabled
-                        ? goalkeeperGloveHandling.Configuration.ContractId
-                        : KernelConstants.GoalkeeperLegacyGloveHandlingId,
+                    : goalkeeperGloveHandling.HandlingContractId,
                 GloveGeometryId = goalkeeperGloveHandling == null ||
                     goalkeeperGloveHandling.Configuration == null
                     ? string.Empty
@@ -1604,15 +1606,43 @@ namespace PenaltyShootout.Kernel
                         : KernelConstants.GoalkeeperLegacySphereGeometryId,
                 GloveHandlingEnabled = goalkeeperGloveHandling != null &&
                     goalkeeperGloveHandling.HandlingEnabled,
+                GloveHandlingVersion = goalkeeperGloveHandling == null
+                    ? 0
+                    : goalkeeperGloveHandling.HandlingVersion,
+                GloveHandlingProfileId = goalkeeperGloveHandling == null
+                    ? string.Empty
+                    : goalkeeperGloveHandling.ProfileId,
                 GloveHandlingOutcome = goalkeeperGloveHandling == null
                     ? GloveHandlingOutcomeV1.None
                     : goalkeeperGloveHandling.Decision.Outcome,
+                GloveInitialContactRegion = goalkeeperGloveHandling == null
+                    ? GloveContactRegionV1.None
+                    : goalkeeperGloveHandling.HandlingVersion == 2
+                        ? goalkeeperGloveHandling.InitialContactRegionV2
+                        : goalkeeperGloveHandling.Decision.Region,
                 GloveContactRegion = goalkeeperGloveHandling == null
                     ? GloveContactRegionV1.None
                     : goalkeeperGloveHandling.Decision.Region,
+                GloveCandidateContactCount = goalkeeperGloveHandling == null
+                    ? 0
+                    : goalkeeperGloveHandling.CandidateContactCount,
+                GloveRelativeImpactVelocityLocal = goalkeeperGloveHandling == null
+                    ? Vector3.zero
+                    : ToLocalDirection(
+                        goalkeeperGloveHandling.RelativeImpactVelocityWorld),
+                GloveReconstructedIncomingVelocityLocal =
+                    goalkeeperGloveHandling == null
+                        ? Vector3.zero
+                        : ToLocalDirection(
+                            goalkeeperGloveHandling
+                                .ReconstructedIncomingVelocityWorld),
                 GlovePalmAlignment = goalkeeperGloveHandling == null
                     ? 0f
                     : goalkeeperGloveHandling.Decision.PalmAlignment,
+                GloveForwardSpeed = goalkeeperGloveHandling == null ||
+                    goalkeeperGloveHandling.HandlingVersion != 2
+                    ? 0f
+                    : goalkeeperGloveHandling.DecisionV2.ForwardGloveSpeed,
                 GloveIncomingSpeed = goalkeeperGloveHandling == null
                     ? 0f
                     : goalkeeperGloveHandling.Decision.IncomingSpeed,
@@ -1622,6 +1652,20 @@ namespace PenaltyShootout.Kernel
                 GloveOutgoingEnergyRatio = goalkeeperGloveHandling == null
                     ? 0f
                     : goalkeeperGloveHandling.Decision.EnergyRatio,
+                GloveCatchEligible = goalkeeperGloveHandling != null &&
+                    goalkeeperGloveHandling.HandlingVersion == 2 &&
+                    goalkeeperGloveHandling.DecisionV2.CatchEligible,
+                GlovePunchEligible = goalkeeperGloveHandling != null &&
+                    goalkeeperGloveHandling.HandlingVersion == 2 &&
+                    goalkeeperGloveHandling.DecisionV2.PunchEligible,
+                GloveHandlingRejectionReason = goalkeeperGloveHandling == null ||
+                    goalkeeperGloveHandling.HandlingVersion != 2
+                    ? GloveHandlingRejectionReasonV2.None
+                    : goalkeeperGloveHandling.DecisionV2.RejectionReason,
+                GloveCaptureDistance = goalkeeperGloveHandling == null ||
+                    goalkeeperGloveHandling.HandlingVersion != 2
+                    ? 0f
+                    : goalkeeperGloveHandling.DecisionV2.CaptureDistance,
                 GloveTwoHandCandidate = goalkeeperGloveHandling != null &&
                     goalkeeperGloveHandling.Decision.TwoHandCandidate,
                 GloveTwoHandSeparation = goalkeeperGloveHandling == null
@@ -1634,6 +1678,12 @@ namespace PenaltyShootout.Kernel
                     ? Vector3.zero
                     : ToLocalDirection(
                         goalkeeperGloveHandling.AppliedImpulseWorld),
+                GlovePossessionHandCount = goalkeeperGloveHandling == null
+                    ? 0
+                    : goalkeeperGloveHandling.PossessionHandCount,
+                GloveControlledResponseCount = goalkeeperGloveHandling == null
+                    ? 0
+                    : goalkeeperGloveHandling.ControlledResponseCount,
                 GlovePossessionDuration = goalkeeperGloveHandling == null
                     ? 0f
                     : goalkeeperGloveHandling.PossessionTime,

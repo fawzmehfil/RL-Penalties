@@ -193,5 +193,135 @@ namespace PenaltyShootout.Kernel.Tests
 
             Assert.That(runtimeCrossingErrors, Is.Not.Empty);
         }
+
+        [UnityTest]
+        [Category("Stage6Acceptance")]
+        public IEnumerator GloveImpactVelocityMatchesCommandedIncomingSpeed()
+        {
+            var glove = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            glove.name = "Stage6V2ImpactFixtureGlove";
+            glove.transform.position = new Vector3(100f, 1f, 0f);
+            glove.transform.localScale = new Vector3(0.5f, 0.5f, 0.1f);
+            var marker = glove.AddComponent<ContactMarker>();
+            marker.Kind = ContactKind.Goalkeeper;
+            marker.GoalkeeperPart = GoalkeeperContactPart.LeftGlove;
+            glove.AddComponent<GloveContactSurfaceV1>().Configure(
+                GoalkeeperContactPart.LeftGlove,
+                GloveContactRegionV1.Palm);
+
+            var ball = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            ball.name = "Stage6V2ImpactFixtureBall";
+            ball.transform.position = new Vector3(100f, 1f, 0.8f);
+            ball.transform.localScale = Vector3.one *
+                KernelConstants.BallRadius * 2f;
+            var body = ball.AddComponent<Rigidbody>();
+            body.useGravity = false;
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            var sensor = ball.AddComponent<BallContactSensor>();
+            body.linearVelocity = new Vector3(0f, 0f, -15f);
+
+            var history = new ContactHistory();
+            BallContactEventV1? captured = null;
+            for (var tick = 0; tick < 20 && !captured.HasValue; tick++)
+            {
+                yield return new WaitForFixedUpdate();
+                sensor.Drain(
+                    history,
+                    tick * Time.fixedDeltaTime,
+                    null,
+                    contacts =>
+                    {
+                        if (contacts.Count > 0)
+                        {
+                            captured = contacts[0];
+                        }
+                    });
+            }
+
+            Assert.That(captured.HasValue, Is.True);
+            Assert.That(
+                captured.Value.Kinematics.RelativeVelocityWorld.magnitude,
+                Is.EqualTo(15f).Within(0.5f));
+
+            UnityEngine.Object.Destroy(ball);
+            UnityEngine.Object.Destroy(glove);
+            yield return null;
+        }
+
+        [UnityTest]
+        [Category("Stage6Acceptance")]
+        public IEnumerator GloveHandlingVersionsCompletePairedSixteenArenaSmoke()
+        {
+            var load = SceneManager.LoadSceneAsync(
+                "Stage6Baseline",
+                LoadSceneMode.Single);
+            while (!load.isDone)
+            {
+                yield return null;
+            }
+
+            var arenas = UnityEngine.Object
+                .FindObjectsByType<PenaltyAreaController>(
+                    FindObjectsSortMode.None)
+                .OrderBy(item => item.ArenaId)
+                .ToArray();
+            Assert.That(arenas, Has.Length.EqualTo(16));
+            foreach (var arena in arenas)
+            {
+                arena.AutoRun = false;
+            }
+            var frames = 0;
+            while (arenas.Any(item => item.LastResult == null) && frames < 400)
+            {
+                frames++;
+                yield return new WaitForFixedUpdate();
+            }
+            Assert.That(arenas.All(item => item.LastResult != null), Is.True);
+
+            foreach (var version in new[] { 0, 1, 2 })
+            {
+                var previousAttemptIds = arenas
+                    .Select(item => item.LastResult.AttemptId)
+                    .ToArray();
+                foreach (var arena in arenas)
+                {
+                    arena.GoalkeeperGloveHandling.SetHandlingVersion(version);
+                    arena.BeginNextAttempt();
+                }
+
+                frames = 0;
+                while (arenas.Where((item, index) =>
+                           item.LastResult == null ||
+                           item.LastResult.AttemptId == previousAttemptIds[index])
+                       .Any() && frames < 400)
+                {
+                    frames++;
+                    yield return new WaitForFixedUpdate();
+                }
+
+                foreach (var arena in arenas)
+                {
+                    var result = arena.LastResult;
+                    Assert.That(result.Outcome, Is.Not.EqualTo(AttemptOutcome.Invalid));
+                    Assert.That(result.Outcome, Is.Not.EqualTo(AttemptOutcome.Timeout));
+                    Assert.That(result.ActionMaskViolations, Is.Zero);
+                    Assert.That(result.GloveHandlingVersion, Is.EqualTo(version));
+                    Assert.That(result.GloveControlledResponseCount, Is.LessThanOrEqualTo(1));
+                    if (version == 2 && result.GloveControlledResponseCount > 0)
+                    {
+                        Assert.That(
+                            result.GloveOutgoingEnergyRatio,
+                            Is.LessThanOrEqualTo(0.9501f));
+                    }
+                    Assert.That(
+                        result.GloveHandlingId,
+                        Is.EqualTo(version == 0
+                            ? KernelConstants.GoalkeeperLegacyGloveHandlingId
+                            : version == 1
+                                ? KernelConstants.GoalkeeperGloveHandlingContractId
+                                : KernelConstants.GoalkeeperGloveHandlingV2ContractId));
+                }
+            }
+        }
     }
 }

@@ -608,11 +608,7 @@ namespace PenaltyShootout.MLAgents
             }
 
             var parameters = Academy.Instance.EnvironmentParameters;
-            controller.GoalkeeperGloveHandling?.SetHandlingEnabled(
-                parameters.GetWithDefault(
-                    "stage6.glove_handling_v1",
-                    controller.GoalkeeperGloveHandling.HandlingEnabled ? 1f : 0f) >=
-                0.5f);
+            ApplyGloveHandlingParameters(parameters);
             controller.GameplayObservationDelayTicks = Mathf.Clamp(
                 Mathf.RoundToInt(
                     parameters.GetWithDefault(
@@ -710,6 +706,33 @@ namespace PenaltyShootout.MLAgents
                 parameters.GetWithDefault(
                     "stage5.launch_delay_max",
                     shots.MaximumLaunchDelay);
+        }
+
+        private void ApplyGloveHandlingParameters(
+            EnvironmentParameters parameters)
+        {
+            var handler = controller.GoalkeeperGloveHandling;
+            if (handler == null)
+            {
+                return;
+            }
+            var explicitVersion = parameters.GetWithDefault(
+                "stage6.glove_handling_version",
+                -1f);
+            if (explicitVersion >= 0f)
+            {
+                handler.SetHandlingVersion(Mathf.RoundToInt(explicitVersion));
+            }
+            else
+            {
+                handler.SetHandlingEnabled(
+                    parameters.GetWithDefault(
+                        "stage6.glove_handling_v1",
+                        handler.HandlingEnabled ? 1f : 0f) >= 0.5f);
+            }
+            handler.SetV2Profile(Mathf.RoundToInt(parameters.GetWithDefault(
+                "stage6.glove_handling_profile",
+                (float)handler.ProfileV2)));
         }
 
         private bool TryCollectNativeObservations()

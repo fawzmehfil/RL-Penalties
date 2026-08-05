@@ -239,11 +239,7 @@ namespace PenaltyShootout.MLAgents
             }
 
             var parameters = Academy.Instance.EnvironmentParameters;
-            controller.GoalkeeperGloveHandling?.SetHandlingEnabled(
-                parameters.GetWithDefault(
-                    "stage6.glove_handling_v1",
-                    controller.GoalkeeperGloveHandling.HandlingEnabled ? 1f : 0f) >=
-                0.5f);
+            ApplyGloveHandlingParameters(parameters);
             stage2Lesson = Mathf.RoundToInt(parameters.GetWithDefault("stage2.lesson", 3f));
             var shots = controller.ShotConfiguration;
             ApplyLessonDefaults(shots, stage2Lesson);
@@ -289,6 +285,33 @@ namespace PenaltyShootout.MLAgents
             {
                 stage4ObservationSettings = GoalkeeperPartialObservationSettings.None;
             }
+        }
+
+        private void ApplyGloveHandlingParameters(
+            EnvironmentParameters parameters)
+        {
+            var handler = controller.GoalkeeperGloveHandling;
+            if (handler == null)
+            {
+                return;
+            }
+            var explicitVersion = parameters.GetWithDefault(
+                "stage6.glove_handling_version",
+                -1f);
+            if (explicitVersion >= 0f)
+            {
+                handler.SetHandlingVersion(Mathf.RoundToInt(explicitVersion));
+            }
+            else
+            {
+                handler.SetHandlingEnabled(
+                    parameters.GetWithDefault(
+                        "stage6.glove_handling_v1",
+                        handler.HandlingEnabled ? 1f : 0f) >= 0.5f);
+            }
+            handler.SetV2Profile(Mathf.RoundToInt(parameters.GetWithDefault(
+                "stage6.glove_handling_profile",
+                (float)handler.ProfileV2)));
         }
 
         private static void ApplyLessonDefaults(
