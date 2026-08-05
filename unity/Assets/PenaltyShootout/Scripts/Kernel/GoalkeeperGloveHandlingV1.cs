@@ -66,7 +66,7 @@ namespace PenaltyShootout.Kernel
             Vector3 relativeImpactVelocity,
             Vector3 gloveVelocity)
         {
-            return relativeImpactVelocity + gloveVelocity;
+            return gloveVelocity - relativeImpactVelocity;
         }
         public int CandidateContactCount => candidateContactCount;
         public GloveContactRegionV1 InitialContactRegionV2 =>
@@ -235,8 +235,8 @@ namespace PenaltyShootout.Kernel
 
                 var surface = contact.GloveSurface;
                 var gloveVelocity = GloveVelocity(contact.GoalkeeperPart);
-                // Collision.relativeVelocity is captured at impact; adding the
-                // measured kinematic glove velocity reconstructs ball velocity.
+                // Unity reports the glove velocity relative to the ball from
+                // this callback, so subtract it from measured glove velocity.
                 var incoming = ReconstructIncomingBallVelocity(
                     contact.Kinematics.RelativeVelocityWorld,
                     gloveVelocity);

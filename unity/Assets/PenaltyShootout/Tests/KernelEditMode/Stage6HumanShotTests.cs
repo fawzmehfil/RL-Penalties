@@ -477,9 +477,9 @@ namespace PenaltyShootout.Kernel.Tests
         [Test]
         public void GloveV2ReconstructsCommandedImpactVelocity()
         {
-            var commandedIncoming = new Vector3(1.5f, -0.25f, 17f);
+            var commandedIncoming = new Vector3(1.5f, -0.25f, -17f);
             var measuredGlove = new Vector3(-0.5f, 0.75f, -1.25f);
-            var relativeImpact = commandedIncoming - measuredGlove;
+            var relativeImpact = measuredGlove - commandedIncoming;
 
             var reconstructed =
                 GoalkeeperGloveHandlingV1.ReconstructIncomingBallVelocity(
@@ -489,6 +489,9 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(
                 Vector3.Distance(reconstructed, commandedIncoming),
                 Is.LessThanOrEqualTo(0.0001f));
+            Assert.That(
+                Vector3.Dot(reconstructed, commandedIncoming),
+                Is.GreaterThan(0f));
             Assert.That(
                 Mathf.Abs(reconstructed.magnitude - commandedIncoming.magnitude),
                 Is.LessThanOrEqualTo(0.5f));

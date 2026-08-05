@@ -242,6 +242,14 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(
                 captured.Value.Kinematics.RelativeVelocityWorld.magnitude,
                 Is.EqualTo(15f).Within(0.5f));
+            Assert.That(
+                captured.Value.Kinematics.RelativeVelocityWorld.z,
+                Is.EqualTo(15f).Within(0.5f));
+            var reconstructed =
+                GoalkeeperGloveHandlingV1.ReconstructIncomingBallVelocity(
+                    captured.Value.Kinematics.RelativeVelocityWorld,
+                    Vector3.zero);
+            Assert.That(reconstructed.z, Is.EqualTo(-15f).Within(0.5f));
 
             UnityEngine.Object.Destroy(ball);
             UnityEngine.Object.Destroy(glove);
