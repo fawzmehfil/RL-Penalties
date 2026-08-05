@@ -5,6 +5,7 @@ import pytest
 
 from penalty_shootout.evaluation.goalkeeper import load_benchmark_config
 from penalty_shootout.evaluation.stage6_glove_handling_v2 import (
+    _validate_catalog_source,
     build_review_catalog,
     key_digest,
     promotion_gate,
@@ -141,6 +142,58 @@ def test_review_catalog_contains_fixed_4422_categories() -> None:
         "back": 2,
     }
     assert len(catalog["entries"]) == 12
+
+
+def test_review_catalog_rejects_an_incomplete_development_sample() -> None:
+    rows = candidate_rows()
+    catches = [row for row in rows if row["glove_handling_outcome"] == "Catch"]
+    for row in catches[3:]:
+        row["glove_handling_outcome"] = "Parry"
+    with pytest.raises(ValueError, match="required 4/4/2/2"):
+        build_review_catalog(rows, 20260821)
+
+
+def test_review_catalog_source_is_fixed_profile_v2_and_safe() -> None:
+    rows = candidate_rows()
+    for row in rows:
+        row["benchmark_id"] = "stage6-glove-v2-review-catalog-100"
+    source = _validate_catalog_source(rows, "balanced", 100)
+    assert source["attempts"] == 100
+    assert source["profile_id"] == "balanced"
+
+
+def test_review_catalog_source_cannot_change_selected_profile() -> None:
+    rows = candidate_rows()
+    for row in rows:
+        row["benchmark_id"] = "stage6-glove-v2-review-catalog-100"
+        row["glove_handling_profile_id"] = "permissive"
+    with pytest.raises(ValueError, match="selected fixed profile"):
+        _validate_catalog_source(rows, "balanced", 100)
+
+
+def test_review_catalog_source_requires_complete_fixed_quota() -> None:
+    rows = candidate_rows()
+    for row in rows:
+        row["benchmark_id"] = "stage6-glove-v2-review-catalog-100"
+    source = _validate_catalog_source(
+        rows,
+        "balanced",
+        100,
+        "stage6-glove-v2-review-catalog-100",
+        4,
+        25,
+    )
+    assert source["attempts"] == 100
+    rows[-1]["attempt_id"] = rows[-2]["attempt_id"]
+    with pytest.raises(ValueError, match="duplicate episode keys"):
+        _validate_catalog_source(
+            rows,
+            "balanced",
+            100,
+            "stage6-glove-v2-review-catalog-100",
+            4,
+            25,
+        )
 
 
 def test_holdout_gate_requires_identical_episode_digest() -> None:

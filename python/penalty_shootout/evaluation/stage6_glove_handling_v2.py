@@ -279,6 +279,76 @@ def build_review_catalog(
     }
 
 
+def _write_frozen_profile(
+    selection: dict[str, Any], selection_path: Path, frozen_path: Path
+) -> None:
+    selected = selection["selected_profile"]
+    frozen = {
+        "schema_version": 1,
+        "contract_id": "keeper-glove-handling-v2",
+        "profile_id": selected,
+        "profile_index": PROFILE_IDS[selected],
+        "selection_report_sha256": file_hash(selection_path),
+        "episode_key_digest": selection["profiles"][selected]["metrics"][
+            "episode_key_digest"
+        ],
+    }
+    frozen_path.parent.mkdir(parents=True, exist_ok=True)
+    frozen_path.write_text(json.dumps(frozen, indent=2) + "\n", encoding="utf-8")
+
+
+def _validate_catalog_source(
+    rows: list[dict[str, Any]],
+    selected_profile: str,
+    expected_attempts: int,
+    expected_benchmark_id: str | None = None,
+    expected_arena_count: int | None = None,
+    expected_attempts_per_arena: int | None = None,
+) -> dict[str, Any]:
+    if len(rows) != expected_attempts:
+        raise ValueError(
+            f"Review catalog source has {len(rows)} attempts; expected {expected_attempts}"
+        )
+    profile_ids = {
+        str(row.get("glove_handling_profile_id", "")) for row in rows
+    }
+    if profile_ids != {selected_profile}:
+        raise ValueError(
+            "Review catalog source does not use only the selected fixed profile"
+        )
+    versions = {int(number(row, "glove_handling_version", -1)) for row in rows}
+    if versions != {2}:
+        raise ValueError("Review catalog source is not Glove Handling v2")
+    benchmark_ids = {str(row.get("benchmark_id", "")) for row in rows}
+    if len(benchmark_ids) != 1 or not next(iter(benchmark_ids)):
+        raise ValueError("Review catalog source must contain one benchmark ID")
+    benchmark_id = next(iter(benchmark_ids))
+    if expected_benchmark_id is not None and benchmark_id != expected_benchmark_id:
+        raise ValueError("Review catalog source benchmark ID does not match")
+    keys = [episode_key(row) for row in rows]
+    logical_keys = {(arena_id, attempt_id) for arena_id, attempt_id, _ in keys}
+    if len(logical_keys) != len(keys):
+        raise ValueError("Review catalog source contains duplicate episode keys")
+    if expected_arena_count is not None and expected_attempts_per_arena is not None:
+        expected_ids = set(range(1, expected_attempts_per_arena + 1))
+        by_arena: dict[int, set[int]] = defaultdict(set)
+        for arena_id, attempt_id, _ in keys:
+            by_arena[arena_id].add(attempt_id)
+        if set(by_arena) != set(range(expected_arena_count)) or any(
+            by_arena[arena_id] != expected_ids for arena_id in range(expected_arena_count)
+        ):
+            raise ValueError("Review catalog source has incomplete per-arena quotas")
+    summary = summarize(rows)
+    if not summary["safety_passed"]:
+        raise ValueError("Review catalog source contains safety failures")
+    return {
+        "benchmark_id": benchmark_id,
+        "attempts": len(rows),
+        "episode_key_digest": summary["episode_key_digest"],
+        "profile_id": selected_profile,
+    }
+
+
 def render_config(args: argparse.Namespace) -> None:
     raw = json.loads(args.base.read_text(encoding="utf-8"))
     raw["benchmark_id"] = args.benchmark_id
@@ -334,20 +404,44 @@ def select_command(args: argparse.Namespace) -> None:
     args.output.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
     if not selected:
         raise SystemExit("No fixed calibration profile passed. Stopping before visual review.")
-    catalog = build_review_catalog(candidates[selected], args.master_seed)
-    args.catalog.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
-    frozen = {
-        "schema_version": 1,
-        "contract_id": "keeper-glove-handling-v2",
-        "profile_id": selected,
-        "profile_index": PROFILE_IDS[selected],
-        "selection_report_sha256": file_hash(args.output),
-        "episode_key_digest": selection["profiles"][selected]["metrics"][
-            "episode_key_digest"
-        ],
-    }
-    args.frozen.write_text(json.dumps(frozen, indent=2) + "\n", encoding="utf-8")
+    _write_frozen_profile(selection, args.output, args.frozen)
     print(f"Selected fixed profile: {selected}")
+    try:
+        catalog = build_review_catalog(candidates[selected], args.master_seed)
+    except ValueError:
+        print("Development batch lacks the complete 4/4/2/2 review catalog.")
+        print("A separate deterministic review-only search is required.")
+    else:
+        args.catalog.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+        print(f"Manual review catalog: {args.catalog}")
+
+
+def catalog_command(args: argparse.Namespace) -> None:
+    selection = json.loads(args.selection.read_text(encoding="utf-8"))
+    selected = selection.get("selected_profile")
+    if not selection.get("passed") or selected not in PROFILE_IDS:
+        raise ValueError("A passing fixed profile selection is required")
+    rows = read_csv(args.source)
+    source = _validate_catalog_source(
+        rows,
+        selected,
+        args.expected_attempts,
+        args.expected_benchmark_id,
+        args.expected_arena_count,
+        args.expected_attempts_per_arena,
+    )
+    catalog = build_review_catalog(rows, args.master_seed)
+    catalog["source"] = {
+        **source,
+        "episodes_csv": str(args.source),
+        "episodes_csv_sha256": file_hash(args.source),
+        "purpose": "visual_review_only",
+        "excluded_from_profile_selection": True,
+    }
+    args.catalog.parent.mkdir(parents=True, exist_ok=True)
+    args.catalog.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+    _write_frozen_profile(selection, args.selection, args.frozen)
+    print(f"Frozen profile: {selected}")
     print(f"Manual review catalog: {args.catalog}")
 
 
@@ -536,6 +630,18 @@ def parser() -> argparse.ArgumentParser:
     select.add_argument("--frozen", type=Path, required=True)
     select.add_argument("--catalog", type=Path, required=True)
     select.set_defaults(handler=select_command)
+
+    catalog = commands.add_parser("catalog")
+    catalog.add_argument("--selection", type=Path, required=True)
+    catalog.add_argument("--source", type=Path, required=True)
+    catalog.add_argument("--master-seed", type=int, required=True)
+    catalog.add_argument("--expected-attempts", type=int, required=True)
+    catalog.add_argument("--expected-benchmark-id", required=True)
+    catalog.add_argument("--expected-arena-count", type=int, required=True)
+    catalog.add_argument("--expected-attempts-per-arena", type=int, required=True)
+    catalog.add_argument("--frozen", type=Path, required=True)
+    catalog.add_argument("--catalog", type=Path, required=True)
+    catalog.set_defaults(handler=catalog_command)
 
     approve = commands.add_parser("approve")
     approve.add_argument("--frozen", type=Path, required=True)

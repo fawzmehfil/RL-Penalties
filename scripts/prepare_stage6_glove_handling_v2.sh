@@ -99,7 +99,4 @@ done
   --frozen "$CALIBRATION/frozen-profile.json" \
   --catalog "$CALIBRATION/manual-review-catalog.json"
 
-echo
-echo "Calibration passed. Open ShotVarietyLab in Unity, press B until glove handling v2"
-echo "is selected, and review all 12 N/P catalog cases. No promotion run was started."
-echo "After visual approval run: scripts/approve_stage6_glove_handling_v2.sh"
+"$ROOT/scripts/complete_stage6_glove_handling_v2_review.sh"
