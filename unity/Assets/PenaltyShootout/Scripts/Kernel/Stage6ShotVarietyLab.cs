@@ -12,12 +12,17 @@ namespace PenaltyShootout.Kernel
             Baseline = 0,
             BounceCandidate = 1,
             GloveHandlingV1 = 2,
+            GloveHandlingV2 = 3,
         }
 
         private const float CandidateBounciness = 0.35f;
         private const float CandidateFriction = 0.15f;
         private const string DefaultReplayManifest =
             "configs/audits/stage6-contact-review-replays-v1.json";
+        private const string V2ReplayManifest =
+            "results/glove-handling-v2/calibration/manual-review-catalog.json";
+        private const string V2FrozenProfile =
+            "results/glove-handling-v2/calibration/frozen-profile.json";
 
         [SerializeField] private PenaltyAreaController controller;
         [SerializeField] private HumanShotDistributionConfigV1 distribution;
@@ -32,6 +37,7 @@ namespace PenaltyShootout.Kernel
         private AttemptResult baselineResult;
         private AttemptResult candidateResult;
         private AttemptResult handlingResult;
+        private AttemptResult handlingV2Result;
         private int replayIndex;
         private bool replayMode = true;
         private ContactReviewMode contactMode;
@@ -42,7 +48,8 @@ namespace PenaltyShootout.Kernel
         public bool ContactCandidateEnabled =>
             contactMode == ContactReviewMode.BounceCandidate;
         public bool GloveHandlingEnabled =>
-            contactMode == ContactReviewMode.GloveHandlingV1;
+            contactMode == ContactReviewMode.GloveHandlingV1 ||
+            contactMode == ContactReviewMode.GloveHandlingV2;
 
         private void Awake()
         {
@@ -69,6 +76,7 @@ namespace PenaltyShootout.Kernel
             controller.AttemptCompleted += OnAttemptCompleted;
             nativeInferenceControl =
                 controller.ActionSource as IGoalkeeperNativeInferenceControlV1;
+            LoadV2Profile();
             ApplyContactMode();
             SetNativeGoalkeeper(nativeGoalkeeper);
             LoadReplayCatalog();
@@ -126,6 +134,7 @@ namespace PenaltyShootout.Kernel
             baselineResult = null;
             candidateResult = null;
             handlingResult = null;
+            handlingV2Result = null;
             if (distribution == null)
             {
                 return;
@@ -171,7 +180,7 @@ namespace PenaltyShootout.Kernel
             {
                 return;
             }
-            contactMode = (ContactReviewMode)(((int)contactMode + 1) % 3);
+            contactMode = (ContactReviewMode)(((int)contactMode + 1) % 4);
             ApplyContactMode();
             status = $"{ContactModeLabel()} enabled; replaying the same shot";
             LaunchIfReady();
@@ -179,7 +188,7 @@ namespace PenaltyShootout.Kernel
 
         private void ApplyContactMode()
         {
-            controller.GoalkeeperGloveHandling?.SetHandlingEnabled(false);
+            controller.GoalkeeperGloveHandling?.SetHandlingVersion(0);
             if (contactMode == ContactReviewMode.BounceCandidate)
             {
                 controller.ConfigureAuditGloveContactMaterial(
@@ -191,7 +200,11 @@ namespace PenaltyShootout.Kernel
                 controller.ClearAuditGloveContactMaterial();
                 if (contactMode == ContactReviewMode.GloveHandlingV1)
                 {
-                    controller.GoalkeeperGloveHandling?.SetHandlingEnabled(true);
+                    controller.GoalkeeperGloveHandling?.SetHandlingVersion(1);
+                }
+                else if (contactMode == ContactReviewMode.GloveHandlingV2)
+                {
+                    controller.GoalkeeperGloveHandling?.SetHandlingVersion(2);
                 }
             }
         }
@@ -210,6 +223,7 @@ namespace PenaltyShootout.Kernel
             baselineResult = null;
             candidateResult = null;
             handlingResult = null;
+            handlingV2Result = null;
             status = "Selected next failure; baseline contact restored";
             LaunchIfReady();
         }
@@ -235,6 +249,7 @@ namespace PenaltyShootout.Kernel
             baselineResult = null;
             candidateResult = null;
             handlingResult = null;
+            handlingV2Result = null;
             status = enabled
                 ? "Frozen native Stage 5 goalkeeper selected"
                 : "Manual goalkeeper selected";
@@ -262,11 +277,10 @@ namespace PenaltyShootout.Kernel
                 "--stage6-replay-manifest=");
             if (string.IsNullOrEmpty(manifestPath))
             {
-                manifestPath = Path.GetFullPath(Path.Combine(
-                    Application.dataPath,
-                    "..",
-                    "..",
-                    DefaultReplayManifest));
+                var candidate = ProjectPath(V2ReplayManifest);
+                manifestPath = File.Exists(candidate)
+                    ? candidate
+                    : ProjectPath(DefaultReplayManifest);
             }
             var parseError = string.Empty;
             if (File.Exists(manifestPath) &&
@@ -289,6 +303,35 @@ namespace PenaltyShootout.Kernel
             status = File.Exists(manifestPath)
                 ? $"Replay manifest rejected; using fallback: {parseError}"
                 : "Replay manifest not found; using one fixed fallback replay";
+        }
+
+        private void LoadV2Profile()
+        {
+            var path = ProjectPath(V2FrozenProfile);
+            if (!File.Exists(path) || controller.GoalkeeperGloveHandling == null)
+            {
+                return;
+            }
+            try
+            {
+                var frozen = JsonUtility.FromJson<FrozenProfile>(
+                    File.ReadAllText(path));
+                controller.GoalkeeperGloveHandling.SetV2Profile(
+                    frozen.profile_index);
+            }
+            catch (Exception exception)
+            {
+                status = $"Frozen v2 profile rejected: {exception.Message}";
+            }
+        }
+
+        private static string ProjectPath(string relativePath)
+        {
+            return Path.GetFullPath(Path.Combine(
+                Application.dataPath,
+                "..",
+                "..",
+                relativePath));
         }
 
         private bool TryLoadSingleCommandLineReplay()
@@ -353,6 +396,10 @@ namespace PenaltyShootout.Kernel
             {
                 candidateResult = result;
             }
+            else if (contactMode == ContactReviewMode.GloveHandlingV2)
+            {
+                handlingV2Result = result;
+            }
             else if (contactMode == ContactReviewMode.GloveHandlingV1)
             {
                 handlingResult = result;
@@ -373,6 +420,8 @@ namespace PenaltyShootout.Kernel
                     return "bounce 0.35 / 0.15";
                 case ContactReviewMode.GloveHandlingV1:
                     return "glove handling v1";
+                case ContactReviewMode.GloveHandlingV2:
+                    return "glove handling v2";
                 default:
                     return "legacy sphere gloves";
             }
@@ -424,6 +473,7 @@ namespace PenaltyShootout.Kernel
             DrawResult("Baseline", baselineResult);
             DrawResult("Bounce candidate", candidateResult);
             DrawResult("Glove handling v1", handlingResult);
+            DrawResult("Glove handling v2", handlingV2Result);
             GUILayout.Label(
                 "Keys: Space replay, B cycle contact, N/P case, M keeper, L replay list, 1-4 random shots");
             GUILayout.EndArea();
@@ -454,7 +504,23 @@ namespace PenaltyShootout.Kernel
                     $"alignment {result.GlovePalmAlignment:F2}; " +
                     $"speed {result.GloveIncomingSpeed:F1}->{result.GloveOutgoingSpeed:F1}; " +
                     $"energy {result.GloveOutgoingEnergyRatio:F2}");
+                if (result.GloveHandlingVersion == 2)
+                {
+                    GUILayout.Label(
+                        $"  profile {result.GloveHandlingProfileId}; " +
+                        $"candidates {result.GloveCandidateContactCount}; " +
+                        $"forward {result.GloveForwardSpeed:F2} m/s; " +
+                        $"extent {result.GloveNormalizedContactExtent:F2}; " +
+                        $"capture {result.GloveCaptureDistance:F3} m; " +
+                        $"reject {result.GloveHandlingRejectionReason}");
+                }
             }
+        }
+
+        [Serializable]
+        private sealed class FrozenProfile
+        {
+            public int profile_index = 1;
         }
     }
 }

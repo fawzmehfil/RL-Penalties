@@ -1147,6 +1147,25 @@ Stage 6 gameplay default. Set `stage6.glove_handling_v1=0` to reproduce
 Compact evidence is stored in `docs/stage6-glove-handling-report.json`; raw
 paired episodes remain under ignored `results/evaluations/`.
 
+Stage 6.5 adds the opt-in `keeper-glove-handling-v2` calibration candidate.
+It reconstructs incoming impact velocity from Unity collision-relative
+velocity and measured glove motion, selects compound contacts deterministically,
+and introduces moving-anchor catches plus measured-motion punches. The frozen
+v1 contract remains the gameplay default until visual review and paired
+holdout/promotion gates pass. No training is involved.
+
+```bash
+scripts/prepare_stage6_glove_handling_v2.sh
+```
+
+The preparation handoff evaluates the three fixed profiles on paired 400-shot
+development batches and creates a 12-shot Unity review catalog. After reviewing
+the catalog in `ShotVarietyLab`, record approval with
+`scripts/approve_stage6_glove_handling_v2.sh`; only then may
+`scripts/run_stage6_glove_handling_v2_promotion.sh` run the paired 400-shot
+holdout and 2,000-shot promotion benchmark. Raw calibration data stays under
+ignored `results/glove-handling-v2/`.
+
 ## Later milestones
 
 Future stages extend the goalkeeper benchmark into a fuller football AI and
