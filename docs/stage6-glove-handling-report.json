@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "decision": "promoted_stage6_gameplay_default",
+  "baseline_tag": "stage6-pre-glove-handling-v1",
+  "policy": "native_split_v1:seed-001",
+  "scenario_suite_id": "human-shot-v1",
+  "motor_contract_id": "keeper-control-forward-v1",
+  "candidate": {
+    "glove_handling_id": "keeper-glove-handling-v1",
+    "glove_geometry_id": "goalkeeper-palm-compound-v1"
+  },
+  "legacy": {
+    "glove_handling_id": "keeper-glove-physx-legacy-v1",
+    "glove_geometry_id": "goalkeeper-sphere-gloves-legacy-v1"
+  },
+  "screen_400": {
+    "episode_key_digest": "f5c0c1bd773c48a8c972d61bf6085b82b648d229edebcd8507a695342e1aea23",
+    "total_attempts": 400,
+    "expected_on_target_attempts": 365,
+    "legacy_save_rate": 0.4246575342465753,
+    "candidate_save_rate": 0.5424657534246575,
+    "save_rate_delta": 0.1178082191780822,
+    "legacy_contact_then_goal_rate": 0.1589041095890411,
+    "candidate_contact_then_goal_rate": 0.024657534246575342
+  },
+  "official_2k": {
+    "episode_key_digest": "9d3f2f60a0c745d3910d4643dc140907a9e95aa8c54031eb3ee17db0884c6d22",
+    "total_attempts": 2000,
+    "expected_on_target_attempts": 1812,
+    "legacy": {
+      "saves": 788,
+      "save_rate": 0.434878587196468,
+      "save_rate_ci95": [0.4122144053646654, 0.45781830104062216],
+      "glove_contact_rate": 0.5971302428256071,
+      "contact_then_goal_rate": 0.16777041942604856
+    },
+    "candidate": {
+      "saves": 1004,
+      "save_rate": 0.5540838852097131,
+      "save_rate_ci95": [0.5311066961224652, 0.5768322426256859],
+      "glove_contact_rate": 0.554635761589404,
+      "contact_then_goal_rate": 0.028145695364238412,
+      "handling_outcomes": {
+        "parry": 95,
+        "weak_deflection": 492,
+        "uncontrolled": 418,
+        "catch": 0,
+        "punch": 0
+      }
+    },
+    "save_rate_delta": 0.11920529801324511,
+    "contact_then_goal_rate_delta": -0.13962472406181015,
+    "by_shot_style": {
+      "curled": {"legacy": 0.38328530259365995, "candidate": 0.5273775216138329},
+      "placed": {"legacy": 0.574468085106383, "candidate": 0.7163120567375887},
+      "power": {"legacy": 0.2730210016155089, "candidate": 0.3473344103392569}
+    }
+  },
+  "safety": {
+    "invalids": 0,
+    "timeouts": 0,
+    "action_mask_violations": 0,
+    "command_clamps": 0,
+    "duplicate_terminal_events": 0,
+    "decision_duplicate_requests": 0,
+    "decision_missing_actions": 0,
+    "native_inference_invalid_outputs": 0,
+    "native_inference_commit_mismatches": 0,
+    "energy_cap_violations": 0
+  },
+  "verification": {
+    "python_tests": 18,
+    "unity_editmode_tests": 19,
+    "unity_playmode_tests": 2,
+    "macos_build": "passed"
+  },
+  "raw_results": [
+    "results/evaluations/stage6-glove-legacy-400-v2",
+    "results/evaluations/stage6-glove-handling-v1-400-v2",
+    "results/evaluations/stage6-glove-legacy-2k-v2",
+    "results/evaluations/stage6-glove-handling-v1-2k-v2"
+  ]
+}

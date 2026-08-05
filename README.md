@@ -1129,13 +1129,23 @@ motor envelope marked 16.16% of on-target shots as root-saturated and only
 18.07% of outer shots as fully reachable at the current timing.
 
 An audit-only glove material candidate raised the gameplay save rate to
-49.04%, low-shot saves by 9.09 percentage points, canonical saves from 62.5%
-to 74.0%, and high-shot saves from 69.0% to 76.25%. It remains opt-in and is
-not the Stage 6 default: a visual/physical realism review must confirm that
-the additional deflections look like credible glove parries rather than an
-over-bouncy collider. Compact evidence is stored in
-`docs/stage6-gameplay-readiness-report.json`; raw paired episodes and replay
-keys remain under ignored `results/evaluations/`.
+49.04%, but it was not promoted because its generic bounce response did not
+model palm alignment, contact region, possession, or bounded redirection.
+Compact evidence for that investigation remains in
+`docs/stage6-gameplay-readiness-report.json`.
+
+The promoted `keeper-glove-handling-v1` contract replaces the legacy spherical
+gloves with bounded compound palm/finger colliders and deterministic catch,
+parry, punch, weak-deflection, and uncontrolled-contact classifications. It
+does not expand the trained reach or change the selected models, observations,
+actions, motor, or shot physics. On the final paired 2,000-shot benchmark it
+saved 55.41% of 1,812 expected-on-target shots versus 43.49% for legacy sphere
+gloves. Contact-then-goal fell from 16.78% to 2.81%; every validity, lifecycle,
+inference, and energy-cap counter remained zero. Glove Handling v1 is now the
+Stage 6 gameplay default. Set `stage6.glove_handling_v1=0` to reproduce
+`keeper-glove-physx-legacy-v1` and `goalkeeper-sphere-gloves-legacy-v1`.
+Compact evidence is stored in `docs/stage6-glove-handling-report.json`; raw
+paired episodes remain under ignored `results/evaluations/`.
 
 ## Later milestones
 
