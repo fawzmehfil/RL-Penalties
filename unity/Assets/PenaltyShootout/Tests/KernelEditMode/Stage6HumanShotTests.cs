@@ -498,6 +498,24 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
+        public void GloveV2MeasuresCaptureDistanceToImpactPoint()
+        {
+            var ballCenter = new Vector3(2f, 1f, 0.11f);
+            var palmCenter = new Vector3(1.8f, 0.8f, 0f);
+            var impactPoint = new Vector3(2f, 1f, 0f);
+
+            var captureDistance =
+                GoalkeeperGloveHandlingV1.MeasureCaptureDistance(
+                    ballCenter,
+                    impactPoint);
+
+            Assert.That(captureDistance, Is.EqualTo(0.11f).Within(0.0001f));
+            Assert.That(
+                captureDistance,
+                Is.LessThan(Vector3.Distance(ballCenter, palmCenter)));
+        }
+
+        [Test]
         public void GloveV2CandidateSelectionPrefersFrontPalmThenStableLeftHand()
         {
             var thresholds = GoalkeeperGloveCalibrationProfilesV2.Get(
@@ -606,6 +624,54 @@ namespace PenaltyShootout.Kernel.Tests
                 Is.EqualTo(GloveHandlingRejectionReasonV2.AcrossGoalLine));
         }
 
+        [Test]
+        public void GloveV2LeavesOnlyExtremeGlancingEdgesUncontrolled()
+        {
+            const float speed = 16f;
+            var glancingAlignment = 0.30f;
+            var glancing = new Vector3(
+                Mathf.Sqrt(1f - glancingAlignment * glancingAlignment) * speed,
+                0f,
+                -glancingAlignment * speed);
+            var directAlignment = 0.60f;
+            var direct = new Vector3(
+                Mathf.Sqrt(1f - directAlignment * directAlignment) * speed,
+                0f,
+                -directAlignment * speed);
+            var configuration = CreateGloveHandlingV2();
+            var thresholds = GoalkeeperGloveCalibrationProfilesV2.Get(
+                GoalkeeperGloveCalibrationProfileV2.Balanced);
+
+            var uncontrolled = GoalkeeperGloveHandlingPolicyV2.Resolve(
+                CreateV2Candidate(
+                    GloveContactRegionV1.Palm,
+                    GoalkeeperContactPart.LeftGlove,
+                    glancing,
+                    Vector3.zero,
+                    0.99f),
+                thresholds,
+                configuration);
+            var controlled = GoalkeeperGloveHandlingPolicyV2.Resolve(
+                CreateV2Candidate(
+                    GloveContactRegionV1.Palm,
+                    GoalkeeperContactPart.LeftGlove,
+                    direct,
+                    Vector3.zero,
+                    0.99f),
+                thresholds,
+                configuration);
+
+            Assert.That(
+                uncontrolled.Outcome,
+                Is.EqualTo(GloveHandlingOutcomeV1.Uncontrolled));
+            Assert.That(
+                uncontrolled.RejectionReason,
+                Is.EqualTo(GloveHandlingRejectionReasonV2.EdgeContact));
+            Assert.That(
+                controlled.Outcome,
+                Is.EqualTo(GloveHandlingOutcomeV1.WeakDeflection));
+        }
+
         private PlayerShotPhysicsConfigV1 CreatePhysics()
         {
             var configuration =
@@ -648,7 +714,7 @@ namespace PenaltyShootout.Kernel.Tests
                 new ContactKinematics
                 {
                     HasValue = true,
-                    RelativeVelocityWorld = incoming - gloveVelocity,
+                    RelativeVelocityWorld = gloveVelocity - incoming,
                     BallVelocityWorld = incoming,
                 },
                 surface);

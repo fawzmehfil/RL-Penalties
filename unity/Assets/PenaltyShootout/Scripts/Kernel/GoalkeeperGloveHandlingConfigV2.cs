@@ -84,6 +84,8 @@ namespace PenaltyShootout.Kernel
 
         [Header("Redirect response")]
         [Range(0f, 1f)] public float MinimumParryAlignment = 0.12f;
+        [Range(0f, 1f)] public float ExtremeEdgeExtent = 0.98f;
+        [Range(0f, 1f)] public float ExtremeEdgeMinimumAlignment = 0.40f;
         [Range(0f, 1f)] public float ParryRestitution = 0.18f;
         [Range(0f, 1f)] public float ParryTangentialRetention = 0.50f;
         [Range(0f, 1f)] public float ParryGloveVelocityTransfer = 0.35f;
@@ -109,6 +111,8 @@ namespace PenaltyShootout.Kernel
                 !Positive(CatchPossessionDuration) ||
                 CaptureBlendDuration > CatchPossessionDuration ||
                 !Unit(MinimumParryAlignment) ||
+                !Unit(ExtremeEdgeExtent) ||
+                !Unit(ExtremeEdgeMinimumAlignment) ||
                 !Unit(ParryRestitution) ||
                 !Unit(ParryTangentialRetention) ||
                 !Unit(ParryGloveVelocityTransfer) ||

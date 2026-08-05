@@ -20,6 +20,8 @@ MonoBehaviour:
   CaptureBlendDuration: 0.08
   CatchPossessionDuration: 0.18
   MinimumParryAlignment: 0.12
+  ExtremeEdgeExtent: 0.98
+  ExtremeEdgeMinimumAlignment: 0.4
   ParryRestitution: 0.18
   ParryTangentialRetention: 0.5
   ParryGloveVelocityTransfer: 0.35

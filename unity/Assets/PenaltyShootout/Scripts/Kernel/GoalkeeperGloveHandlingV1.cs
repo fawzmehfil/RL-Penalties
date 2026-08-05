@@ -68,6 +68,12 @@ namespace PenaltyShootout.Kernel
         {
             return gloveVelocity - relativeImpactVelocity;
         }
+        public static float MeasureCaptureDistance(
+            Vector3 ballCenter,
+            Vector3 contactPoint)
+        {
+            return Vector3.Distance(ballCenter, contactPoint);
+        }
         public int CandidateContactCount => candidateContactCount;
         public GloveContactRegionV1 InitialContactRegionV2 =>
             initialContactRegionV2;
@@ -255,7 +261,7 @@ namespace PenaltyShootout.Kernel
                     gloveVelocity,
                     surface.PalmNormalWorld,
                     surface.NormalizedContactExtent(point),
-                    Vector3.Distance(ball.position, surface.transform.position),
+                    MeasureCaptureDistance(ball.position, point),
                     twoHandCandidate,
                     twoHandSeparation,
                     localIncoming.z < -1e-4f,

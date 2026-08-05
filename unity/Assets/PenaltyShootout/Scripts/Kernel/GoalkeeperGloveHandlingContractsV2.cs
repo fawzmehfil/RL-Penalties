@@ -207,6 +207,21 @@ namespace PenaltyShootout.Kernel
             }
 
             var incomingSpeed = input.IncomingBallVelocity.magnitude;
+            if (region == GloveContactRegionV1.Edge &&
+                input.NormalizedContactExtent >=
+                    configuration.ExtremeEdgeExtent &&
+                input.PalmAlignment <
+                    configuration.ExtremeEdgeMinimumAlignment)
+            {
+                return Decision(
+                    input,
+                    GloveHandlingOutcomeV1.Uncontrolled,
+                    region,
+                    GloveHandlingRejectionReasonV2.EdgeContact,
+                    input.IncomingBallVelocity,
+                    false,
+                    false);
+            }
             var catchRegion = region == GloveContactRegionV1.Palm ||
                 (input.TwoHandCandidate && region == GloveContactRegionV1.Fingers);
             var catchSpeed = input.TwoHandCandidate
