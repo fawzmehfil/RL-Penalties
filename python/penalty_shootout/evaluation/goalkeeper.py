@@ -1634,6 +1634,64 @@ def aggregate_policy(
         "by_flight_time_band": aggregate_by(primary_episodes, flight_time_band),
         "by_first_dive_action": aggregate_by(episodes, first_dive_action),
     }
+    glove_handling_episodes = [
+        item
+        for item in primary_episodes
+        if bool(item.get("glove_handling_enabled", False))
+    ]
+    if glove_handling_episodes:
+        handling_outcomes = Counter(
+            str(item.get("glove_handling_outcome", "None"))
+            for item in glove_handling_episodes
+        )
+        report["glove_handling"] = {
+            "contract_id": next(
+                (
+                    str(item.get("glove_handling_id", ""))
+                    for item in glove_handling_episodes
+                    if item.get("glove_handling_id")
+                ),
+                "",
+            ),
+            "geometry_id": next(
+                (
+                    str(item.get("glove_geometry_id", ""))
+                    for item in glove_handling_episodes
+                    if item.get("glove_geometry_id")
+                ),
+                "",
+            ),
+            "enabled_attempts": len(glove_handling_episodes),
+            "classified_contact_attempts": sum(
+                count
+                for outcome, count in handling_outcomes.items()
+                if outcome != "None"
+            ),
+            "outcomes": dict(sorted(handling_outcomes.items())),
+            "catch_rate": rate(
+                handling_outcomes["Catch"], len(glove_handling_episodes)
+            ),
+            "parry_rate": rate(
+                handling_outcomes["Parry"], len(glove_handling_episodes)
+            ),
+            "punch_rate": rate(
+                handling_outcomes["Punch"], len(glove_handling_episodes)
+            ),
+            "weak_deflection_rate": rate(
+                handling_outcomes["WeakDeflection"],
+                len(glove_handling_episodes),
+            ),
+            "uncontrolled_rate": rate(
+                handling_outcomes["Uncontrolled"],
+                len(glove_handling_episodes),
+            ),
+            "energy_cap_violations": sum(
+                float(item.get("glove_outgoing_energy_ratio", 0.0)) > 0.9501
+                for item in glove_handling_episodes
+                if str(item.get("glove_handling_outcome", "None"))
+                in {"Parry", "Punch", "WeakDeflection"}
+            ),
+        }
     if config.primary_population == "expected_on_target":
         report.update(
             {
@@ -3198,6 +3256,7 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
                 "by_horizontal_band": policy["by_horizontal_band"],
                 "by_flight_time_band": policy["by_flight_time_band"],
                 "by_first_dive_action": policy["by_first_dive_action"],
+                "glove_handling": policy.get("glove_handling"),
                 **(
                     {
                         "expected_target_class_rates": policy[

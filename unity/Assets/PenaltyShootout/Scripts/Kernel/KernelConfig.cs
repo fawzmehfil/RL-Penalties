@@ -27,6 +27,14 @@ namespace PenaltyShootout.Kernel
         public const string HumanShotScenarioSuiteId = "human-shot-v1";
         public const string GoalkeeperForwardMotorContractId =
             "keeper-control-forward-v1";
+        public const string GoalkeeperGloveHandlingContractId =
+            "keeper-glove-handling-v1";
+        public const string GoalkeeperPalmGeometryId =
+            "goalkeeper-palm-compound-v1";
+        public const string GoalkeeperLegacyGloveHandlingId =
+            "keeper-glove-physx-legacy-v1";
+        public const string GoalkeeperLegacySphereGeometryId =
+            "goalkeeper-sphere-gloves-legacy-v1";
         public const string Stage6PretrainingBenchmarkId =
             "goalkeeper-control-v2-human-shot-v1-pretraining-2k";
         public const string GoalkeeperSparseRewardSpecId = "goalkeeper-sparse-v0";

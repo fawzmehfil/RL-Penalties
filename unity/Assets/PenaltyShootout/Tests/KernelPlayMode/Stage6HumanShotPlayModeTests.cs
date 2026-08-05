@@ -37,6 +37,11 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(lab.ReplayCount, Is.EqualTo(12));
             Assert.That(lab.UsesNativeGoalkeeper, Is.True);
             Assert.That(lab.ContactCandidateEnabled, Is.False);
+            Assert.That(lab.GloveHandlingEnabled, Is.False);
+            Assert.That(controller.GoalkeeperGloveHandling, Is.Not.Null);
+            Assert.That(
+                controller.GoalkeeperGloveHandling.HandlingEnabled,
+                Is.False);
             Assert.That(agent.NativeSplitInferenceEnabled, Is.True);
             Assert.That(controller.DebugUiIgnoresArenaId, Is.True);
             Assert.That(
@@ -47,6 +52,15 @@ namespace PenaltyShootout.Kernel.Tests
                     out var error),
                 Is.True,
                 error);
+
+            controller.GoalkeeperGloveHandling.SetHandlingEnabled(true);
+            var armRig = controller.GoalkeeperControlMotor.ArmRig;
+            Assert.That(
+                armRig.LeftGlove.GetComponent<SphereCollider>().enabled,
+                Is.False);
+            Assert.That(
+                armRig.LeftGlove.Find("GloveHandlingV1_Palm").gameObject.activeSelf,
+                Is.True);
 
             controller.BeginNextAttempt();
             var frames = 0;
@@ -61,6 +75,10 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(controller.LastResult.Outcome, Is.Not.EqualTo(AttemptOutcome.Timeout));
             Assert.That(controller.LastResult.NativeInferenceEvaluationCount, Is.GreaterThan(0));
             Assert.That(controller.LastResult.NativeInferenceInvalidOutputCount, Is.Zero);
+            Assert.That(controller.LastResult.GloveHandlingEnabled, Is.True);
+            Assert.That(
+                controller.LastResult.GloveHandlingId,
+                Is.EqualTo(KernelConstants.GoalkeeperGloveHandlingContractId));
         }
 
         [UnityTest]
@@ -84,6 +102,8 @@ namespace PenaltyShootout.Kernel.Tests
             var template = arenas[0];
             Assert.That(template.UsesHumanShots, Is.True);
             Assert.That(template.GameplayObservationDelayTicks, Is.EqualTo(2));
+            Assert.That(template.GoalkeeperGloveHandling, Is.Not.Null);
+            Assert.That(template.GoalkeeperGloveHandling.HandlingEnabled, Is.True);
             var agent = template.GetComponentInChildren<GoalkeeperControlAgent>();
             var behavior = agent.GetComponent<BehaviorParameters>();
             Assert.That(
@@ -139,6 +159,13 @@ namespace PenaltyShootout.Kernel.Tests
                     result.PlayerShot.ShotPhysicsId,
                     Is.EqualTo(KernelConstants.PlayerShotPhysicsId));
                 Assert.That(result.ObservationDelayTicks, Is.EqualTo(2));
+                Assert.That(result.GloveHandlingEnabled, Is.True);
+                Assert.That(
+                    result.GloveHandlingId,
+                    Is.EqualTo(KernelConstants.GoalkeeperGloveHandlingContractId));
+                Assert.That(
+                    result.GloveGeometryId,
+                    Is.EqualTo(KernelConstants.GoalkeeperPalmGeometryId));
 
                 if (!result.GoalkeeperContact &&
                     !result.GoalFrameContact &&

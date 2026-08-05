@@ -219,6 +219,13 @@ def test_stage6_uses_expected_on_target_primary_denominator() -> None:
                 "first_accepted_dive_action": "",
                 "has_save_commitment": False,
                 "requested_target_local": {"x": 0.0, "y": 1.0, "z": 0.0},
+                "glove_handling_enabled": True,
+                "glove_handling_id": "keeper-glove-handling-v1",
+                "glove_geometry_id": "goalkeeper-palm-compound-v1",
+                "glove_handling_outcome": (
+                    "Catch" if attempt_id == 1 else "Parry"
+                ),
+                "glove_outgoing_energy_ratio": 0.4,
             }
         )
 
@@ -231,3 +238,7 @@ def test_stage6_uses_expected_on_target_primary_denominator() -> None:
     assert report["miss_wide_rate"]["value"] == pytest.approx(1 / 6)
     assert report["miss_high_rate"]["value"] == pytest.approx(1 / 6)
     assert report["runtime_crossing_error_m"]["p95"] == pytest.approx(0.02)
+    assert report["glove_handling"]["enabled_attempts"] == 2
+    assert report["glove_handling"]["catch_rate"]["value"] == pytest.approx(0.5)
+    assert report["glove_handling"]["parry_rate"]["value"] == pytest.approx(0.5)
+    assert report["glove_handling"]["energy_cap_violations"] == 0

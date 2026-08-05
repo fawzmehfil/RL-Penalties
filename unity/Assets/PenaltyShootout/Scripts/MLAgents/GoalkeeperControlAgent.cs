@@ -608,6 +608,11 @@ namespace PenaltyShootout.MLAgents
             }
 
             var parameters = Academy.Instance.EnvironmentParameters;
+            controller.GoalkeeperGloveHandling?.SetHandlingEnabled(
+                parameters.GetWithDefault(
+                    "stage6.glove_handling_v1",
+                    controller.GoalkeeperGloveHandling.HandlingEnabled ? 1f : 0f) >=
+                0.5f);
             controller.GameplayObservationDelayTicks = Mathf.Clamp(
                 Mathf.RoundToInt(
                     parameters.GetWithDefault(

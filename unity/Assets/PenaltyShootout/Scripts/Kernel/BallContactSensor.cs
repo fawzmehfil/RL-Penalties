@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -36,6 +37,10 @@ namespace PenaltyShootout.Kernel
                 new PendingContact(
                     marker.Kind,
                     marker.GoalkeeperPart,
+                    contact.otherCollider == null
+                        ? null
+                        : contact.otherCollider
+                            .GetComponentInParent<GloveContactSurfaceV1>(),
                     new ContactKinematics
                     {
                         HasValue = collision.contactCount > 0,
@@ -113,7 +118,10 @@ namespace PenaltyShootout.Kernel
             }
         }
 
-        public void Drain(ContactHistory history, float attemptTime)
+        public void Drain(
+            ContactHistory history,
+            float attemptTime,
+            Action<BallContactEventV1> contactCallback = null)
         {
             for (var index = 0; index < pendingContacts.Count; index++)
             {
@@ -123,6 +131,11 @@ namespace PenaltyShootout.Kernel
                     attemptTime,
                     pending.GoalkeeperPart,
                     pending.Kinematics);
+                contactCallback?.Invoke(new BallContactEventV1(
+                    pending.Kind,
+                    pending.GoalkeeperPart,
+                    pending.Kinematics,
+                    pending.GloveSurface));
             }
 
             pendingContacts.Clear();
@@ -150,15 +163,18 @@ namespace PenaltyShootout.Kernel
         {
             public readonly ContactKind Kind;
             public readonly GoalkeeperContactPart GoalkeeperPart;
+            public readonly GloveContactSurfaceV1 GloveSurface;
             public readonly ContactKinematics Kinematics;
 
             public PendingContact(
                 ContactKind kind,
                 GoalkeeperContactPart goalkeeperPart,
+                GloveContactSurfaceV1 gloveSurface,
                 ContactKinematics kinematics)
             {
                 Kind = kind;
                 GoalkeeperPart = goalkeeperPart;
+                GloveSurface = gloveSurface;
                 Kinematics = kinematics;
             }
         }

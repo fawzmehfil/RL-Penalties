@@ -7,6 +7,13 @@ namespace PenaltyShootout.Kernel
 {
     public sealed class Stage6ShotVarietyLab : MonoBehaviour
     {
+        private enum ContactReviewMode
+        {
+            Baseline = 0,
+            BounceCandidate = 1,
+            GloveHandlingV1 = 2,
+        }
+
         private const float CandidateBounciness = 0.35f;
         private const float CandidateFriction = 0.15f;
         private const string DefaultReplayManifest =
@@ -24,14 +31,18 @@ namespace PenaltyShootout.Kernel
         private IGoalkeeperNativeInferenceControlV1 nativeInferenceControl;
         private AttemptResult baselineResult;
         private AttemptResult candidateResult;
+        private AttemptResult handlingResult;
         private int replayIndex;
         private bool replayMode = true;
-        private bool contactCandidateEnabled;
+        private ContactReviewMode contactMode;
         private string status = "Ready";
 
         public int ReplayCount => replayKeys.Count;
         public bool UsesNativeGoalkeeper => nativeGoalkeeper;
-        public bool ContactCandidateEnabled => contactCandidateEnabled;
+        public bool ContactCandidateEnabled =>
+            contactMode == ContactReviewMode.BounceCandidate;
+        public bool GloveHandlingEnabled =>
+            contactMode == ContactReviewMode.GloveHandlingV1;
 
         private void Awake()
         {
@@ -58,6 +69,7 @@ namespace PenaltyShootout.Kernel
             controller.AttemptCompleted += OnAttemptCompleted;
             nativeInferenceControl =
                 controller.ActionSource as IGoalkeeperNativeInferenceControlV1;
+            ApplyContactMode();
             SetNativeGoalkeeper(nativeGoalkeeper);
             LoadReplayCatalog();
         }
@@ -68,6 +80,7 @@ namespace PenaltyShootout.Kernel
             {
                 controller.AttemptCompleted -= OnAttemptCompleted;
                 controller.ClearAuditGloveContactMaterial();
+                controller.GoalkeeperGloveHandling?.SetHandlingEnabled(false);
             }
             if (runtimeDistribution != null)
             {
@@ -112,6 +125,7 @@ namespace PenaltyShootout.Kernel
             forcedStyle = style;
             baselineResult = null;
             candidateResult = null;
+            handlingResult = null;
             if (distribution == null)
             {
                 return;
@@ -157,17 +171,16 @@ namespace PenaltyShootout.Kernel
             {
                 return;
             }
-            contactCandidateEnabled = !contactCandidateEnabled;
+            contactMode = (ContactReviewMode)(((int)contactMode + 1) % 3);
             ApplyContactMode();
-            status = contactCandidateEnabled
-                ? "Candidate contact enabled; replaying the same shot"
-                : "Baseline contact restored; replaying the same shot";
+            status = $"{ContactModeLabel()} enabled; replaying the same shot";
             LaunchIfReady();
         }
 
         private void ApplyContactMode()
         {
-            if (contactCandidateEnabled)
+            controller.GoalkeeperGloveHandling?.SetHandlingEnabled(false);
+            if (contactMode == ContactReviewMode.BounceCandidate)
             {
                 controller.ConfigureAuditGloveContactMaterial(
                     CandidateBounciness,
@@ -176,6 +189,10 @@ namespace PenaltyShootout.Kernel
             else
             {
                 controller.ClearAuditGloveContactMaterial();
+                if (contactMode == ContactReviewMode.GloveHandlingV1)
+                {
+                    controller.GoalkeeperGloveHandling?.SetHandlingEnabled(true);
+                }
             }
         }
 
@@ -188,10 +205,11 @@ namespace PenaltyShootout.Kernel
             }
             replayMode = true;
             replayIndex = (replayIndex + offset + replayKeys.Count) % replayKeys.Count;
-            contactCandidateEnabled = false;
+            contactMode = ContactReviewMode.Baseline;
             ApplyContactMode();
             baselineResult = null;
             candidateResult = null;
+            handlingResult = null;
             status = "Selected next failure; baseline contact restored";
             LaunchIfReady();
         }
@@ -216,6 +234,7 @@ namespace PenaltyShootout.Kernel
             nativeGoalkeeper = enabled;
             baselineResult = null;
             candidateResult = null;
+            handlingResult = null;
             status = enabled
                 ? "Frozen native Stage 5 goalkeeper selected"
                 : "Manual goalkeeper selected";
@@ -330,16 +349,33 @@ namespace PenaltyShootout.Kernel
             {
                 return;
             }
-            if (contactCandidateEnabled)
+            if (contactMode == ContactReviewMode.BounceCandidate)
             {
                 candidateResult = result;
+            }
+            else if (contactMode == ContactReviewMode.GloveHandlingV1)
+            {
+                handlingResult = result;
             }
             else
             {
                 baselineResult = result;
             }
-            status = $"{(contactCandidateEnabled ? "Candidate" : "Baseline")}: " +
+            status = $"{ContactModeLabel()}: " +
                 $"{result.Outcome}, {result.FirstGoalkeeperContactPart}";
+        }
+
+        private string ContactModeLabel()
+        {
+            switch (contactMode)
+            {
+                case ContactReviewMode.BounceCandidate:
+                    return "bounce 0.35 / 0.15";
+                case ContactReviewMode.GloveHandlingV1:
+                    return "glove handling v1";
+                default:
+                    return "legacy sphere gloves";
+            }
         }
 
         private static string ReadArgument(string[] arguments, string prefix)
@@ -365,7 +401,7 @@ namespace PenaltyShootout.Kernel
             GUILayout.Label("Stage 6 Contact Review");
             GUILayout.Label(
                 $"Keeper: {(nativeGoalkeeper ? "native split seed-001" : "manual")}  " +
-                $"Contact: {(contactCandidateEnabled ? "candidate 0.35 / 0.15" : "baseline")}");
+                $"Contact: {ContactModeLabel()}");
             GUILayout.Label(replayMode && replayKeys.Count > 0
                 ? $"Replay {replayIndex + 1}/{replayKeys.Count}: {replayKeys[replayIndex]}"
                 : $"Random shot mode: {(forcedStyle.HasValue ? forcedStyle.Value.ToString() : "mixture")}");
@@ -375,7 +411,7 @@ namespace PenaltyShootout.Kernel
             GUI.enabled = terminal;
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Run same shot")) LaunchIfReady();
-            if (GUILayout.Button("Baseline / candidate")) ToggleContactCandidate();
+            if (GUILayout.Button("Cycle contact mode")) ToggleContactCandidate();
             if (GUILayout.Button("Previous")) SelectReplay(-1);
             if (GUILayout.Button("Next")) SelectReplay(1);
             GUILayout.EndHorizontal();
@@ -386,9 +422,10 @@ namespace PenaltyShootout.Kernel
             GUI.enabled = true;
 
             DrawResult("Baseline", baselineResult);
-            DrawResult("Candidate", candidateResult);
+            DrawResult("Bounce candidate", candidateResult);
+            DrawResult("Glove handling v1", handlingResult);
             GUILayout.Label(
-                "Keys: Space replay, B contact A/B, N/P case, M keeper, L replay list, 1-4 random shots");
+                "Keys: Space replay, B cycle contact, N/P case, M keeper, L replay list, 1-4 random shots");
             GUILayout.EndArea();
         }
 
@@ -410,6 +447,14 @@ namespace PenaltyShootout.Kernel
                 $"contact speed {metrics.ContactBallSpeed:F1} m/s; " +
                 $"away/goalward {metrics.AwayFromGoalSpeed:F1}/{metrics.GoalwardSpeed:F1} m/s; " +
                 $"vertical {metrics.VerticalSpeed:F1} m/s; impulse {metrics.ImpulseMagnitude:F1} Ns");
+            if (result.GloveHandlingEnabled)
+            {
+                GUILayout.Label(
+                    $"  handling {result.GloveHandlingOutcome}/{result.GloveContactRegion}; " +
+                    $"alignment {result.GlovePalmAlignment:F2}; " +
+                    $"speed {result.GloveIncomingSpeed:F1}->{result.GloveOutgoingSpeed:F1}; " +
+                    $"energy {result.GloveOutgoingEnergyRatio:F2}");
+            }
         }
     }
 }

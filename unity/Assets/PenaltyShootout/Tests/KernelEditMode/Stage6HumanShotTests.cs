@@ -372,10 +372,102 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(values, Has.Count.EqualTo(35));
         }
 
+        [Test]
+        public void GloveHandlingGeometryDoesNotExtendLegacyReachEnvelope()
+        {
+            var configuration = CreateGloveHandling();
+
+            Assert.That(configuration.Validate(out var error), Is.True, error);
+            Assert.That(
+                configuration.CompoundRadialExtent,
+                Is.LessThanOrEqualTo(configuration.MaximumRadialExtent));
+        }
+
+        [Test]
+        public void CentralAlignedContactCanBeCaught()
+        {
+            var decision = GoalkeeperGloveHandlingPolicyV1.Resolve(
+                new GloveHandlingInputV1(
+                    GloveContactRegionV1.Palm,
+                    new Vector3(0f, 0f, -8f),
+                    Vector3.zero,
+                    Vector3.forward,
+                    0.2f,
+                    false),
+                CreateGloveHandling());
+
+            Assert.That(decision.Outcome, Is.EqualTo(GloveHandlingOutcomeV1.Catch));
+            Assert.That(decision.OutgoingSpeed, Is.Zero);
+            Assert.That(decision.PalmAlignment, Is.EqualTo(1f).Within(1e-6f));
+        }
+
+        [Test]
+        public void FastAlignedContactParriesWithoutAddingEnergy()
+        {
+            var configuration = CreateGloveHandling();
+            var decision = GoalkeeperGloveHandlingPolicyV1.Resolve(
+                new GloveHandlingInputV1(
+                    GloveContactRegionV1.Palm,
+                    new Vector3(3f, -1f, -20f),
+                    new Vector3(1f, 0.5f, 0.5f),
+                    Vector3.forward,
+                    0.2f,
+                    false),
+                configuration);
+
+            Assert.That(decision.Outcome, Is.EqualTo(GloveHandlingOutcomeV1.Parry));
+            Assert.That(
+                decision.EnergyRatio,
+                Is.LessThanOrEqualTo(
+                    configuration.MaximumOutgoingEnergyRatio + 1e-5f));
+            Assert.That(decision.OutgoingBallVelocity.z, Is.GreaterThanOrEqualTo(0f));
+        }
+
+        [Test]
+        public void EdgeAndBackContactsDoNotBecomeAutomaticCatches()
+        {
+            var configuration = CreateGloveHandling();
+            var edge = GoalkeeperGloveHandlingPolicyV1.Resolve(
+                new GloveHandlingInputV1(
+                    GloveContactRegionV1.Palm,
+                    new Vector3(0f, 0f, -7f),
+                    Vector3.zero,
+                    Vector3.forward,
+                    0.95f,
+                    false),
+                configuration);
+            var back = GoalkeeperGloveHandlingPolicyV1.Resolve(
+                new GloveHandlingInputV1(
+                    GloveContactRegionV1.Palm,
+                    new Vector3(0f, 0f, 7f),
+                    Vector3.zero,
+                    Vector3.forward,
+                    0.2f,
+                    false),
+                configuration);
+
+            Assert.That(
+                edge.Outcome,
+                Is.EqualTo(GloveHandlingOutcomeV1.WeakDeflection));
+            Assert.That(edge.Region, Is.EqualTo(GloveContactRegionV1.Edge));
+            Assert.That(
+                back.Outcome,
+                Is.EqualTo(GloveHandlingOutcomeV1.Uncontrolled));
+            Assert.That(back.Region, Is.EqualTo(GloveContactRegionV1.Back));
+        }
+
         private PlayerShotPhysicsConfigV1 CreatePhysics()
         {
             var configuration =
                 ScriptableObject.CreateInstance<PlayerShotPhysicsConfigV1>();
+            created.Add(configuration);
+            return configuration;
+        }
+
+        private GoalkeeperGloveHandlingConfigV1 CreateGloveHandling()
+        {
+            var configuration =
+                ScriptableObject.CreateInstance<GoalkeeperGloveHandlingConfigV1>();
             created.Add(configuration);
             return configuration;
         }

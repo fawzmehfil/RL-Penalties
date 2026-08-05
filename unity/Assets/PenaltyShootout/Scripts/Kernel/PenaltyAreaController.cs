@@ -47,6 +47,9 @@ namespace PenaltyShootout.Kernel
         private GoalkeeperMotorV1 goalkeeperControlMotor;
 
         [SerializeField]
+        private GoalkeeperGloveHandlingV1 goalkeeperGloveHandling;
+
+        [SerializeField]
         private ScenarioController scenarioController;
 
         [SerializeField]
@@ -224,6 +227,12 @@ namespace PenaltyShootout.Kernel
         {
             get => goalkeeperControlMotor;
             set => goalkeeperControlMotor = value;
+        }
+
+        public GoalkeeperGloveHandlingV1 GoalkeeperGloveHandling
+        {
+            get => goalkeeperGloveHandling;
+            set => goalkeeperGloveHandling = value;
         }
 
         public ScenarioController ScenarioController
@@ -556,6 +565,14 @@ namespace PenaltyShootout.Kernel
                 {
                     return false;
                 }
+
+                if (goalkeeperGloveHandling != null &&
+                    goalkeeperGloveHandling.HandlingEnabled &&
+                    (goalkeeperGloveHandling.Configuration == null ||
+                     !goalkeeperGloveHandling.Configuration.Validate(out error)))
+                {
+                    return false;
+                }
             }
             else
             {
@@ -717,6 +734,7 @@ namespace PenaltyShootout.Kernel
             ballCollider.enabled = false;
             ResetBall(ToWorld(KernelConstants.CanonicalLaunch));
             ballContactSensor.ResetForAttempt(attemptId, scenario.Seed);
+            goalkeeperGloveHandling?.ResetForAttempt(attemptId, scenario.Seed);
             if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)
             {
                 goalkeeperControlMotor.ResetForAttempt(attemptId, scenario.Seed);
@@ -739,9 +757,15 @@ namespace PenaltyShootout.Kernel
                 motorReset = goalkeeperMotor.ValidateReset(out motorError);
             }
             var scenarioReset = scenarioController.ValidateReset(out var scenarioResetError);
-            if (!sensorReset || !motorReset || !scenarioReset)
+            var gloveError = string.Empty;
+            var gloveReset = goalkeeperGloveHandling == null ||
+                goalkeeperGloveHandling.ValidateReset(out gloveError);
+            if (!sensorReset || !motorReset || !scenarioReset || !gloveReset)
             {
-                Debug.LogError($"{sensorError} {motorError} {scenarioResetError}", this);
+                Debug.LogError(
+                    $"{sensorError} {motorError} {scenarioResetError} " +
+                    $"{(goalkeeperGloveHandling == null ? string.Empty : gloveError)}",
+                    this);
                 Complete(AttemptOutcome.Invalid);
                 return;
             }
@@ -971,7 +995,9 @@ namespace PenaltyShootout.Kernel
             attemptTime += deltaTime;
             phaseTime += deltaTime;
             ballFlightTime += deltaTime;
-            if (UsesHumanShots && playerShotPhysicsConfiguration != null)
+            if (!ball.isKinematic &&
+                UsesHumanShots &&
+                playerShotPhysicsConfiguration != null)
             {
                 var localVelocity = ToLocalDirection(ball.linearVelocity);
                 var localSpin = ball.angularVelocity;
@@ -987,10 +1013,44 @@ namespace PenaltyShootout.Kernel
                         -playerShotPhysicsConfiguration.SpinDecay * deltaTime);
             }
             var hadGoalkeeperContact = contactHistory.GoalkeeperTouched;
-            ballContactSensor.Drain(contactHistory, attemptTime);
+            ballContactSensor.Drain(
+                contactHistory,
+                attemptTime,
+                goalkeeperGloveHandling == null
+                    ? null
+                    : goalkeeperGloveHandling.ProcessContact);
             if (!hadGoalkeeperContact && contactHistory.GoalkeeperTouched)
             {
                 CaptureFirstContactMotorKinematics();
+            }
+
+            if (goalkeeperGloveHandling != null &&
+                goalkeeperGloveHandling.HasPossession)
+            {
+                if (goalkeeperControlMode == GoalkeeperControlMode.HybridV1)
+                {
+                    goalkeeperControlMotor.Tick(deltaTime);
+                }
+                else
+                {
+                    goalkeeperMotor.Tick(deltaTime);
+                }
+                goalkeeperGloveHandling.Tick(deltaTime);
+                var heldLocal = ToLocal(ball.position);
+                PushBallVisibleSnapshot(
+                    heldLocal,
+                    Vector3.zero,
+                    Vector3.zero,
+                    ballFlightTime);
+                UpdateMinimumGloveDistance(heldLocal);
+                AddTrajectoryPoint(ball.position);
+                physicsTick++;
+                previousBallLocal = heldLocal;
+                if (goalkeeperGloveHandling.PossessionComplete)
+                {
+                    Complete(AttemptOutcome.Saved);
+                }
+                return;
             }
 
             var currentLocal = ToLocal(ball.position);
@@ -1530,6 +1590,53 @@ namespace PenaltyShootout.Kernel
                 CommittedGloveForward = goalkeeperControlMotor == null
                     ? 0f
                     : goalkeeperControlMotor.CommittedGloveForward,
+                GloveHandlingId = goalkeeperGloveHandling == null ||
+                    goalkeeperGloveHandling.Configuration == null
+                    ? string.Empty
+                    : goalkeeperGloveHandling.HandlingEnabled
+                        ? goalkeeperGloveHandling.Configuration.ContractId
+                        : KernelConstants.GoalkeeperLegacyGloveHandlingId,
+                GloveGeometryId = goalkeeperGloveHandling == null ||
+                    goalkeeperGloveHandling.Configuration == null
+                    ? string.Empty
+                    : goalkeeperGloveHandling.HandlingEnabled
+                        ? goalkeeperGloveHandling.Configuration.GeometryId
+                        : KernelConstants.GoalkeeperLegacySphereGeometryId,
+                GloveHandlingEnabled = goalkeeperGloveHandling != null &&
+                    goalkeeperGloveHandling.HandlingEnabled,
+                GloveHandlingOutcome = goalkeeperGloveHandling == null
+                    ? GloveHandlingOutcomeV1.None
+                    : goalkeeperGloveHandling.Decision.Outcome,
+                GloveContactRegion = goalkeeperGloveHandling == null
+                    ? GloveContactRegionV1.None
+                    : goalkeeperGloveHandling.Decision.Region,
+                GlovePalmAlignment = goalkeeperGloveHandling == null
+                    ? 0f
+                    : goalkeeperGloveHandling.Decision.PalmAlignment,
+                GloveIncomingSpeed = goalkeeperGloveHandling == null
+                    ? 0f
+                    : goalkeeperGloveHandling.Decision.IncomingSpeed,
+                GloveOutgoingSpeed = goalkeeperGloveHandling == null
+                    ? 0f
+                    : goalkeeperGloveHandling.Decision.OutgoingSpeed,
+                GloveOutgoingEnergyRatio = goalkeeperGloveHandling == null
+                    ? 0f
+                    : goalkeeperGloveHandling.Decision.EnergyRatio,
+                GloveTwoHandCandidate = goalkeeperGloveHandling != null &&
+                    goalkeeperGloveHandling.Decision.TwoHandCandidate,
+                GloveTwoHandSeparation = goalkeeperGloveHandling == null
+                    ? -1f
+                    : goalkeeperGloveHandling.TwoHandSeparation,
+                GloveNormalizedContactExtent = goalkeeperGloveHandling == null
+                    ? 0f
+                    : goalkeeperGloveHandling.NormalizedContactExtent,
+                GloveAppliedImpulseLocal = goalkeeperGloveHandling == null
+                    ? Vector3.zero
+                    : ToLocalDirection(
+                        goalkeeperGloveHandling.AppliedImpulseWorld),
+                GlovePossessionDuration = goalkeeperGloveHandling == null
+                    ? 0f
+                    : goalkeeperGloveHandling.PossessionTime,
                 PlayerShot = scenario.PlayerShot,
                 ObservationDelayTicks = gameplayObservationDelayTicks,
             };

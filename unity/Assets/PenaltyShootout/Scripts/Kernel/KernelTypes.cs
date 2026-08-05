@@ -203,6 +203,20 @@ namespace PenaltyShootout.Kernel
         public int[] ControlSaturationCounts;
         public float MinimumGloveBallDistance;
         public float CommittedGloveForward;
+        public string GloveHandlingId;
+        public string GloveGeometryId;
+        public bool GloveHandlingEnabled;
+        public GloveHandlingOutcomeV1 GloveHandlingOutcome;
+        public GloveContactRegionV1 GloveContactRegion;
+        public float GlovePalmAlignment;
+        public float GloveIncomingSpeed;
+        public float GloveOutgoingSpeed;
+        public float GloveOutgoingEnergyRatio;
+        public bool GloveTwoHandCandidate;
+        public float GloveTwoHandSeparation;
+        public float GloveNormalizedContactExtent;
+        public Vector3 GloveAppliedImpulseLocal;
+        public float GlovePossessionDuration;
         public ResolvedPlayerShotV1 PlayerShot;
         public int ObservationDelayTicks;
     }

@@ -239,6 +239,11 @@ namespace PenaltyShootout.MLAgents
             }
 
             var parameters = Academy.Instance.EnvironmentParameters;
+            controller.GoalkeeperGloveHandling?.SetHandlingEnabled(
+                parameters.GetWithDefault(
+                    "stage6.glove_handling_v1",
+                    controller.GoalkeeperGloveHandling.HandlingEnabled ? 1f : 0f) >=
+                0.5f);
             stage2Lesson = Mathf.RoundToInt(parameters.GetWithDefault("stage2.lesson", 3f));
             var shots = controller.ShotConfiguration;
             ApplyLessonDefaults(shots, stage2Lesson);

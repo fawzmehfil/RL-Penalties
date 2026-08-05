@@ -345,6 +345,24 @@ namespace PenaltyShootout.MLAgents
                     result.MinimumGloveBallDistance,
                 committed_glove_forward_m =
                     result.CommittedGloveForward,
+                glove_handling_id = result.GloveHandlingId,
+                glove_geometry_id = result.GloveGeometryId,
+                glove_handling_enabled = result.GloveHandlingEnabled,
+                glove_handling_outcome = result.GloveHandlingOutcome.ToString(),
+                glove_handling_outcome_id = (int)result.GloveHandlingOutcome,
+                glove_contact_region = result.GloveContactRegion.ToString(),
+                glove_contact_region_id = (int)result.GloveContactRegion,
+                glove_palm_alignment = result.GlovePalmAlignment,
+                glove_incoming_speed_mps = result.GloveIncomingSpeed,
+                glove_outgoing_speed_mps = result.GloveOutgoingSpeed,
+                glove_outgoing_energy_ratio = result.GloveOutgoingEnergyRatio,
+                glove_two_hand_candidate = result.GloveTwoHandCandidate,
+                glove_two_hand_separation_m = result.GloveTwoHandSeparation,
+                glove_normalized_contact_extent =
+                    result.GloveNormalizedContactExtent,
+                glove_applied_impulse_local = VectorPayload.From(
+                    result.GloveAppliedImpulseLocal),
+                glove_possession_duration_s = result.GlovePossessionDuration,
                 policy_decision_request_count =
                     result.PolicyDecisionRequestCount,
                 policy_decision_consumed_count =
@@ -501,6 +519,22 @@ namespace PenaltyShootout.MLAgents
             public int[] control_saturation_counts;
             public float minimum_glove_ball_distance;
             public float committed_glove_forward_m;
+            public string glove_handling_id;
+            public string glove_geometry_id;
+            public bool glove_handling_enabled;
+            public string glove_handling_outcome;
+            public int glove_handling_outcome_id;
+            public string glove_contact_region;
+            public int glove_contact_region_id;
+            public float glove_palm_alignment;
+            public float glove_incoming_speed_mps;
+            public float glove_outgoing_speed_mps;
+            public float glove_outgoing_energy_ratio;
+            public bool glove_two_hand_candidate;
+            public float glove_two_hand_separation_m;
+            public float glove_normalized_contact_extent;
+            public VectorPayload glove_applied_impulse_local;
+            public float glove_possession_duration_s;
             public int policy_decision_request_count;
             public int policy_decision_consumed_count;
             public int policy_decision_discarded_count;
