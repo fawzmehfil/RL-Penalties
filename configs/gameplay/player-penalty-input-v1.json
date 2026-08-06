@@ -1,0 +1,50 @@
+{
+  "contract_id": "player-penalty-input-v1",
+  "scenario_suite_id": "player-interactive-v1",
+  "set_contract_id": "penalty-set-v1",
+  "replay_contract_id": "penalty-replay-v1",
+  "shot_contract_id": "player-shot-v1",
+  "shot_physics_id": "football-flight-v1",
+  "goalkeeper_behavior": "GoalkeeperControl-v2",
+  "goalkeeper_motor_contract_id": "keeper-control-forward-v1",
+  "goalkeeper_observation_spec_id": "control-state-v2-gameplay-v1",
+  "goalkeeper_observation_delay_ticks": 2,
+  "goalkeeper_glove_handling_version": 1,
+  "spin_saturates_to_physics_curve_cap": true,
+  "valid_shots_per_set": 5,
+  "run_up_seconds": 0.28,
+  "input": {
+    "pointer_aim": "<Pointer>/delta",
+    "keyboard_aim": [
+      "<Keyboard>/leftArrow",
+      "<Keyboard>/rightArrow",
+      "<Keyboard>/upArrow",
+      "<Keyboard>/downArrow"
+    ],
+    "shoot": [
+      "<Mouse>/leftButton",
+      "<Keyboard>/space"
+    ],
+    "curve_left": "<Keyboard>/q",
+    "curve_right": "<Keyboard>/e",
+    "pause": "<Keyboard>/escape"
+  },
+  "power": {
+    "minimum": 0.2,
+    "maximum": 1.0,
+    "charge_seconds": 1.2
+  },
+  "composure_period_seconds": 1.15,
+  "reticle_fade_seconds": 0.18,
+  "curve_rate_per_second": 1.5,
+  "contact_error": {
+    "perfect_timing_multiplier": 0.6,
+    "poor_timing_multiplier": 1.8,
+    "gaussian_truncation_sigma": 2.5,
+    "maximum_axis_error_m": 0.75
+  },
+  "style_thresholds": {
+    "curled_absolute_sidespin": 0.25,
+    "power": 0.72
+  }
+}

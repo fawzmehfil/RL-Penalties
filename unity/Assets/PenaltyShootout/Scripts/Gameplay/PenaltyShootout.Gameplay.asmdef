@@ -1,0 +1,19 @@
+{
+  "name": "PenaltyShootout.Gameplay",
+  "rootNamespace": "PenaltyShootout.Gameplay",
+  "references": [
+    "PenaltyShootout.Core",
+    "Unity.InputSystem",
+    "Unity.InputSystem.UI",
+    "Unity.ugui"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

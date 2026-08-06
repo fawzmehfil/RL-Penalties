@@ -1,0 +1,158 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39fa3d8997a24136984ca6e2c99902bc, type: 3}
+  m_Name: PenaltyGameplayActions
+  m_EditorClassIdentifier:
+  m_ActionMaps:
+  - m_Name: Gameplay
+    m_Id:
+    m_Asset: {fileID: 11400000}
+    m_Actions:
+    - m_Name: AimPointer
+      m_Type: 2
+      m_ExpectedControlType:
+      m_Id: 3680eeb0-ea6a-4969-a3e7-6f4e23a08e0d
+      m_Processors:
+      m_Interactions:
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    - m_Name: AimKeyboard
+      m_Type: 0
+      m_ExpectedControlType:
+      m_Id: aed57b04-5e45-4a3c-a886-83d5ec9cf54d
+      m_Processors:
+      m_Interactions:
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    - m_Name: Shoot
+      m_Type: 1
+      m_ExpectedControlType:
+      m_Id: 738b077b-b86d-48ee-8624-d980b6d7d937
+      m_Processors:
+      m_Interactions:
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    - m_Name: Curve
+      m_Type: 0
+      m_ExpectedControlType:
+      m_Id: 522162bd-c5ed-4fdf-ba59-9b272ecbad4c
+      m_Processors:
+      m_Interactions:
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    - m_Name: Pause
+      m_Type: 1
+      m_ExpectedControlType:
+      m_Id: 1404ec05-1b62-495e-a416-e8e10dc73511
+      m_Processors:
+      m_Interactions:
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    m_Bindings:
+    - m_Name:
+      m_Id: 3cbd4314-8a62-448e-b3e3-3bcaf86f3a48
+      m_Path: <Pointer>/delta
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: AimPointer
+      m_Flags: 0
+    - m_Name: 2DVector
+      m_Id: 3e3044b6-1e32-455c-a1c2-b8528719bcbb
+      m_Path: 2DVector
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: AimKeyboard
+      m_Flags: 4
+    - m_Name: Up
+      m_Id: 5e6a6bce-259b-42a3-83b9-c94b4192166e
+      m_Path: <Keyboard>/upArrow
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: AimKeyboard
+      m_Flags: 8
+    - m_Name: Down
+      m_Id: 0db2d70f-3842-40af-aee1-22d7b2081284
+      m_Path: <Keyboard>/downArrow
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: AimKeyboard
+      m_Flags: 8
+    - m_Name: Left
+      m_Id: 272cf362-90ea-4f89-a93e-137754a6c534
+      m_Path: <Keyboard>/leftArrow
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: AimKeyboard
+      m_Flags: 8
+    - m_Name: Right
+      m_Id: 6293a8dd-6808-45fc-a538-2148855873f6
+      m_Path: <Keyboard>/rightArrow
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: AimKeyboard
+      m_Flags: 8
+    - m_Name:
+      m_Id: 26ab4583-3daf-4b27-a33d-b32ab83ecfa6
+      m_Path: <Mouse>/leftButton
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: Shoot
+      m_Flags: 0
+    - m_Name:
+      m_Id: e8473e88-2a15-4e92-b062-331e7e67025b
+      m_Path: <Keyboard>/space
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: Shoot
+      m_Flags: 0
+    - m_Name: 1DAxis
+      m_Id: f2f513f2-b3a3-436b-9fb5-7075789e5a93
+      m_Path: 1DAxis
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: Curve
+      m_Flags: 4
+    - m_Name: Negative
+      m_Id: 278e5452-ba3e-406d-b155-3bee0594fbc3
+      m_Path: <Keyboard>/q
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: Curve
+      m_Flags: 8
+    - m_Name: Positive
+      m_Id: 8f6d9e4e-d4c9-46b5-8ec3-ad5b31e78852
+      m_Path: <Keyboard>/e
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: Curve
+      m_Flags: 8
+    - m_Name:
+      m_Id: d6279b8b-e019-4cac-8942-26b3e4ff867e
+      m_Path: <Keyboard>/escape
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: Pause
+      m_Flags: 0
+  m_ControlSchemes: []
+  m_IsProjectWide: 0
