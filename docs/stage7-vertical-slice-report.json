@@ -78,12 +78,12 @@
     }
   },
   "build": {
-    "source_commit": "c64b5f6dcb28e152031a2ac2e3f767296303ad01",
-    "build_id": "stage7-c64b5f6d",
+    "source_commit": "e8de361aaa475e75389dec971f6fdb3dbb5f0019",
+    "build_id": "stage7-e8de361a",
     "platform": "macOS",
     "path": "builds/macos/PenaltyShootoutStage7.app",
     "size_kib": 138336,
-    "executable_sha256": "5db949c8319e3508b7957269c277f21bbc2514aae8e742a835d155aa13ac5b83",
+    "executable_sha256": "e5c598a3284703a1be9fca5604dc711ce558c00f950e0d3455cc139a28a02d98",
     "scene": "Assets/PenaltyShootout/Scenes/PenaltyGame.unity",
     "python_required_at_runtime": false
   },
