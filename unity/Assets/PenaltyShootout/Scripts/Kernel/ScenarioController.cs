@@ -102,8 +102,49 @@ namespace PenaltyShootout.Kernel
                     fixedTimestep);
         }
 
+        public ulong DeriveAttemptSeed(long attemptId)
+        {
+            if (attemptId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(attemptId));
+            }
+
+            return Pcg32.DeriveSeed(masterSeed, arenaId, attemptId);
+        }
+
+        public ScenarioInstance ResolvePlayerShot(
+            long attemptId,
+            PlayerPenaltyShotRequestV1 request,
+            Vector3 gravity,
+            float fixedTimestep)
+        {
+            if (!useHumanShots || playerShotPhysicsConfiguration == null)
+            {
+                throw new InvalidOperationException(
+                    "Interactive shots require football-flight-v1 configuration.");
+            }
+
+            lastAttemptId = attemptId;
+            lastSeed = DeriveAttemptSeed(attemptId);
+            return PlayerShotScenarioFactoryV1.Resolve(
+                request,
+                lastSeed,
+                gravity,
+                fixedTimestep,
+                playerShotPhysicsConfiguration);
+        }
+
         public bool ValidateScenario(ScenarioInstance scenario, out string error)
         {
+            if (scenario.ScenarioSuiteId ==
+                KernelConstants.PlayerInteractiveScenarioSuiteId)
+            {
+                return PlayerShotScenarioFactoryV1.Validate(
+                    scenario,
+                    playerShotPhysicsConfiguration,
+                    out error);
+            }
+
             return useHumanShots
                 ? HumanShotGeneratorV1.Validate(
                     scenario,

@@ -144,9 +144,17 @@ namespace PenaltyShootout.Kernel
         private int controlReachCommandCount;
         private readonly float[] controlAbsoluteActionSums = new float[4];
         private readonly int[] controlSaturationCounts = new int[4];
+        private bool prepareExternalPlayerShotRequested;
+        private bool awaitingPreparedPlayerShot;
+        private bool hasCurrentPlayerShotRequest;
+        private PlayerPenaltyShotRequestV1 currentPlayerShotRequest;
         private bool initialized;
 
         public event Action<AttemptResult> AttemptCompleted;
+        public event Action<PlayerShotLaunchEventV1> ShotLaunched;
+        public event Action<GoalkeeperControlCommandEventV1>
+            GoalkeeperControlCommandAccepted;
+        public event Action<BallContactReplayEventV1> ContactRecorded;
 
         public EnvironmentKernelConfig EnvironmentConfiguration
         {
@@ -334,6 +342,10 @@ namespace PenaltyShootout.Kernel
         public bool HasCentrePlaneIntersection => hasCentrePlaneIntersection;
         public Vector3 CentrePlaneIntersectionLocal => centrePlaneIntersectionLocal;
         public bool IsTerminal => stateMachine.Phase == AttemptPhase.Terminal;
+        public bool IsAwaitingPreparedPlayerShot => awaitingPreparedPlayerShot;
+        public bool HasCurrentPlayerShotRequest => hasCurrentPlayerShotRequest;
+        public PlayerPenaltyShotRequestV1 CurrentPlayerShotRequest =>
+            currentPlayerShotRequest;
         public Vector3 BallLocalPosition => ToLocal(ball == null ? Vector3.zero : ball.position);
         public Vector3 BallLocalVelocity => ToLocalDirection(ball == null ? Vector3.zero : ball.linearVelocity);
         public Vector3 BallAngularVelocity => ball == null ? Vector3.zero : ball.angularVelocity;
@@ -397,6 +409,10 @@ namespace PenaltyShootout.Kernel
             goalkeeperControlMotor == null
                 ? Vector3.zero
                 : goalkeeperControlMotor.RightGloveArenaLocal;
+        public GoalkeeperControlCommand GoalkeeperActiveControlCommand =>
+            goalkeeperControlMotor == null
+                ? GoalkeeperControlCommand.Neutral
+                : goalkeeperControlMotor.ActiveCommand;
         public bool GoalkeeperControlCanCommit =>
             goalkeeperControlMotor != null &&
             GoalkeeperControlTrainingContracts.ApplySingleCommitLimit(
@@ -646,6 +662,11 @@ namespace PenaltyShootout.Kernel
                 return;
             }
 
+            awaitingPreparedPlayerShot = prepareExternalPlayerShotRequested;
+            prepareExternalPlayerShotRequested = false;
+            hasCurrentPlayerShotRequest = false;
+            currentPlayerShotRequest = default;
+
             attemptId++;
             attemptTime = 0f;
             phaseTime = 0f;
@@ -710,10 +731,17 @@ namespace PenaltyShootout.Kernel
                     playerShotPhysicsConfiguration;
                 scenarioController.ArenaId = arenaId;
                 scenarioController.MasterSeed = masterSeed;
-                scenario = scenarioController.Sample(
-                    attemptId,
-                    Physics.gravity,
-                    environmentConfiguration.FixedTimestep);
+                scenario = awaitingPreparedPlayerShot
+                    ? new ScenarioInstance
+                    {
+                        ScenarioSuiteId =
+                            KernelConstants.PlayerInteractiveScenarioSuiteId,
+                        Seed = scenarioController.DeriveAttemptSeed(attemptId),
+                    }
+                    : scenarioController.Sample(
+                        attemptId,
+                        Physics.gravity,
+                        environmentConfiguration.FixedTimestep);
             }
             catch (Exception exception)
             {
@@ -722,7 +750,8 @@ namespace PenaltyShootout.Kernel
                 return;
             }
 
-            if (!scenarioController.ValidateScenario(
+            if (!awaitingPreparedPlayerShot &&
+                !scenarioController.ValidateScenario(
                     scenario,
                     out var scenarioError))
             {
@@ -777,7 +806,7 @@ namespace PenaltyShootout.Kernel
                 Vector3.zero,
                 0f);
             AddTrajectoryPoint(ball.position);
-            if (targetMarker != null)
+            if (!awaitingPreparedPlayerShot && targetMarker != null)
             {
                 targetMarker.position = ToWorld(scenario.TargetLocal);
             }
@@ -792,6 +821,91 @@ namespace PenaltyShootout.Kernel
             }
 
             Physics.SyncTransforms();
+        }
+
+        public bool PrepareNextPlayerAttempt(out string error)
+        {
+            if (!initialized && !Initialize())
+            {
+                error = "Penalty area could not initialize for player input.";
+                return false;
+            }
+            if (stateMachine.Phase != AttemptPhase.Terminal)
+            {
+                error = "Player attempts can only be prepared from Terminal.";
+                return false;
+            }
+
+            prepareExternalPlayerShotRequested = true;
+            BeginNextAttempt();
+            if (!awaitingPreparedPlayerShot ||
+                stateMachine.Phase != AttemptPhase.Resetting)
+            {
+                prepareExternalPlayerShotRequested = false;
+                error = "Player attempt preparation failed.";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        public bool TrySubmitPreparedPlayerShot(
+            PlayerPenaltyShotRequestV1 request,
+            out string error)
+        {
+            if (!awaitingPreparedPlayerShot ||
+                stateMachine.Phase != AttemptPhase.Ready)
+            {
+                error = "Player shot submission requires a prepared Ready attempt.";
+                return false;
+            }
+            if (!request.Validate(out error))
+            {
+                return false;
+            }
+
+            ScenarioInstance resolvedScenario;
+            try
+            {
+                resolvedScenario = scenarioController.ResolvePlayerShot(
+                    attemptId,
+                    request,
+                    Physics.gravity,
+                    environmentConfiguration.FixedTimestep);
+            }
+            catch (Exception exception)
+            {
+                error = exception.Message;
+                return false;
+            }
+            if (!scenarioController.ValidateScenario(
+                    resolvedScenario,
+                    out error))
+            {
+                return false;
+            }
+
+            scenario = resolvedScenario;
+            currentPlayerShotRequest = request;
+            hasCurrentPlayerShotRequest = true;
+            awaitingPreparedPlayerShot = false;
+            attemptTime = 0f;
+            phaseTime = 0f;
+            if (targetMarker != null)
+            {
+                targetMarker.position = ToWorld(scenario.TargetLocal);
+            }
+            if (!stateMachine.TryTransition(AttemptPhase.RunUp))
+            {
+                awaitingPreparedPlayerShot = true;
+                hasCurrentPlayerShotRequest = false;
+                error = "Player shot could not enter RunUp.";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
         }
 
         public bool TryConfigureNextReplayAttempt(
@@ -924,6 +1038,13 @@ namespace PenaltyShootout.Kernel
 
         private void TickReady(float deltaTime)
         {
+            if (awaitingPreparedPlayerShot)
+            {
+                attemptTime = 0f;
+                phaseTime = 0f;
+                return;
+            }
+
             attemptTime += deltaTime;
             phaseTime += deltaTime;
             if (phaseTime < environmentConfiguration.ReadyDuration)
@@ -967,6 +1088,9 @@ namespace PenaltyShootout.Kernel
                 return;
             }
 
+            ShotLaunched?.Invoke(
+                new PlayerShotLaunchEventV1(attemptId, attemptTime, scenario));
+
             phaseTime = 0f;
             physicsTick = 0;
             decisionIndex = 0;
@@ -996,7 +1120,8 @@ namespace PenaltyShootout.Kernel
             phaseTime += deltaTime;
             ballFlightTime += deltaTime;
             if (!ball.isKinematic &&
-                UsesHumanShots &&
+                scenario.PlayerShot.ShotPhysicsId ==
+                    KernelConstants.PlayerShotPhysicsId &&
                 playerShotPhysicsConfiguration != null)
             {
                 var localVelocity = ToLocalDirection(ball.linearVelocity);
@@ -1016,10 +1141,7 @@ namespace PenaltyShootout.Kernel
             ballContactSensor.Drain(
                 contactHistory,
                 attemptTime,
-                goalkeeperGloveHandling == null ||
-                    goalkeeperGloveHandling.HandlingVersion != 1
-                    ? null
-                    : goalkeeperGloveHandling.ProcessContact,
+                ProcessContactAndRecord,
                 goalkeeperGloveHandling == null ||
                     goalkeeperGloveHandling.HandlingVersion != 2
                     ? null
@@ -1315,6 +1437,13 @@ namespace PenaltyShootout.Kernel
 
             lastControlCommand = requested;
             RecordAcceptedControlCommand(requested);
+            GoalkeeperControlCommandAccepted?.Invoke(
+                new GoalkeeperControlCommandEventV1(
+                    attemptId,
+                    decisionIndex,
+                    physicsTick,
+                    ballFlightTime,
+                    requested));
             if (decisionIndex == 0)
             {
                 initialControlCommand = requested;
@@ -1347,6 +1476,20 @@ namespace PenaltyShootout.Kernel
             RecordControlChannel(1, command.AimX);
             RecordControlChannel(2, command.AimY);
             RecordControlChannel(3, command.Reach);
+        }
+
+        private void ProcessContactAndRecord(BallContactEventV1 contact)
+        {
+            ContactRecorded?.Invoke(
+                new BallContactReplayEventV1(
+                    attemptId,
+                    attemptTime,
+                    contact));
+            if (goalkeeperGloveHandling != null &&
+                goalkeeperGloveHandling.HandlingVersion == 1)
+            {
+                goalkeeperGloveHandling.ProcessContact(contact);
+            }
         }
 
         private void RecordControlChannel(int index, float value)

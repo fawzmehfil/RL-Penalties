@@ -25,6 +25,12 @@ namespace PenaltyShootout.Kernel
         public const string PlayerShotContractId = "player-shot-v1";
         public const string PlayerShotPhysicsId = "football-flight-v1";
         public const string HumanShotScenarioSuiteId = "human-shot-v1";
+        public const string PlayerInteractiveScenarioSuiteId =
+            "player-interactive-v1";
+        public const string PlayerPenaltyInputContractId =
+            "player-penalty-input-v1";
+        public const string PenaltySetContractId = "penalty-set-v1";
+        public const string PenaltyReplayContractId = "penalty-replay-v1";
         public const string GoalkeeperForwardMotorContractId =
             "keeper-control-forward-v1";
         public const string GoalkeeperGloveHandlingContractId =

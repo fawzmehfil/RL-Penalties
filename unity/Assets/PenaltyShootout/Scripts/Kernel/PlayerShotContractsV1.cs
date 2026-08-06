@@ -90,6 +90,7 @@ namespace PenaltyShootout.Kernel
         public Vector3 ContactAdjustedTargetLocal;
         public Vector3 LaunchVelocityLocal;
         public Vector3 AngularVelocityLocal;
+        public float SpinSaturationScale;
         public float NominalFlightTime;
         public float LaunchSpeed;
         public Vector3 PredictedUnopposedCrossingLocal;
@@ -235,16 +236,105 @@ namespace PenaltyShootout.Kernel
                 command.ContactErrorYMeters,
                 0f);
             var flightTime = FlightTimeForPower(command.Power, configuration);
-            var spin = new Vector3(
+            var requestedSpin = new Vector3(
                 -command.VerticalSpin * configuration.MaximumVerticalSpin,
                 -command.SideSpin * configuration.MaximumSideSpin,
                 0f);
-            var virtualTarget = adjustedTarget;
             var launchVelocity = Vector3.zero;
             var crossing = Vector3.zero;
             var iterations = 0;
             var crossingError = float.PositiveInfinity;
-            for (var iteration = 1; iteration <= configuration.SolverIterations; iteration++)
+            var spinScale = 1f;
+            var spin = requestedSpin;
+            var curve = Vector2.zero;
+            const int MaximumSaturationPasses = 8;
+            for (var pass = 0; pass < MaximumSaturationPasses; pass++)
+            {
+                spin = requestedSpin * spinScale;
+                SolveLaunch(
+                    adjustedTarget,
+                    flightTime,
+                    spin,
+                    gravity,
+                    fixedTimestep,
+                    configuration,
+                    out launchVelocity,
+                    out crossing,
+                    out iterations,
+                    out crossingError);
+                if (!PlayerShotFlightModelV1.TryPredictCrossing(
+                        KernelConstants.CanonicalLaunch,
+                        launchVelocity,
+                        Vector3.zero,
+                        gravity,
+                        fixedTimestep,
+                        configuration,
+                        out var zeroSpinCrossing))
+                {
+                    zeroSpinCrossing = crossing;
+                }
+                curve = new Vector2(
+                    crossing.x - zeroSpinCrossing.x,
+                    crossing.y - zeroSpinCrossing.y);
+                if (curve.magnitude <=
+                    configuration.MaximumCurveDisplacement + 1e-4f)
+                {
+                    break;
+                }
+                spinScale *= Mathf.Clamp01(
+                    configuration.MaximumCurveDisplacement /
+                    Mathf.Max(curve.magnitude, 1e-6f) * 0.95f);
+            }
+
+            if (curve.magnitude > configuration.MaximumCurveDisplacement + 1e-4f)
+            {
+                throw new InvalidOperationException(
+                    $"Predicted curve {curve.magnitude:F3} m exceeds contract.");
+            }
+
+            return new ResolvedPlayerShotV1
+            {
+                ShotContractId = KernelConstants.PlayerShotContractId,
+                ShotPhysicsId = configuration.PhysicsId,
+                ShotStyle = style,
+                MixtureComponentId = mixtureComponentId ?? style.ToString(),
+                Command = command,
+                IdealTargetLocal = idealTarget,
+                ContactAdjustedTargetLocal = adjustedTarget,
+                LaunchVelocityLocal = launchVelocity,
+                AngularVelocityLocal = spin,
+                SpinSaturationScale = spinScale,
+                NominalFlightTime = flightTime,
+                LaunchSpeed = launchVelocity.magnitude,
+                PredictedUnopposedCrossingLocal = crossing,
+                PredictedCurveDisplacement = curve,
+                ExpectedTargetClass = ClassifyExpectedCrossing(crossing),
+                SolverIterations = iterations,
+                SolverCrossingError = crossingError,
+                RareTail = rareTail,
+            };
+        }
+
+        private static void SolveLaunch(
+            Vector3 adjustedTarget,
+            float flightTime,
+            Vector3 spin,
+            Vector3 gravity,
+            float fixedTimestep,
+            PlayerShotPhysicsConfigV1 configuration,
+            out Vector3 launchVelocity,
+            out Vector3 crossing,
+            out int iterations,
+            out float crossingError)
+        {
+            var virtualTarget = adjustedTarget;
+            launchVelocity = Vector3.zero;
+            crossing = Vector3.zero;
+            iterations = 0;
+            crossingError = float.PositiveInfinity;
+            for (var iteration = 1;
+                iteration <= configuration.SolverIterations;
+                iteration++)
             {
                 iterations = iteration;
                 launchVelocity = KernelBallisticShotSolver.SolvePhysXInitialVelocity(
@@ -273,7 +363,6 @@ namespace PenaltyShootout.Kernel
                 {
                     break;
                 }
-
                 virtualTarget += error;
             }
 
@@ -282,47 +371,6 @@ namespace PenaltyShootout.Kernel
                 throw new InvalidOperationException(
                     $"Shot solver error {crossingError:F4} m exceeds contract.");
             }
-
-            if (!PlayerShotFlightModelV1.TryPredictCrossing(
-                    KernelConstants.CanonicalLaunch,
-                    launchVelocity,
-                    Vector3.zero,
-                    gravity,
-                    fixedTimestep,
-                    configuration,
-                    out var zeroSpinCrossing))
-            {
-                zeroSpinCrossing = crossing;
-            }
-            var curve = new Vector2(
-                crossing.x - zeroSpinCrossing.x,
-                crossing.y - zeroSpinCrossing.y);
-            if (curve.magnitude > configuration.MaximumCurveDisplacement + 1e-4f)
-            {
-                throw new InvalidOperationException(
-                    $"Predicted curve {curve.magnitude:F3} m exceeds contract.");
-            }
-
-            return new ResolvedPlayerShotV1
-            {
-                ShotContractId = KernelConstants.PlayerShotContractId,
-                ShotPhysicsId = configuration.PhysicsId,
-                ShotStyle = style,
-                MixtureComponentId = mixtureComponentId ?? style.ToString(),
-                Command = command,
-                IdealTargetLocal = idealTarget,
-                ContactAdjustedTargetLocal = adjustedTarget,
-                LaunchVelocityLocal = launchVelocity,
-                AngularVelocityLocal = spin,
-                NominalFlightTime = flightTime,
-                LaunchSpeed = launchVelocity.magnitude,
-                PredictedUnopposedCrossingLocal = crossing,
-                PredictedCurveDisplacement = curve,
-                ExpectedTargetClass = ClassifyExpectedCrossing(crossing),
-                SolverIterations = iterations,
-                SolverCrossingError = crossingError,
-                RareTail = rareTail,
-            };
         }
 
         public static ExpectedShotTargetClassV1 ClassifyExpectedCrossing(
