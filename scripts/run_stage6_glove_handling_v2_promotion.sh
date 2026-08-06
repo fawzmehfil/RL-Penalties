@@ -12,13 +12,18 @@ PROMOTION="$ROOT/results/glove-handling-v2/promotion"
 CONFIGS="$PROMOTION/configs"
 FROZEN="$CALIBRATION/frozen-profile.json"
 APPROVAL="$CALIBRATION/visual-approval.json"
-HOLDOUT_SEED=20260822
+# 20260821 is calibration and 20260822 is visual-catalog discovery.
+# Keep holdout and promotion blind to both datasets.
+HOLDOUT_SEED=20260824
 PROMOTION_SEED=20260823
 
 fail() {
   echo "FAIL: $*" >&2
   exit 1
 }
+
+test "$HOLDOUT_SEED" != "$PROMOTION_SEED" ||
+  fail "Holdout and promotion seeds must remain distinct"
 
 cd "$ROOT"
 test -x "$UNITY" || fail "Unity 6000.0.74f1 is not installed"
