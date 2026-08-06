@@ -107,6 +107,12 @@ namespace PenaltyShootout.Gameplay
                 Mathf.Clamp(aim.y, -1f, bounds.y));
         }
 
+        public static Vector2 ScreenDeltaToCommandAim(Vector2 screenDelta)
+        {
+            // The behind-ball camera faces arena -Z, so screen-right is arena -X.
+            return new Vector2(-screenDelta.x, screenDelta.y);
+        }
+
         public static float PowerForHold(
             float holdSeconds,
             PlayerPenaltyInputConfigV1 configuration)

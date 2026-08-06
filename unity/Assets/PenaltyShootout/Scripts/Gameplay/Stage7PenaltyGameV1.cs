@@ -345,13 +345,15 @@ namespace PenaltyShootout.Gameplay
             var minimumScreen = Mathf.Max(1f, Mathf.Min(Screen.width, Screen.height));
             if (pointer.sqrMagnitude > 0.01f)
             {
-                aim += pointer / minimumScreen *
+                aim += PlayerPenaltyInputMathV1.ScreenDeltaToCommandAim(pointer) /
+                    minimumScreen *
                     (2f * runtimeConfiguration.PointerSensitivity);
                 activeInputDevice = PlayerShotInputDeviceV1.Pointer;
             }
             if (keyboard.sqrMagnitude > 0.01f)
             {
-                aim += Vector2.ClampMagnitude(keyboard, 1f) *
+                aim += PlayerPenaltyInputMathV1.ScreenDeltaToCommandAim(
+                    Vector2.ClampMagnitude(keyboard, 1f)) *
                     runtimeConfiguration.KeyboardAimSpeed *
                     Time.unscaledDeltaTime;
                 activeInputDevice = PlayerShotInputDeviceV1.Keyboard;

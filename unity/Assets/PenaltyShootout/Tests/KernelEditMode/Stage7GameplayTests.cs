@@ -32,6 +32,10 @@ namespace PenaltyShootout.Kernel.Tests
             Assert.That(
                 PlayerPenaltyInputMathV1.ClampAim(new Vector2(3f, 3f)),
                 Is.EqualTo(bounds));
+            Assert.That(
+                PlayerPenaltyInputMathV1.ScreenDeltaToCommandAim(
+                    new Vector2(1f, 1f)),
+                Is.EqualTo(new Vector2(-1f, 1f)));
         }
 
         [Test]
