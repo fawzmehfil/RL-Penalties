@@ -3,6 +3,7 @@
   "rootNamespace": "PenaltyShootout.Kernel.Tests",
   "references": [
     "PenaltyShootout.Core",
+    "PenaltyShootout.Gameplay",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

@@ -5,8 +5,12 @@
     "PenaltyShootout.Stage0",
     "PenaltyShootout.Core",
     "PenaltyShootout.MLAgents",
+    "PenaltyShootout.Gameplay",
     "Unity.ML-Agents",
-    "Unity.InferenceEngine"
+    "Unity.InferenceEngine",
+    "Unity.InputSystem",
+    "Unity.InputSystem.UI",
+    "Unity.ugui"
   ],
   "includePlatforms": [
     "Editor"
