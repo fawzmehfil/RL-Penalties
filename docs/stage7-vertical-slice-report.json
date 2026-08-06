@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "stage": 7,
+  "status": "implemented_verified_pending_manual_ux",
+  "training_performed": false,
+  "gameplay": {
+    "format": "penalty-set-v1",
+    "valid_shots_per_set": 5,
+    "input_contract": "player-penalty-input-v1",
+    "scenario_suite": "player-interactive-v1",
+    "shot_command": "player-shot-v1",
+    "flight_physics": "football-flight-v1",
+    "replay_contract": "penalty-replay-v1"
+  },
+  "goalkeeper": {
+    "behavior": "GoalkeeperControl-v2",
+    "controller": "native_split_v1:seed-001",
+    "observation": "control-state-v2-gameplay-v1",
+    "observation_size": 35,
+    "observation_delay_ticks": 2,
+    "continuous_actions": 4,
+    "discrete_branches": [
+      2
+    ],
+    "motor": "keeper-control-forward-v1",
+    "glove_handling": "keeper-glove-handling-v1",
+    "interception_model_sha256": "ad95050acb5032abffd005e9d5ddf78b8e1c362d79a5d9871b05c50a342b20b0",
+    "timing_model_sha256": "26c3a80b375574a4e1c02b97183e2ab390736eae76879296ad3daaf85492850b"
+  },
+  "verification": {
+    "handoff_script": "scripts/run_stage7_vertical_slice_handoff.sh",
+    "handoff_result": "passed",
+    "python_tests": {
+      "passed": 120,
+      "failed": 0
+    },
+    "stage7_editmode_tests": {
+      "passed": 7,
+      "failed": 0
+    },
+    "stage7_playmode_tests": {
+      "passed": 2,
+      "failed": 0,
+      "live_five_shot_sets": 1
+    },
+    "stage6_regression_tests": {
+      "passed": 26,
+      "failed": 0
+    },
+    "command_resolution_matrix": {
+      "sets": 100,
+      "commands": 500,
+      "invalid_commands": 0,
+      "curve_cap_failures": 0
+    },
+    "safety_failures": {
+      "invalid_attempts": 0,
+      "timeouts": 0,
+      "duplicate_submissions": 0,
+      "missing_keeper_actions": 0,
+      "native_inference_errors": 0,
+      "replay_validation_errors": 0,
+      "reset_leaks": 0
+    },
+    "visual_layouts": [
+      "1920x1080",
+      "1440x900",
+      "1280x800"
+    ],
+    "visual_overlap_failures": 0,
+    "standalone_performance": {
+      "resolution": "1440x900",
+      "warmup_seconds": 2,
+      "sample_seconds": 10,
+      "frames_per_second": 59.8,
+      "target_frames_per_second": 60,
+      "result": "passed_within_measurement_precision"
+    }
+  },
+  "build": {
+    "source_commit": "c64b5f6dcb28e152031a2ac2e3f767296303ad01",
+    "build_id": "stage7-c64b5f6d",
+    "platform": "macOS",
+    "path": "builds/macos/PenaltyShootoutStage7.app",
+    "size_kib": 138336,
+    "executable_sha256": "5db949c8319e3508b7957269c277f21bbc2514aae8e742a835d155aa13ac5b83",
+    "scene": "Assets/PenaltyShootout/Scenes/PenaltyGame.unity",
+    "python_required_at_runtime": false
+  },
+  "manual_ux_gate": {
+    "status": "pending_user_review",
+    "requirements": {
+      "first_valid_shot_seconds_max": 30,
+      "accidental_release_rate_max": 0.05,
+      "horizontal_band_accuracy_min": 0.70,
+      "height_band_accuracy_min": 0.60,
+      "curve_direction_accuracy_min": 0.80
+    }
+  },
+  "deferred": [
+    "gamepad support",
+    "kicker model and run-up animation",
+    "stadium art pass",
+    "replay playback and analysis UI",
+    "difficulty presets",
+    "release signing and clean-machine packaging"
+  ],
+  "next_stage": {
+    "stage": 8,
+    "name": "Replay analysis and presentation polish",
+    "authorized_after_manual_ux_review": true
+  }
+}

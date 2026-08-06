@@ -1171,23 +1171,55 @@ Stage 6 is closed without additional goalkeeper training. Its selected release
 contracts are `player-shot-v1`, `football-flight-v1`, `human-shot-v1`,
 `control-state-v2-gameplay-v1`, `keeper-control-forward-v1`, and
 `keeper-glove-handling-v1`. The closure decision and evidence hashes are stored
-in `docs/stage6-closure-report.json`. Stage 7 replay and analysis work is next.
+in `docs/stage6-closure-report.json`. Stage 7 builds the playable vertical slice
+on that frozen baseline.
+
+## Stage 7 playable penalty game
+
+Stage 7 turns the selected Stage 6 stack into a standalone five-shot game. It
+does not retrain or replace the goalkeeper. Human input creates the same
+`player-shot-v1` command used by Stage 6, and `player-interactive-v1` resolves
+that command through `football-flight-v1` against the native split seed-001
+goalkeeper, `keeper-control-forward-v1`, 40 ms delayed visibility, and verified
+Glove Handling v1.
+
+The gameplay contract is `player-penalty-input-v1`. Move the mouse or trackpad,
+or use the arrow keys, to aim. Press and hold the left mouse button or `Space`
+to lock aim and charge power, then release to shoot. `Q` and `E` add left or
+right curve before release. `Escape` opens pause and settings. A set contains
+exactly five valid shots; technical failures are retried and do not affect the
+score.
+
+Run the complete verification and standalone build with Unity closed:
+
+```bash
+scripts/run_stage7_vertical_slice_handoff.sh
+```
+
+Launch the built game with:
+
+```bash
+scripts/open_stage7_playable.sh
+```
+
+Each completed set writes a versioned `penalty-replay-v1` JSON file under the
+application persistent-data `Replays/` directory. The replay includes fixed
+physics frames, exact accepted goalkeeper commands, contacts, launch data, and
+terminal outcomes. Validate a replay with
+`python -m penalty_shootout.replay <path>`. Replay playback and analysis remain
+deferred to Stage 8.
 
 ## Later milestones
 
-Future stages extend the goalkeeper benchmark into a fuller football AI and
-playable demo:
+Future stages polish and publish the now-playable goalkeeper:
 
-- Stage 7: replay and analysis UI for heatmaps, per-quadrant results,
-  trajectory review, and dive-choice inspection.
-- Stage 8: final model packaging, Unity inference import, model cards, and
-  reproducible release artifacts.
-- Stage 9: a human-playable penalty mode where the user shoots against the
-  trained goalkeeper with polished laptop controls, cameras, feedback, replay,
-  and game feel closer to a compact football game than a lab scene. Real
-  player-shot telemetry will first validate the Stage 6 distribution; only a
-  short calibration fine-tune should be needed if measured player shots expose
-  a meaningful distribution mismatch.
+- Stage 8: replay playback and analysis UI for trajectories, contacts,
+  commitment, heatmaps, per-quadrant results, and model comparisons, followed
+  by a focused presentation pass for the playable scene.
+- Stage 9: final compatibility manifests, model cards, clean-machine testing,
+  signed release builds, and reproducible canonical/gameplay evidence. Real
+  player-shot telemetry may justify a separately versioned calibration only if
+  it demonstrates a material distribution mismatch.
 
 The Stage 6 pre-training report determines whether a new goalkeeper run is
 justified and which shot families require it. Stage 2 established perception
