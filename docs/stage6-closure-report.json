@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "stage": 6,
+  "status": "complete",
+  "decision": "proceed_to_stage7",
+  "training_performed": false,
+  "selected_controller": "native_split_v1:seed-001",
+  "selected_contracts": {
+    "shot_command": "player-shot-v1",
+    "flight_physics": "football-flight-v1",
+    "scenario_suite": "human-shot-v1",
+    "observation": "control-state-v2-gameplay-v1",
+    "motor": "keeper-control-forward-v1",
+    "glove_geometry": "goalkeeper-palm-compound-v1",
+    "glove_handling": "keeper-glove-handling-v1"
+  },
+  "retained_compatibility_contracts": [
+    "keeper-glove-physx-legacy-v1",
+    "goalkeeper-sphere-gloves-legacy-v1",
+    "keeper-glove-handling-v2"
+  ],
+  "evidence": {
+    "pretraining_baseline": {
+      "path": "docs/stage6-pretraining-baseline-report.json",
+      "sha256": "5d6723fe54f2bb8fb869271bb14bed6cb86af54d4427105b71af5cb179457124"
+    },
+    "gameplay_readiness": {
+      "path": "docs/stage6-gameplay-readiness-report.json",
+      "sha256": "00315d9b3eef3b1b591edc9f448bdb5ca89df025e2ca99e0cd1edc09de05d4b0"
+    },
+    "forward_contact": {
+      "path": "docs/stage6-forward-contact-report.json",
+      "sha256": "98536e02ef785f7088a2d9f0754ab4f63eaec49ce181b7f2ef3546a58b7d0c08"
+    },
+    "glove_handling_v1": {
+      "path": "docs/stage6-glove-handling-report.json",
+      "sha256": "b9e2f8aca788137aa00a8c976371194ace853a1c2ca50cad6a5e6364d52f5dc5",
+      "status": "verified_default"
+    },
+    "glove_handling_v2": {
+      "path": "docs/stage6-glove-handling-v2-report.json",
+      "sha256": "db7121a28feeadb8385181aed46586d3462912ca4498a23d095a69c3a1500ebc",
+      "status": "experimental_not_promoted"
+    }
+  },
+  "final_gameplay_evidence": {
+    "glove_handling_v1_expected_on_target_attempts": 1812,
+    "glove_handling_v1_save_rate": 0.5540838852097131,
+    "legacy_glove_save_rate": 0.434878587196468,
+    "glove_handling_v1_contact_then_goal_rate": 0.028145695364238412,
+    "legacy_glove_contact_then_goal_rate": 0.16777041942604856,
+    "safety_failures": 0
+  },
+  "closure_rationale": [
+    "The shared player-shot and human-shot contracts are implemented and reproducible.",
+    "The frozen controller works with fair delayed observations and human-like shot variety.",
+    "Forward glove geometry and Glove Handling v1 materially improved gameplay readiness without retraining.",
+    "Glove Handling v2 remains available for experiments but failed its blind promotion holdout.",
+    "Further Stage 6 calibration was rejected in favor of replay, analysis, packaging, and playable-user work."
+  ],
+  "next_stage": {
+    "stage": 7,
+    "name": "Replay and analysis",
+    "authorized": true
+  }
+}

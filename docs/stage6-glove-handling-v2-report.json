@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "stage": "6.5",
+  "contract_id": "keeper-glove-handling-v2",
+  "status": "completed_not_promoted",
+  "decision": "retain_as_experimental_option",
+  "selected_profile": "permissive",
+  "canonical_default": "keeper-glove-handling-v1",
+  "training_performed": false,
+  "development": {
+    "master_seed": 20260821,
+    "attempts": 400,
+    "expected_on_target_attempts": 367,
+    "episode_key_digest": "89eb1e58b8815f50244ed13a1d1c5705dfb3be0387d1a14bf0fd1aa9a120e0e4",
+    "v1_save_rate": 0.553133514986376,
+    "v2_save_rate": 0.553133514986376,
+    "v1_contact_then_goal": 8,
+    "v2_contact_then_goal": 8,
+    "v2_catches": 3,
+    "v2_punches": 24,
+    "v2_uncontrolled_share": 0.16097560975609757,
+    "passed": true
+  },
+  "visual_review": {
+    "approved": true,
+    "approved_at": "2026-08-06T00:32:54.307204+00:00",
+    "reviewer": "fawzmehfil",
+    "catalog_cases": 12,
+    "verdict": "Catches, measured-motion punches, and fallible edge/back contacts were visually credible."
+  },
+  "blind_holdout": {
+    "master_seed": 20260824,
+    "attempts": 400,
+    "expected_on_target_attempts": 373,
+    "episode_key_digest": "f36974ee416ad108a3dc6adf31a3263bc07cc963c45025954e29444b8fda460d",
+    "v1": {
+      "saves": 203,
+      "save_rate": 0.5442359249329759,
+      "contact_then_goal": 2,
+      "contact_then_goal_rate": 0.005361930294906166,
+      "uncontrolled_share": 0.3787878787878788
+    },
+    "v2": {
+      "saves": 202,
+      "save_rate": 0.5415549597855228,
+      "contact_then_goal": 3,
+      "contact_then_goal_rate": 0.00804289544235925,
+      "catches": 5,
+      "punches": 19,
+      "catch_share": 0.025252525252525252,
+      "punch_share": 0.09595959595959595,
+      "uncontrolled_share": 0.13636363636363635
+    },
+    "passed_checks": [
+      "catch_share",
+      "punch_share",
+      "combined_share",
+      "contact_coverage",
+      "episode_keys",
+      "safety",
+      "save_rate"
+    ],
+    "failed_checks": [
+      "uncontrolled_share",
+      "contact_then_goal"
+    ],
+    "safety_failures": 0,
+    "passed": false
+  },
+  "promotion_2k": {
+    "run": false,
+    "reason": "The fixed handoff stopped after the failed blind holdout."
+  },
+  "evidence": {
+    "selection_report_sha256": "c7038a35363832919160b09b593e9505b2b6bd68eaa4c6229dcc45805bc9cb1b",
+    "visual_approval_sha256": "f84e5ac3d74732b74c855a1b1f0f3ab42a0f4aeb04ab3a00e68591520a8c3e0c",
+    "holdout_report_sha256": "b2b0811e362b4ce3e766c098fc59e12c3172efe9e333bc800aab8f35359728d1",
+    "raw_results": [
+      "results/glove-handling-v2/calibration/selection-report.json",
+      "results/glove-handling-v2/calibration/visual-approval.json",
+      "results/glove-handling-v2/promotion/holdout-report.json",
+      "results/evaluations/stage6-glove-v2-holdout-v1-400",
+      "results/evaluations/stage6-glove-v2-holdout-v2-400"
+    ]
+  }
+}

@@ -24,7 +24,7 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 6 pre-training evaluation complete
+## Current status: Stage 6 complete
 
 Stages 0-4 established and evaluated the deterministic environment, the first
 trainable nine-action goalkeeper, fixed 20,000-shot benchmarks, and
@@ -1147,24 +1147,31 @@ Stage 6 gameplay default. Set `stage6.glove_handling_v1=0` to reproduce
 Compact evidence is stored in `docs/stage6-glove-handling-report.json`; raw
 paired episodes remain under ignored `results/evaluations/`.
 
-Stage 6.5 adds the opt-in `keeper-glove-handling-v2` calibration candidate.
+Stage 6.5 evaluated the opt-in `keeper-glove-handling-v2` calibration candidate.
 It reconstructs incoming impact velocity from Unity collision-relative
 velocity and measured glove motion, selects compound contacts deterministically,
-and introduces moving-anchor catches plus measured-motion punches. The frozen
-v1 contract remains the gameplay default until visual review and paired
-holdout/promotion gates pass. No training is involved.
+and introduces moving-anchor catches plus measured-motion punches. No training
+was involved.
 
 ```bash
 scripts/prepare_stage6_glove_handling_v2.sh
 ```
 
-The preparation handoff evaluates the three fixed profiles on paired 400-shot
-development batches and creates a 12-shot Unity review catalog. After reviewing
-the catalog in `ShotVarietyLab`, record approval with
-`scripts/approve_stage6_glove_handling_v2.sh`; only then may
-`scripts/run_stage6_glove_handling_v2_promotion.sh` run the paired 400-shot
-holdout and 2,000-shot promotion benchmark. Raw calibration data stays under
-ignored `results/glove-handling-v2/`.
+The permissive profile passed the fixed development screen and a 12-shot visual
+review, but failed the blind paired 400-shot holdout. It preserved save rate
+within tolerance at 54.16% versus 54.42% for v1 and had zero safety failures,
+but contact-then-goal increased from two to three attempts and its 13.64%
+uncontrolled-contact share missed the declared 15% realism floor. The handoff
+therefore stopped before the 2,000-shot promotion benchmark. V1 remains the
+verified Stage 6 gameplay default; v2 remains an experimental, visually
+approved option. Compact evidence is stored in
+`docs/stage6-glove-handling-v2-report.json`.
+
+Stage 6 is closed without additional goalkeeper training. Its selected release
+contracts are `player-shot-v1`, `football-flight-v1`, `human-shot-v1`,
+`control-state-v2-gameplay-v1`, `keeper-control-forward-v1`, and
+`keeper-glove-handling-v1`. The closure decision and evidence hashes are stored
+in `docs/stage6-closure-report.json`. Stage 7 replay and analysis work is next.
 
 ## Later milestones
 
