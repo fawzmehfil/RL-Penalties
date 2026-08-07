@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a9216dea70454e5cbb3f248a3656e3c, type: 3}
+  m_Name: Stage9AudioLibraryV1
+  m_EditorClassIdentifier: 
+  Strike:
+  - {fileID: 8300000, guid: 13087bddfb8534569a99463e9b4821ea, type: 3}
+  - {fileID: 8300000, guid: 13e90734a506443e3980bad56a815464, type: 3}
+  - {fileID: 8300000, guid: 5d43f5d8c95d440cdbc5c37658795ade, type: 3}
+  GloveContact:
+  - {fileID: 8300000, guid: fe8db38e8536f45799ebfd826fd469bb, type: 3}
+  - {fileID: 8300000, guid: 7113d3a43b4e0412ba61477ddf22cf9c, type: 3}
+  - {fileID: 8300000, guid: 20647fca33fc4451095f1997c07733a5, type: 3}
+  BodyContact:
+  - {fileID: 8300000, guid: 045d06c611b5943bf86b649ea93f8c55, type: 3}
+  - {fileID: 8300000, guid: 2962853eeb50344eb9f5b52a2961c7f5, type: 3}
+  GoalFrame:
+  - {fileID: 8300000, guid: a816dee2375d641c290a06a253895081, type: 3}
+  - {fileID: 8300000, guid: c0a2f8737f4894956afe47c07c347050, type: 3}
+  GoalNet:
+  - {fileID: 8300000, guid: 6b03429eb4f1047f7aa67ce25f07703d, type: 3}
+  - {fileID: 8300000, guid: 04363f1de94d544d38f3ad52af8ad292, type: 3}
+  GroundBounce:
+  - {fileID: 8300000, guid: 89f957c797ada4136ab41f1c051ef295, type: 3}
+  - {fileID: 8300000, guid: fae7f0118562548989134b0c2867e8b0, type: 3}
+  UiConfirm:
+  - {fileID: 8300000, guid: 758fe6445c678477cabd0b571321b1f2, type: 3}
+  - {fileID: 8300000, guid: 0041d77980f044287ad4fcee56bf2dce, type: 3}
+  UiBack:
+  - {fileID: 8300000, guid: 3761b910cd1ef41ac801236a9e9ee9aa, type: 3}
+  - {fileID: 8300000, guid: b32c48f7b4d8a43c5bbbf7aec2016f6c, type: 3}
+  Ambience:
+  - {fileID: 8300000, guid: b7fa8cf5662be4c05803b29fcfbf50e6, type: 3}
+  GoalReaction:
+  - {fileID: 8300000, guid: 947c5cf40a1cc466491ba49d4b4afe8a, type: 3}
+  SaveReaction:
+  - {fileID: 8300000, guid: 201c31a6148c94dc6a9612bbc8d5dd3a, type: 3}
+  MissReaction:
+  - {fileID: 8300000, guid: 61d17b3321e9c4dd2ab70ec9c3f28ac1, type: 3}

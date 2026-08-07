@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "stage": 9,
+  "status": "implemented_verified_pending_user_approval",
+  "training_performed": false,
+  "scene_id": "penalty-shootout-final-v1",
+  "style_id": "rounded-football-v1",
+  "gameplay": {
+    "format": "penalty-set-v1",
+    "valid_shots_per_set": 5,
+    "input_contract": "player-penalty-input-v1",
+    "shot_contract": "player-shot-v1",
+    "physics_contract": "football-flight-v1",
+    "replay_contract": "penalty-replay-v1"
+  },
+  "goalkeeper": {
+    "behavior": "GoalkeeperControl-v2",
+    "controller": "native_split_v1:seed-001",
+    "observation": "control-state-v2-gameplay-v1",
+    "observation_size": 35,
+    "observation_delay_ticks": 2,
+    "motor": "keeper-control-forward-v1",
+    "glove_handling": "keeper-glove-handling-v1",
+    "interception_model_sha256": "ad95050acb5032abffd005e9d5ddf78b8e1c362d79a5d9871b05c50a342b20b0",
+    "timing_model_sha256": "26c3a80b375574a4e1c02b97183e2ab390736eae76879296ad3daaf85492850b"
+  },
+  "presentation": {
+    "keeper_geometry_changed": false,
+    "shooter_geometry_source": "exact presentation-only clone of goalkeeper visible hierarchy",
+    "presentation_colliders": 0,
+    "texture_pack_used": false,
+    "audio_contract": "stage9-audio-v1",
+    "audio_license": "CC0 only",
+    "stage8_navigation": "separate static browser artifact"
+  },
+  "verification": {
+    "geometry_invariance": "passed",
+    "stage9_editmode": {
+      "passed": 5,
+      "failed": 0
+    },
+    "stage9_playmode": {
+      "passed": 2,
+      "failed": 0,
+      "native_five_shot_sets": 1
+    },
+    "python_tests": {
+      "passed": 133,
+      "failed": 0
+    },
+    "stage8_web_tests": {
+      "passed": 4,
+      "failed": 0,
+      "offline_artifact_sha256": "100a89c70ed725fe4c57bbdfdef608302845a9a0aff5ea652ffea51e455e9388"
+    },
+    "stage7_regression": {
+      "editmode_passed": 7,
+      "playmode_passed": 2,
+      "failed": 0
+    },
+    "paired_gameplay_parity": {
+      "attempts_per_scene": 400,
+      "exact_trace_prefix_attempts": 20,
+      "episode_keys_identical": true,
+      "stage7_saves": 256,
+      "stage9_saves": 256,
+      "paired_save_class_mismatches": 2,
+      "stage7_glove_contacts": 256,
+      "stage9_glove_contacts": 256,
+      "paired_glove_contact_mismatches": 0,
+      "first_commit_decision_delta_total": 0,
+      "first_commit_decision_delta_max": 0,
+      "verdict": "passed bounded semantic parity; independent PhysX scene replay is not claimed to be bit-identical"
+    },
+    "safety_failures": {
+      "invalid_attempts": 0,
+      "timeouts": 0,
+      "missing_actions": 0,
+      "native_inference_errors": 0,
+      "presentation_physics_components": 0,
+      "audible_automation_events": 0
+    }
+  },
+  "build": {
+    "platform": "macOS",
+    "path": "builds/macos/PenaltyShootoutFinal.app",
+    "source_base_commit": "56bbf884670490e61942e7b886fd3d150bae462c",
+    "dirty_stage9_candidate": true,
+    "python_required_at_runtime": false,
+    "built": true,
+    "size_kib": 140132,
+    "executable_sha256": "8838fa5b366c27b7963f813176b8182262883689668547d24ef14e31c7144bfd"
+  },
+  "manual_review": {
+    "visual": "pending_user_approval",
+    "audio": "pending_user_approval",
+    "commit_authorized": false
+  }
+}

@@ -4,6 +4,7 @@
   "references": [
     "PenaltyShootout.Core",
     "PenaltyShootout.Gameplay",
+    "PenaltyShootout.Stage0.Editor",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

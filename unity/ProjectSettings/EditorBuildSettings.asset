@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/PenaltyShootout/Scenes/PenaltyShootoutFinal.unity
+    guid: e66d98d7054d047aebee3dd39620941c
+  - enabled: 1
     path: Assets/PenaltyShootout/Scenes/PhysicsLab.unity
     guid: e345092e8021b41e49e8d13828009363
   - enabled: 1

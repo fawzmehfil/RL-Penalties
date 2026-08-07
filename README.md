@@ -24,7 +24,16 @@ control from scratch. Planned public deliverables include headless training,
 scripted baselines, fixed evaluation suites, leaderboards, replay
 visualizations, human-versus-agent play, and ML-Agents/Gym-compatible APIs.
 
-## Current status: Stage 6 complete
+## Current status: Stage 9 candidate implemented
+
+The final uncommitted Stage 9 candidate packages the playable five-shot game,
+native split-supervision goalkeeper, separate Stage 8 heatmap, technical
+report, model card, CC0 audio, and a deliberately lightweight
+`rounded-football-v1` toy-sports presentation. The authoritative Stage 7
+keeper geometry, Stage 6 physics, 35-float observation, 40 ms delay, forward
+motor, and Glove Handling v1 are unchanged. Automated Stage 9 geometry and
+runtime tests pass; final visual/audio approval is intentionally required
+before any Stage 9 commit.
 
 Stages 0-4 established and evaluated the deterministic environment, the first
 trainable nine-action goalkeeper, fixed 20,000-shot benchmarks, and
@@ -1262,21 +1271,31 @@ revalidate every source, model, web-test, data, and build hash with:
 scripts/approve_stage8_analysis.sh
 ```
 
-## Later milestones
+## Stage 9 final presentation
 
-The final stage packages and presents the now-playable goalkeeper:
+Stage 9 is the final packaging stage. It keeps every selected simulation and ML
+contract frozen while presenting the prototype geometry as an intentional
+early-2000s low-poly toy-sports game. The final scene adds project-authored
+materials, a presentation-only shooter cloned from the keeper's visible
+proportions, pitch markings, a non-colliding net and venue, restrained contact
+feedback, a consistent HUD, and a small CC0 audio library. It uses no character
+or texture pack.
 
-- Stage 9: a lightweight, intentional football presentation pass; geometry that
-  preserves every verified collider and reach contract; improved project-owned
-  audio; final compatibility/model documentation; clean-machine testing; and
-  reproducible canonical/gameplay evidence. It does not require signing or a
-  Developer ID release workflow.
+Run the complete muted verification with Unity closed:
 
-The Stage 6 pre-training report determines whether a new goalkeeper run is
-justified and which shot families require it. Stage 2 established perception
-and basic save learning, Stage 4 measured observation robustness, and Stage 5
-established richer movement, commitment, aiming, and arm reach. Stage 6 changes
-the shot and visibility distribution without discarding that prior evidence.
+```bash
+scripts/verify_stage9_final.sh
+```
+
+Build the unsigned local macOS demo without launching it:
+
+```bash
+scripts/build_stage9_final.sh
+```
+
+After manual approval, launch with `scripts/open_stage9_final.sh`. The final
+technical report, model card, controls, reproducibility guide, limitations, and
+asset license ledger are under `docs/`.
 
 ## Open-source and third-party notices
 
@@ -1296,6 +1315,6 @@ The upstream Soccer example is a design reference. No Soccer example source or
 art has been copied into the project.
 
 Unity, the Unity runtime, URP, and related packages remain subject to their
-respective Unity terms and are not relicensed by this repository. Stages 0 and
-1 contain only generated primitives and project-authored configuration; they
-contain no third-party art, audio, club marks, or competition branding.
+respective Unity terms and are not relicensed by this repository. Stage 9 uses
+only project-authored visual assets and the CC0 audio files itemized in
+`docs/THIRD_PARTY_ASSETS.md`; it contains no club marks or competition branding.

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import artifact from "../public/data/goalkeeper-analysis-v1.json";
 import {
   cellTheme,
   count,
@@ -21,7 +22,7 @@ import type {
   StyleFilter,
 } from "./types";
 
-const DATA_PATH = `${import.meta.env.BASE_URL}data/goalkeeper-analysis-v1.json`;
+const bundledAnalysis = artifact as AnalysisData;
 
 function RateWithInterval({ row }: { row: { save_rate: OverallPolicyRow["save_rate"] } }) {
   return (
@@ -318,21 +319,11 @@ export function AnalysisDashboard({ data }: { data: AnalysisData }) {
 }
 
 export default function App() {
-  const [data, setData] = useState<AnalysisData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    fetch(DATA_PATH)
-      .then((response) => {
-        if (!response.ok) throw new Error(`Analysis data request failed (${response.status})`);
-        return response.json();
-      })
-      .then((payload: AnalysisData) => {
-        validateAnalysis(payload);
-        setData(payload);
-      })
-      .catch((reason: Error) => setError(reason.message));
-  }, []);
-  if (error) return <main className="load-state"><strong>Analysis unavailable</strong><p>{error}</p></main>;
-  if (!data) return <main className="load-state"><strong>Loading fixed benchmark…</strong></main>;
-  return <AnalysisDashboard data={data} />;
+  try {
+    validateAnalysis(bundledAnalysis);
+    return <AnalysisDashboard data={bundledAnalysis} />;
+  } catch (reason) {
+    const message = reason instanceof Error ? reason.message : "Invalid analysis artifact";
+    return <main className="load-state"><strong>Analysis unavailable</strong><p>{message}</p></main>;
+  }
 }
