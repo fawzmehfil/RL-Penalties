@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   SceneId: penalty-shootout-final-v1
   StyleId: rounded-football-v1
-  BuildId: stage9-56bbf884
-  GitCommit: 56bbf884670490e61942e7b886fd3d150bae462c
+  BuildId: stage9-1d548a52
+  GitCommit: 1d548a522b10625697c7817b8e3c5e35533abe74
   Stage8ArtifactHash: 100a89c70ed725fe4c57bbdfdef608302845a9a0aff5ea652ffea51e455e9388
   InterceptionModelHash: ad95050acb5032abffd005e9d5ddf78b8e1c362d79a5d9871b05c50a342b20b0
   TimingModelHash: 26c3a80b375574a4e1c02b97183e2ab390736eae76879296ad3daaf85492850b

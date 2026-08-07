@@ -40,16 +40,14 @@ namespace PenaltyShootout.Kernel.Tests
             var controller = Object.FindFirstObjectByType<PenaltyAreaController>();
             var agent = Object.FindFirstObjectByType<GoalkeeperControlAgent>();
             var audio = Object.FindFirstObjectByType<Stage9PenaltyAudioV1>();
-            var shooter = Object.FindFirstObjectByType<Stage9ShooterPresentationV1>();
             var net = Object.FindFirstObjectByType<Stage9NetPresentationV1>();
             Assert.That(game, Is.Not.Null);
             Assert.That(controller, Is.Not.Null);
             Assert.That(agent, Is.Not.Null);
             Assert.That(audio, Is.Not.Null);
-            Assert.That(shooter, Is.Not.Null);
             Assert.That(net, Is.Not.Null);
             Assert.That(Object.FindFirstObjectByType<Stage7PenaltyAudioV1>(), Is.Null);
-            Assert.That(shooter.GetComponentsInChildren<Collider>(true), Is.Empty);
+            Assert.That(GameObject.Find("PenaltyTakerPresentation"), Is.Null);
 
             var behavior = agent.GetComponent<BehaviorParameters>();
             Assert.That(behavior.BehaviorType, Is.EqualTo(BehaviorType.HeuristicOnly));

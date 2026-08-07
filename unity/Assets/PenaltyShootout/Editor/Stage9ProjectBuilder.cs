@@ -45,7 +45,6 @@ namespace PenaltyShootout.Stage0.Editor
         private static readonly Color Teal = new Color(0.045f, 0.36f, 0.39f, 1f);
         private static readonly Color TealDark = new Color(0.025f, 0.18f, 0.22f, 1f);
         private static readonly Color Navy = new Color(0.035f, 0.09f, 0.18f, 1f);
-        private static readonly Color Coral = new Color(0.78f, 0.16f, 0.15f, 1f);
         private static readonly Color Amber = new Color(1f, 0.69f, 0.12f, 1f);
         private static readonly Color Cyan = new Color(0.16f, 0.76f, 0.76f, 1f);
         private static readonly Color SoftWhite = new Color(0.93f, 0.94f, 0.9f, 1f);
@@ -228,8 +227,6 @@ namespace PenaltyShootout.Stage0.Editor
             CreateMaterial("KeeperShorts", Navy, 0.32f, 0f);
             CreateMaterial("KeeperGloves", Amber, 0.58f, 0f);
             CreateMaterial("ToySkin", new Color(0.73f, 0.49f, 0.31f, 1f), 0.42f, 0f);
-            CreateMaterial("ShooterKit", Coral, 0.38f, 0f);
-            CreateMaterial("ShooterShorts", SoftWhite, 0.28f, 0f);
             CreateMaterial("PitchLight", new Color(0.14f, 0.45f, 0.24f, 1f), 0.16f, 0f);
             CreateMaterial("PitchDark", new Color(0.105f, 0.37f, 0.20f, 1f), 0.16f, 0f);
             CreateMaterial("PaintWhite", SoftWhite, 0.34f, 0f);
@@ -369,19 +366,14 @@ namespace PenaltyShootout.Stage0.Editor
 
         private static void CreateArenaPrefab()
         {
-            AssetDatabase.DeleteAsset(PrefabPath);
-            if (!AssetDatabase.CopyAsset(Stage7ProjectBuilder.PrefabPath, PrefabPath))
-            {
-                throw new InvalidOperationException("Failed to copy Stage 9 arena baseline.");
-            }
-            var root = PrefabUtility.LoadPrefabContents(PrefabPath);
+            var root = PrefabUtility.LoadPrefabContents(Stage7ProjectBuilder.PrefabPath);
             try
             {
                 root.name = "Stage9PlayableArena";
                 var controller = root.GetComponent<PenaltyAreaController>();
                 var keeper = Find(root.transform, "GoalkeeperProxy");
                 var ball = controller.Ball.transform;
-                AssignKeeperMaterials(keeper, false);
+                AssignKeeperMaterials(keeper);
                 AssignMaterial(ball, Material("Ball"));
                 AssignByToken(root.transform, "Ground", Material("PitchDark"));
                 AssignByToken(root.transform, "Post", Material("GoalFrame"));
@@ -392,7 +384,6 @@ namespace PenaltyShootout.Stage0.Editor
                 CreatePitchPresentation(presentation);
                 CreateVenuePresentation(presentation);
                 CreateNetPresentation(presentation, controller);
-                CreateShooterPresentation(presentation, keeper, controller);
                 CreateKeeperFeedback(root, presentation, keeper, controller);
 
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
@@ -403,7 +394,7 @@ namespace PenaltyShootout.Stage0.Editor
             }
         }
 
-        private static void AssignKeeperMaterials(Transform keeper, bool shooter)
+        private static void AssignKeeperMaterials(Transform keeper)
         {
             if (keeper == null)
             {
@@ -414,9 +405,7 @@ namespace PenaltyShootout.Stage0.Editor
                 var token = renderer.name;
                 if (token.IndexOf("Glove", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    renderer.sharedMaterial = shooter
-                        ? Material("PaintWhite")
-                        : Material("KeeperGloves");
+                    renderer.sharedMaterial = Material("KeeperGloves");
                 }
                 else if (token.IndexOf("Head", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
@@ -424,15 +413,11 @@ namespace PenaltyShootout.Stage0.Editor
                 }
                 else if (token.IndexOf("Leg", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    renderer.sharedMaterial = shooter
-                        ? Material("ShooterShorts")
-                        : Material("KeeperShorts");
+                    renderer.sharedMaterial = Material("KeeperShorts");
                 }
                 else
                 {
-                    renderer.sharedMaterial = shooter
-                        ? Material("ShooterKit")
-                        : Material("KeeperKit");
+                    renderer.sharedMaterial = Material("KeeperKit");
                 }
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
                 renderer.receiveShadows = true;
@@ -467,41 +452,6 @@ namespace PenaltyShootout.Stage0.Editor
                 Find(keeper, "LeftGlove")?.GetComponent<Renderer>(),
                 Find(keeper, "RightGlove")?.GetComponent<Renderer>(),
                 particles);
-        }
-
-        private static void CreateShooterPresentation(
-            Transform presentation,
-            Transform keeper,
-            PenaltyAreaController controller)
-        {
-            var shooter = UnityEngine.Object.Instantiate(keeper.gameObject, presentation);
-            shooter.name = "PenaltyTakerPresentation";
-            StripToRenderOnly(shooter);
-            shooter.transform.localPosition = new Vector3(-0.72f, 0f, 11.85f);
-            shooter.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            shooter.transform.localScale = Vector3.one;
-            AssignKeeperMaterials(shooter.transform, true);
-            var component = shooter.AddComponent<Stage9ShooterPresentationV1>();
-            component.Configure(
-                controller,
-                Find(shooter.transform, "LeftLeg"),
-                Find(shooter.transform, "RightLeg"),
-                Find(shooter.transform, "LeftUpperArm"),
-                Find(shooter.transform, "RightUpperArm"));
-        }
-
-        private static void StripToRenderOnly(GameObject root)
-        {
-            var components = root.GetComponentsInChildren<Component>(true);
-            for (var index = components.Length - 1; index >= 0; index--)
-            {
-                var component = components[index];
-                if (component is Transform || component is MeshFilter || component is Renderer)
-                {
-                    continue;
-                }
-                UnityEngine.Object.DestroyImmediate(component);
-            }
         }
 
         private static void CreatePitchPresentation(Transform parent)
@@ -633,12 +583,7 @@ namespace PenaltyShootout.Stage0.Editor
 
         private static void CreateHudPrefab()
         {
-            AssetDatabase.DeleteAsset(HudPrefabPath);
-            if (!AssetDatabase.CopyAsset(Stage7ProjectBuilder.HudPrefabPath, HudPrefabPath))
-            {
-                throw new InvalidOperationException("Failed to copy Stage 9 HUD baseline.");
-            }
-            var root = PrefabUtility.LoadPrefabContents(HudPrefabPath);
+            var root = PrefabUtility.LoadPrefabContents(Stage7ProjectBuilder.HudPrefabPath);
             try
             {
                 root.name = "Stage9GameplayHud";
@@ -869,7 +814,6 @@ namespace PenaltyShootout.Stage0.Editor
             Stage9AudioLibraryV1 audioLibrary,
             Stage9RuntimeManifestV1 manifest)
         {
-            AssetDatabase.DeleteAsset(ScenePath);
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var arenaPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
             var arena = PrefabUtility.InstantiatePrefab(arenaPrefab) as GameObject;

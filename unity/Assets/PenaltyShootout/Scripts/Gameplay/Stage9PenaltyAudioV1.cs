@@ -1,3 +1,4 @@
+using System;
 using PenaltyShootout.Kernel;
 using UnityEngine;
 
@@ -43,7 +44,9 @@ namespace PenaltyShootout.Gameplay
 
         private void Awake()
         {
-            ForceMutedForAutomation |= Application.isBatchMode;
+            ForceMutedForAutomation |= Application.isBatchMode || Array.Exists(
+                Environment.GetCommandLineArgs(),
+                argument => argument == "--stage9-muted");
             masterVolume = PlayerPrefs.GetFloat(MasterKey, 0.8f);
             effectsVolume = PlayerPrefs.GetFloat(EffectsKey, 0.85f);
             ambienceVolume = PlayerPrefs.GetFloat(AmbienceKey, 0.12f);

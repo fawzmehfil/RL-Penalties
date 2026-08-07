@@ -27,7 +27,7 @@ namespace PenaltyShootout.Kernel.Tests
         }
 
         [Test]
-        public void PresentationObjectsHaveNoPhysicsAndShooterMatchesKeeperParts()
+        public void PresentationObjectsHaveNoPhysicsAndNoShooterCharacter()
         {
             var prefab = PrefabUtility.LoadPrefabContents(Stage9ProjectBuilder.PrefabPath);
             try
@@ -41,22 +41,7 @@ namespace PenaltyShootout.Kernel.Tests
                     presentation.GetComponentsInChildren<Rigidbody>(true),
                     Is.Empty);
 
-                var keeper = Find(prefab.transform, "GoalkeeperProxy");
-                var shooter = Find(presentation, "PenaltyTakerPresentation");
-                Assert.That(keeper, Is.Not.Null);
-                Assert.That(shooter, Is.Not.Null);
-                var keeperMeshes = keeper.GetComponentsInChildren<MeshFilter>(true)
-                    .ToDictionary(mesh => RelativePath(keeper, mesh.transform));
-                var shooterMeshes = shooter.GetComponentsInChildren<MeshFilter>(true)
-                    .ToDictionary(mesh => RelativePath(shooter, mesh.transform));
-                CollectionAssert.AreEquivalent(keeperMeshes.Keys, shooterMeshes.Keys);
-                foreach (var pair in keeperMeshes)
-                {
-                    Assert.That(shooterMeshes[pair.Key].sharedMesh, Is.SameAs(pair.Value.sharedMesh));
-                    Assert.That(
-                        shooterMeshes[pair.Key].transform.localScale,
-                        Is.EqualTo(pair.Value.transform.localScale));
-                }
+                Assert.That(Find(presentation, "PenaltyTakerPresentation"), Is.Null);
             }
             finally
             {
@@ -149,16 +134,5 @@ namespace PenaltyShootout.Kernel.Tests
                 .FirstOrDefault(candidate => candidate.name == name);
         }
 
-        private static string RelativePath(Transform root, Transform target)
-        {
-            var parts = new System.Collections.Generic.Stack<string>();
-            var current = target;
-            while (current != null && current != root)
-            {
-                parts.Push(current.name);
-                current = current.parent;
-            }
-            return string.Join("/", parts);
-        }
     }
 }

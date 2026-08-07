@@ -14,8 +14,8 @@ Launch the local demo with:
 scripts/open_stage9_final.sh
 ```
 
-The game starts directly behind the penalty spot. One set contains five valid
-shots.
+The game starts in a first-person view directly behind the penalty spot. No
+player body is rendered. One set contains five valid shots.
 
 ## Controls
 

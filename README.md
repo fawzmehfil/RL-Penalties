@@ -1275,9 +1275,9 @@ scripts/approve_stage8_analysis.sh
 
 Stage 9 is the final packaging stage. It keeps every selected simulation and ML
 contract frozen while presenting the prototype geometry as an intentional
-early-2000s low-poly toy-sports game. The final scene adds project-authored
-materials, a presentation-only shooter cloned from the keeper's visible
-proportions, pitch markings, a non-colliding net and venue, restrained contact
+early-2000s low-poly toy-sports game. The final scene keeps the Stage 7
+first-person penalty view with no rendered shooter, and adds project-authored
+materials, pitch markings, a non-colliding net and venue, restrained contact
 feedback, a consistent HUD, and a small CC0 audio library. It uses no character
 or texture pack.
 

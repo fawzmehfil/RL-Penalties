@@ -15,8 +15,9 @@
 ## Physics and Football Scope
 
 - The penalty mark is fixed at 11 m.
-- The player is presentation-only; there is no physical foot/ball collision,
-  run-up biomechanics, body cue, or goalkeeper anticipation before contact.
+- The player is represented by a first-person shooting view; there is no
+  rendered body, physical foot/ball collision, run-up biomechanics, body cue,
+  or goalkeeper anticipation before contact.
 - Shot families approximate placed, power, and curled penalties using bounded
   commands and Magnus acceleration. They are not measured player motion.
 - The goalkeeper body uses high-level kinematic control and stylized compound
@@ -26,10 +27,9 @@
 
 ## Presentation
 
-- The toy-sports characters deliberately reuse the authoritative primitive
-  geometry. They are not anatomically realistic.
-- The net ripple, contact flash, shooter pose, stands, and crowd audio are
-  presentation-only.
+- The toy-sports goalkeeper deliberately reuses the authoritative primitive
+  geometry. It is not anatomically realistic.
+- The net ripple, contact flash, stands, and crowd audio are presentation-only.
 - There is one pitch, camera flow, goalkeeper, and five-shot mode.
 - No gamepad, team selection, player customization, replay viewer, commentary,
   music, online mode, leaderboard, or difficulty selection is included.

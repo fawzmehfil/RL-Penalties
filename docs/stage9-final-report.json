@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "stage": 9,
-  "status": "implemented_verified_pending_user_approval",
+  "status": "implemented_verified_pending_user_review",
   "training_performed": false,
   "scene_id": "penalty-shootout-final-v1",
   "style_id": "rounded-football-v1",
@@ -26,7 +26,8 @@
   },
   "presentation": {
     "keeper_geometry_changed": false,
-    "shooter_geometry_source": "exact presentation-only clone of goalkeeper visible hierarchy",
+    "camera_view": "first-person penalty spot using the frozen Stage 7 camera director",
+    "shooter_character_present": false,
     "presentation_colliders": 0,
     "texture_pack_used": false,
     "audio_contract": "stage9-audio-v1",
@@ -84,16 +85,16 @@
   "build": {
     "platform": "macOS",
     "path": "builds/macos/PenaltyShootoutFinal.app",
-    "source_base_commit": "56bbf884670490e61942e7b886fd3d150bae462c",
-    "dirty_stage9_candidate": true,
+    "source_base_commit": "1d548a522b10625697c7817b8e3c5e35533abe74",
+    "dirty_stage9_candidate": false,
     "python_required_at_runtime": false,
     "built": true,
-    "size_kib": 140132,
-    "executable_sha256": "8838fa5b366c27b7963f813176b8182262883689668547d24ef14e31c7144bfd"
+    "size_kib": 140116,
+    "executable_sha256": "86a9fbcbe77c08771e68676c0c112c20f0611651204fa527d53685e8f13f9541"
   },
   "manual_review": {
-    "visual": "pending_user_approval",
+    "visual": "pending_user_review",
     "audio": "pending_user_approval",
-    "commit_authorized": false
+    "commit_authorized": true
   }
 }

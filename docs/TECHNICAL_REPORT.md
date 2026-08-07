@@ -173,7 +173,7 @@ structure: centre regions are saved much more often than the extreme edges.
 
 Stage 9 makes no simulation or model changes. It presents the primitive
 collision geometry as a deliberate `rounded-football-v1` toy-sports style,
-adds a presentation-only shooter cloned from the keeper's visible proportions,
+retains the Stage 7 first-person penalty view without a rendered shooter,
 polishes the pitch/goal/net/background/HUD, replaces prototype tones with a
 small CC0 audio library, packages Stage 8 navigation, and creates the local
 macOS demo. Automated geometry tests ensure the visible keeper still matches
