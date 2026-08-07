@@ -1206,20 +1206,71 @@ Each completed set writes a versioned `penalty-replay-v1` JSON file under the
 application persistent-data `Replays/` directory. The replay includes fixed
 physics frames, exact accepted goalkeeper commands, contacts, launch data, and
 terminal outcomes. Validate a replay with
-`python -m penalty_shootout.replay <path>`. Replay playback and analysis remain
-deferred to Stage 8.
+`python -m penalty_shootout.replay <path>`. Replay playback remains outside the
+current showcase scope.
+
+## Stage 8 goalkeeper analysis
+
+Stage 8 is a compact ML presentation layer rather than a new training stage. It
+uses the completed fixed Stage 8 source benchmark to produce a deterministic
+`goalkeeper-analysis-v1` artifact and displays it in a separate static React
+site. The rejected Unity analysis prototype is not part of the project.
+The goalkeeper, models, observations, actions, physics, motor, and Glove
+Handling v1 remain unchanged.
+
+The source contains the final native split goalkeeper and its reactive teacher
+on the same 20,000 fixed attempts. Rates use the 18,242 expected-on-target
+attempts per policy. The analysis page contains exactly two heatmap views:
+
+- final goalkeeper save rate;
+- reactive-teacher save rate minus final save rate.
+
+Both views use a fixed 4 x 3 goal grid. Filters switch between intended target
+and actual unopposed crossing, placed/power/curled styles, and slow/medium/fast
+launch speeds. Here, actual unopposed crossing means the physical crossing after
+contact error and curve but before any goalkeeper contact. Each cell reports
+shot count, save rate, Wilson 95% confidence interval, and glove-contact context.
+Supporting tables report overall rates, height, style, speed, spin,
+contact-then-goal, validity, and left/right balance.
+
+Regenerate the compact data artifact from the completed benchmark with:
+
+```bash
+scripts/build_stage8_analysis_artifact.sh
+```
+
+The full data, React, and production-build verification is:
+
+```bash
+scripts/run_stage8_analysis_handoff.sh
+```
+
+This produces the ignored static build at `web/stage8-analysis/dist`. It does
+not launch Unity. Review the source-backed page locally with:
+
+```bash
+scripts/open_stage8_analysis.sh
+```
+
+Then open `http://127.0.0.1:4178/`. The analysis site contains no audio, 3D
+chart, replay viewer, PDF export, or live telemetry dashboard.
+
+After manually reviewing the analysis page, record visual approval and
+revalidate every source, model, web-test, data, and build hash with:
+
+```bash
+scripts/approve_stage8_analysis.sh
+```
 
 ## Later milestones
 
-Future stages polish and publish the now-playable goalkeeper:
+The final stage packages and presents the now-playable goalkeeper:
 
-- Stage 8: replay playback and analysis UI for trajectories, contacts,
-  commitment, heatmaps, per-quadrant results, and model comparisons, followed
-  by a focused presentation pass for the playable scene.
-- Stage 9: final compatibility manifests, model cards, clean-machine testing,
-  signed release builds, and reproducible canonical/gameplay evidence. Real
-  player-shot telemetry may justify a separately versioned calibration only if
-  it demonstrates a material distribution mismatch.
+- Stage 9: a lightweight, intentional football presentation pass; geometry that
+  preserves every verified collider and reach contract; improved project-owned
+  audio; final compatibility/model documentation; clean-machine testing; and
+  reproducible canonical/gameplay evidence. It does not require signing or a
+  Developer ID release workflow.
 
 The Stage 6 pre-training report determines whether a new goalkeeper run is
 justified and which shot families require it. Stage 2 established perception

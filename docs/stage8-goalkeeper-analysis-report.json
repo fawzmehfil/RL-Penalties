@@ -1,0 +1,112 @@
+{
+  "schema_id": "stage8-goalkeeper-analysis-report-v1",
+  "status": "passed",
+  "stage": 8,
+  "presentation": "static-react-site",
+  "analysis_id": "goalkeeper-analysis-v1",
+  "source_benchmark_id": "goalkeeper-control-v2-stage8-heatmap-source-20k",
+  "master_seed": 20260803,
+  "episode_key_digest": "799f1b390148a919c76a8840e3f9fc47c70acd74ee13cb331fbee46611bc472a",
+  "source_hashes": [
+    {
+      "artifact_id": "report.json",
+      "sha256": "31912e13947f8628543159128adcb2009f09da5f6e35514e24da9610efcab366"
+    },
+    {
+      "artifact_id": "episodes.csv",
+      "sha256": "64b7f49f2c49d34495e83045e45b9c89b4fdbbd3e7249db22589f506a61315a9"
+    },
+    {
+      "artifact_id": "source-manifest.json",
+      "sha256": "49296729ed1ed52e60bc0007616cb4f20a441f79e8579fcdcd408f33ba66b8dd"
+    }
+  ],
+  "analysis_artifact": {
+    "path": "web/stage8-analysis/public/data/goalkeeper-analysis-v1.json",
+    "sha256": "f43ac9c38a58b3bf2f1aabbd34b6f47680c91ca62004d62790cb221df7c643f8",
+    "filter_slice_count": 32
+  },
+  "policies": [
+    {
+      "policy_id": "native_split_v1:seed-001",
+      "all_attempts": 20000,
+      "expected_on_target_attempts": 18242,
+      "save_rate": {
+        "successes": 9962,
+        "total": 18242,
+        "value": 0.5461024010525162,
+        "ci95_low": 0.5388686151451391,
+        "ci95_high": 0.5533167742651619
+      },
+      "glove_contact_rate": {
+        "successes": 9953,
+        "total": 18242,
+        "value": 0.5456090340971385,
+        "ci95_low": 0.5383746928856636,
+        "ci95_high": 0.5528241703597233
+      }
+    },
+    {
+      "policy_id": "reactive_curve_v1",
+      "all_attempts": 20000,
+      "expected_on_target_attempts": 18242,
+      "save_rate": {
+        "successes": 10185,
+        "total": 18242,
+        "value": 0.5583269378357636,
+        "ci95_low": 0.551109200920621,
+        "ci95_high": 0.5655201145758834
+      },
+      "glove_contact_rate": {
+        "successes": 10091,
+        "total": 18242,
+        "value": 0.5531739940795966,
+        "ci95_low": 0.5459489545981325,
+        "ci95_high": 0.5603766431759364
+      }
+    }
+  ],
+  "selected_model_hashes": {
+    "interception": {
+      "model_id": "goalkeeper-interception-v2",
+      "sha256": "ad95050acb5032abffd005e9d5ddf78b8e1c362d79a5d9871b05c50a342b20b0"
+    },
+    "timing": {
+      "model_id": "goalkeeper-commit-timing-v1",
+      "sha256": "26c3a80b375574a4e1c02b97183e2ab390736eae76879296ad3daaf85492850b"
+    }
+  },
+  "web_tests": {
+    "success": true,
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "sha256": "e2bb7dbef34d8c84a1ccbe4f7a69a94bb0c38daff4aa8c5c9d030cad1603f491"
+  },
+  "verified_viewports": [
+    "1920x1080",
+    "1440x900",
+    "1280x800",
+    "390x844"
+  ],
+  "source": {
+    "path": "web/stage8-analysis",
+    "tree_sha256": "871769e0318569e374d3a899751d5f16bc50e6f26f82109e732a886250f48ca2",
+    "file_count": 13,
+    "bytes": 437560
+  },
+  "build": {
+    "path": "web/stage8-analysis/dist",
+    "tree_sha256": "e1463915005dd9c4231a852b2f5af743899c59639dc02d287905e2a7b5c66730",
+    "file_count": 4,
+    "bytes": 549162
+  },
+  "visual_approval": "approved",
+  "training_performed": false,
+  "goalkeeper_contract_changed": false,
+  "scope": [
+    "final_save_rate_heatmap",
+    "teacher_gap_heatmap",
+    "supporting_statistics"
+  ]
+}
