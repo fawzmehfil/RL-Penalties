@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "analysis_id": "goalkeeper-analysis-v1",
+  "source_benchmark_id": "goalkeeper-control-v2-stage8-heatmap-source-20k",
+  "master_seed": 20260803,
+  "primary_population": "expected_on_target",
+  "final_policy": "native_split_v1:seed-001",
+  "teacher_policy": "reactive_curve_v1",
+  "goal_bounds": {
+    "minimum_x": -3.55,
+    "maximum_x": 3.55,
+    "minimum_y": 0.11,
+    "maximum_y": 2.33,
+    "assignment_tolerance_m": 0.03
+  },
+  "location_bases": [
+    "intended_target",
+    "unopposed_crossing"
+  ],
+  "style_filters": [
+    "all",
+    "placed",
+    "power",
+    "curled"
+  ],
+  "speed_filters": [
+    "all",
+    "slow",
+    "medium",
+    "fast"
+  ],
+  "speed_bands_mps": {
+    "slow_max_exclusive": 18.0,
+    "medium_max_exclusive": 23.0
+  }
+}
