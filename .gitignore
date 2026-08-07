@@ -50,6 +50,9 @@ tensorboard/
 builds/
 artifacts/
 /Logs/
+web/**/node_modules/
+web/**/dist/
+web/**/*.tsbuildinfo
 
 # Local verification logs (portable JSON summaries are committed)
 docs/*.log
